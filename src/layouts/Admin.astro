@@ -1,0 +1,251 @@
+---
+import Base from './Base.astro';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+const { usuario } = Astro.locals;
+const ruta = Astro.url.pathname;
+
+const enlaces = [
+  { href: '/admin', texto: 'Clientes' },
+  { href: '/admin/ventas/nueva', texto: 'Registrar venta' },
+  { href: '/admin/exportar', texto: 'Exportar' },
+];
+---
+
+<Base title={`${title} · Admin SS Joyería`} noindex>
+  <div class="admin">
+    {
+      usuario && (
+        <header>
+          <a href="/admin" class="marca">SS Joyería · Admin</a>
+          <nav>
+            {enlaces.map((e) => (
+              <a href={e.href} aria-current={ruta === e.href ? 'page' : undefined}>
+                {e.texto}
+              </a>
+            ))}
+            <form method="post" action="/admin/salir">
+              <button type="submit" class="enlace">Salir</button>
+            </form>
+          </nav>
+        </header>
+      )
+    }
+    <main>
+      <h1>{title}</h1>
+      <slot />
+    </main>
+  </div>
+</Base>
+
+<style is:global>
+  .admin main {
+    max-width: 64rem;
+  }
+
+  .admin header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid var(--borde);
+  }
+
+  .admin header .marca {
+    font-weight: 700;
+    color: var(--rojo);
+    text-decoration: none;
+  }
+
+  .admin nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    align-items: center;
+  }
+
+  .admin nav a {
+    color: var(--texto);
+  }
+
+  .admin nav a[aria-current='page'] {
+    font-weight: 700;
+  }
+
+  .admin nav form {
+    margin: 0;
+  }
+
+  .admin h1 {
+    font-size: 1.5rem;
+    margin-top: 0;
+  }
+
+  .admin h2 {
+    font-size: 1.15rem;
+    margin-top: 2rem;
+  }
+
+  .admin label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .admin input:not([type='checkbox']),
+  .admin select,
+  .admin textarea {
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    font: inherit;
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    background: #fff;
+  }
+
+  .admin .campo {
+    margin-bottom: 0.9rem;
+  }
+
+  .admin .fila {
+    display: grid;
+    gap: 0 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  }
+
+  .admin .check {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    font-weight: 600;
+  }
+
+  .admin .ayuda {
+    font-size: 0.85rem;
+    color: var(--suave);
+    margin: 0.25rem 0 0;
+  }
+
+  .admin button,
+  .admin .boton {
+    display: inline-block;
+    padding: 0.55rem 1rem;
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--rojo);
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .admin button.secundario,
+  .admin .boton.secundario {
+    color: var(--texto);
+    background: #fff;
+    border: 1px solid var(--borde);
+  }
+
+  .admin button.enlace {
+    padding: 0;
+    color: var(--texto);
+    background: none;
+    font-weight: 400;
+    text-decoration: underline;
+  }
+
+  .admin button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  .admin .tarjeta {
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .admin .aviso {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+
+  .admin .aviso.error {
+    background: #fdecee;
+    color: #8a1024;
+  }
+
+  .admin .aviso.ok {
+    background: #e9f6ec;
+    color: #1d5c2c;
+  }
+
+  .admin .tabla {
+    overflow-x: auto;
+  }
+
+  .admin table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    font-size: 0.95rem;
+  }
+
+  .admin th,
+  .admin td {
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--borde);
+    vertical-align: top;
+  }
+
+  .admin th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--suave);
+  }
+
+  .admin .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin .etiqueta {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: #f3ece8;
+  }
+
+  .admin .etiqueta.alerta {
+    background: #fff1d6;
+    color: #7a4b00;
+  }
+
+  .admin .acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .admin code {
+    font-size: 0.9em;
+    word-break: break-all;
+  }
+</style>

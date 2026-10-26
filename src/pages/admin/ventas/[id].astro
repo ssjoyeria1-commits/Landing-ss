@@ -1,0 +1,137 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { SITIO } from '../../../config/sitio';
+import { nombreCompleto } from '../../../lib/clientes';
+import { fecha, pesos } from '../../../lib/formato';
+
+const { id } = Astro.params;
+const supabase = Astro.locals.supabase;
+let aviso = Astro.url.searchParams.get('nueva') ? 'Venta guardada. Graba cada URL en su sticker, bloquéalo y escanéalo antes de pegarlo.' : '';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = form.get('accion');
+
+  if (accion === 'anular' || accion === 'reactivar') {
+    const { error: fallo } = await supabase.from('ventas').update({ anulada: accion === 'anular' }).eq('id', id!);
+    if (fallo) error = fallo.message;
+    else aviso = accion === 'anular' ? 'Venta anulada: ya no cuenta en el Círculo y sus chips dejaron de funcionar.' : 'Venta reactivada.';
+  }
+
+  if (accion === 'regenerar') {
+    const { data, error: fallo } = await supabase.rpc('regenerar_chip', { p_caja_id: String(form.get('caja_id')) });
+    if (fallo) error = fallo.message;
+    else aviso = `Código nuevo generado (${data}). El sticker anterior ya no funciona: graba la nueva URL.`;
+  }
+}
+
+const { data: venta } = await supabase
+  .from('ventas')
+  .select(
+    'id, fecha, monto_cop, nota, anulada, anulada_at, clientes(id, nombre, apellido, codigo_referido), cajas(id, codigo_chip, referencia, es_regalo, nombre_destinatario, created_at, piezas(descripcion, peso_gramos, ley, orden), escaneos(count))',
+  )
+  .eq('id', id!)
+  .maybeSingle();
+
+if (!venta) return new Response('Venta no encontrada', { status: 404 });
+
+const cliente = venta.clientes as unknown as { id: string; nombre: string; apellido: string | null; codigo_referido: string };
+const cajas = [...venta.cajas].sort((a, b) => a.created_at.localeCompare(b.created_at));
+---
+
+<Admin title={`Venta del ${fecha(venta.fecha)}`}>
+  {aviso && <p class="aviso ok">{aviso}</p>}
+  {error && <p class="aviso error">{error}</p>}
+
+  <div class="tarjeta">
+    <p style="margin: 0">
+      <strong>Cliente:</strong> <a href={`/admin/clientes/${cliente.id}`}>{nombreCompleto(cliente)}</a>
+      (<code>{cliente.codigo_referido}</code>)<br />
+      <strong>Monto:</strong>
+      {pesos(venta.monto_cop)}<br />
+      {venta.nota && (<><strong>Nota:</strong> {venta.nota}<br /></>)}
+      {venta.anulada && <span class="etiqueta alerta">Anulada el {new Date(venta.anulada_at!).toLocaleDateString('es-CO')}</span>}
+    </p>
+  </div>
+
+  {
+    cajas.map((caja, i) => {
+      const url = `${SITIO.urlChips}${caja.codigo_chip}`;
+      const escaneos = (caja.escaneos as unknown as { count: number }[])[0]?.count ?? 0;
+      return (
+        <section class="tarjeta">
+          <h2 style="margin-top: 0">
+            Caja {i + 1} · <code>{caja.referencia}</code>
+            {caja.es_regalo && <span class="etiqueta">Regalo{caja.nombre_destinatario && ` para ${caja.nombre_destinatario}`}</span>}
+          </h2>
+
+          <label>URL para el sticker y el QR</label>
+          <div class="acciones">
+            <code style="font-size: 1.05rem">{url}</code>
+            <button type="button" class="secundario copiar" data-texto={url}>Copiar</button>
+            <a href={`/c/${caja.codigo_chip}`} target="_blank" rel="noopener">Probar en este sitio</a>
+          </div>
+
+          <ul>
+            {[...caja.piezas]
+              .sort((a, b) => a.orden - b.orden)
+              .map((p) => (
+                <li>
+                  {p.descripcion} · {Number(p.peso_gramos).toLocaleString('es-CO')} g · {p.ley}
+                </li>
+              ))}
+          </ul>
+          <p class="ayuda">Escaneos: {escaneos}</p>
+
+          {!venta.anulada && (
+            <form method="post" class="regenerar">
+              <input type="hidden" name="accion" value="regenerar" />
+              <input type="hidden" name="caja_id" value={caja.id} />
+              <button type="submit" class="enlace">Generar código nuevo (si el sticker falló)</button>
+            </form>
+          )}
+        </section>
+      );
+    })
+  }
+
+  <h2>Corregir</h2>
+  <form method="post" class="acciones" id="anular">
+    {
+      venta.anulada ? (
+        <>
+          <input type="hidden" name="accion" value="reactivar" />
+          <button type="submit" class="secundario">Reactivar venta</button>
+        </>
+      ) : (
+        <>
+          <input type="hidden" name="accion" value="anular" />
+          <button type="submit" class="secundario">Anular venta</button>
+          <span class="ayuda">Deja de contar en el Círculo y sus chips muestran la página neutra.</span>
+        </>
+      )
+    }
+  </form>
+</Admin>
+
+<script>
+  for (const boton of document.querySelectorAll<HTMLButtonElement>('.copiar')) {
+    boton.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(boton.dataset.texto!);
+      boton.textContent = 'Copiada';
+      setTimeout(() => (boton.textContent = 'Copiar'), 1500);
+    });
+  }
+
+  for (const form of document.querySelectorAll<HTMLFormElement>('.regenerar')) {
+    form.addEventListener('submit', (e) => {
+      if (!confirm('El código actual dejará de funcionar. ¿Generar uno nuevo?')) e.preventDefault();
+    });
+  }
+
+  document.querySelector<HTMLFormElement>('#anular')?.addEventListener('submit', (e) => {
+    const accion = (e.currentTarget as HTMLFormElement).querySelector<HTMLInputElement>('[name="accion"]')!.value;
+    if (accion === 'anular' && !confirm('¿Anular esta venta? Sus chips dejarán de funcionar.')) e.preventDefault();
+  });
+</script>

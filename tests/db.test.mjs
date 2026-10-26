@@ -5,7 +5,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 
 const DIR_MIGRACIONES = new URL('../supabase/migrations/', import.meta.url);

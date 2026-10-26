@@ -1,0 +1,145 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { PREMIOS } from '../../../config/circulo';
+import { enlaceAviso, nombreCompleto, type ClienteCirculo } from '../../../lib/clientes';
+import { fecha, pesos } from '../../../lib/formato';
+import { formatoWhatsapp } from '../../../lib/whatsapp';
+
+const { id } = Astro.params;
+const supabase = Astro.locals.supabase;
+let aviso = '';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (form.get('accion') === 'premio') {
+    const hito = Number(form.get('hito'));
+    const { error: fallo } = await supabase.from('premios').insert({ cliente_id: id, hito });
+    if (fallo) error = fallo.code === '23505' ? 'Ese premio ya estaba marcado como entregado.' : fallo.message;
+    else aviso = `Premio del nivel ${hito} marcado como entregado.`;
+  }
+}
+
+const [{ data: cliente }, { data: ventas }, { data: premios }, { data: referidos }] = await Promise.all([
+  supabase.from('clientes_circulo').select('*').eq('id', id!).maybeSingle(),
+  supabase
+    .from('ventas')
+    .select('id, fecha, monto_cop, anulada, nota, cajas(id, referencia, es_regalo, nombre_destinatario)')
+    .eq('cliente_id', id!)
+    .order('fecha', { ascending: false }),
+  supabase.from('premios').select('hito, fecha_entrega').eq('cliente_id', id!).order('hito'),
+  supabase.from('clientes_circulo').select('id, nombre, apellido, propias').eq('referido_por', id!),
+]);
+
+if (!cliente) return new Response('Cliente no encontrado', { status: 404 });
+const c = cliente as ClienteCirculo;
+---
+
+<Admin title={nombreCompleto(c)}>
+  {aviso && <p class="aviso ok">{aviso}</p>}
+  {error && <p class="aviso error">{error}</p>}
+
+  <div class="tarjeta">
+    <p style="margin-top: 0">
+      <strong>WhatsApp:</strong>
+      {formatoWhatsapp(c.whatsapp)}<br />
+      <strong>Código de referido:</strong> <code>{c.codigo_referido}</code><br />
+      {
+        c.referido_por && (
+          <>
+            <strong>Referido por:</strong> <a href={`/admin/clientes/${c.referido_por}`}>{c.referido_por_codigo}</a>
+            <br />
+          </>
+        )
+      }
+      <strong>Autorización de datos:</strong>
+      {c.autorizo_datos ? `Sí, ${fecha(c.autorizo_datos_fecha)}` : 'No'}
+    </p>
+    <p>
+      <strong>Círculo SS:</strong>
+      {c.interacciones} interacciones ({c.propias} propias, {c.por_referidos} por referidos).
+      {c.proximo_hito ? ` Próximo hito: ${c.proximo_hito}.` : ' Completó todos los niveles.'}
+    </p>
+    <div class="acciones">
+      <a class="boton" href={enlaceAviso(c)} target="_blank" rel="noopener">Avisar por WhatsApp</a>
+      <a class="boton secundario" href="/admin/ventas/nueva">Registrar otra venta</a>
+    </div>
+  </div>
+
+  <h2>Premios</h2>
+  <div class="tabla">
+    <table>
+      <thead><tr><th>Nivel</th><th>Premio</th><th>Estado</th></tr></thead>
+      <tbody>
+        {
+          [3, 5, 10].map((hito) => {
+            const entregado = premios?.find((p) => p.hito === hito);
+            const pendiente = c.premios_pendientes.includes(hito);
+            return (
+              <tr>
+                <td>{hito}</td>
+                <td>{PREMIOS[hito]}</td>
+                <td>
+                  {entregado && `Entregado el ${fecha(entregado.fecha_entrega)}`}
+                  {pendiente && (
+                    <form method="post" class="acciones">
+                      <input type="hidden" name="accion" value="premio" />
+                      <input type="hidden" name="hito" value={hito} />
+                      <span class="etiqueta alerta">Pendiente</span>
+                      <button type="submit">Marcar entregado</button>
+                    </form>
+                  )}
+                  {!entregado && !pendiente && 'Aún no lo alcanza'}
+                </td>
+              </tr>
+            );
+          })
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Compras</h2>
+  <div class="tabla">
+    <table>
+      <thead><tr><th>Fecha</th><th class="num">Monto</th><th>Cajas</th><th /></tr></thead>
+      <tbody>
+        {
+          (ventas ?? []).map((v) => (
+            <tr style={v.anulada ? 'opacity: 0.55' : undefined}>
+              <td>{fecha(v.fecha)}</td>
+              <td class="num">{pesos(v.monto_cop)}</td>
+              <td>
+                {v.cajas.map((caja) => (
+                  <div>
+                    <code>{caja.referencia}</code>
+                    {caja.es_regalo && ` · regalo${caja.nombre_destinatario ? ` para ${caja.nombre_destinatario}` : ''}`}
+                  </div>
+                ))}
+              </td>
+              <td>
+                {v.anulada && <span class="etiqueta">Anulada</span>} <a href={`/admin/ventas/${v.id}`}>Ver</a>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+
+  {
+    referidos && referidos.length > 0 && (
+      <>
+        <h2>Personas que refirió</h2>
+        <ul>
+          {referidos.map((r) => (
+            <li>
+              <a href={`/admin/clientes/${r.id}`}>{nombreCompleto(r)}</a>
+              {r.propias === 0 && ' (aún sin compra que califique)'}
+            </li>
+          ))}
+        </ul>
+      </>
+    )
+  }
+</Admin>

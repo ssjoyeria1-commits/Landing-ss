@@ -1,0 +1,91 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { enlaceAviso, limpiarBusqueda, nombreCompleto, type ClienteCirculo } from '../../lib/clientes';
+import { formatoWhatsapp } from '../../lib/whatsapp';
+
+const q = limpiarBusqueda(Astro.url.searchParams.get('q') ?? '');
+const soloPendientes = Astro.url.searchParams.get('pendientes') === '1';
+
+let consulta = Astro.locals.supabase
+  .from('clientes_circulo')
+  .select('*')
+  .order('created_at', { ascending: false })
+  .limit(200);
+
+if (q) {
+  const digitos = q.replace(/\D/g, '');
+  const filtros = [`nombre.ilike.*${q}*`, `apellido.ilike.*${q}*`, `codigo_referido.ilike.*${q}*`];
+  if (digitos.length >= 4) filtros.push(`whatsapp.like.*${digitos}*`);
+  consulta = consulta.or(filtros.join(','));
+}
+if (soloPendientes) consulta = consulta.neq('premios_pendientes', '{}');
+
+const { data, error } = await consulta;
+const clientes = (data ?? []) as ClienteCirculo[];
+---
+
+<Admin title="Clientes">
+  <form method="get" class="acciones" style="margin-bottom: 1rem">
+    <input name="q" value={q} placeholder="Nombre, WhatsApp o código" style="max-width: 20rem" />
+    <label class="check" style="font-weight: 400">
+      <input type="checkbox" name="pendientes" value="1" checked={soloPendientes} /> Solo con premios pendientes
+    </label>
+    <button type="submit" class="secundario">Buscar</button>
+  </form>
+
+  {error && <p class="aviso error">No se pudo cargar la lista: {error.message}</p>}
+
+  {
+    !error && clientes.length === 0 && (
+      <p class="tarjeta">
+        {q || soloPendientes ? 'No hay clientes que coincidan.' : 'Todavía no hay clientes.'}{' '}
+        <a href="/admin/ventas/nueva">Registrar una venta</a>
+      </p>
+    )
+  }
+
+  {
+    clientes.length > 0 && (
+      <div class="tabla">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Código</th>
+              <th class="num">Interacciones</th>
+              <th>Próximo hito</th>
+              <th>Premios</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {clientes.map((c) => (
+              <tr>
+                <td>
+                  <a href={`/admin/clientes/${c.id}`}>{nombreCompleto(c)}</a>
+                  <br />
+                  <small>{formatoWhatsapp(c.whatsapp)}</small>
+                </td>
+                <td>
+                  <code>{c.codigo_referido}</code>
+                </td>
+                <td class="num">{c.interacciones}</td>
+                <td>{c.proximo_hito ?? 'Completo'}</td>
+                <td>
+                  {c.premios_pendientes.length > 0 && (
+                    <span class="etiqueta alerta">Pendiente: {c.premios_pendientes.join(', ')}</span>
+                  )}
+                </td>
+                <td>
+                  <a href={enlaceAviso(c)} target="_blank" rel="noopener">
+                    Avisar
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</Admin>

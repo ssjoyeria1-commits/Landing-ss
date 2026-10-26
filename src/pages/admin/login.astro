@@ -1,0 +1,43 @@
+---
+import Admin from '../../layouts/Admin.astro';
+
+if (Astro.locals.usuario) return Astro.redirect('/admin');
+
+let error = '';
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = String(form.get('email') ?? '').trim();
+  const password = String(form.get('password') ?? '');
+
+  const { data, error: fallo } = await Astro.locals.supabase.auth.signInWithPassword({ email, password });
+  if (fallo || !data.user) {
+    error = 'Correo o contraseña incorrectos.';
+  } else {
+    const { data: admin } = await Astro.locals.supabase
+      .from('admins')
+      .select('user_id')
+      .eq('user_id', data.user.id)
+      .maybeSingle();
+    if (admin) return Astro.redirect('/admin');
+    await Astro.locals.supabase.auth.signOut();
+    error = 'Este usuario no tiene acceso al panel.';
+  }
+}
+---
+
+<Admin title="Ingresar">
+  <form method="post" class="tarjeta" style="max-width: 24rem">
+    {error && <p class="aviso error">{error}</p>}
+    <div class="campo">
+      <label for="email">Correo</label>
+      <input id="email" name="email" type="email" autocomplete="username" required value={email} />
+    </div>
+    <div class="campo">
+      <label for="password">Contraseña</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required />
+    </div>
+    <button type="submit">Ingresar</button>
+  </form>
+</Admin>

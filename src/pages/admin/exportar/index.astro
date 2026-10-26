@@ -1,0 +1,26 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+
+const archivos = [
+  { tabla: 'clientes', texto: 'Clientes con su contador del Círculo' },
+  { tabla: 'ventas', texto: 'Ventas' },
+  { tabla: 'cajas', texto: 'Cajas (incluye los códigos de chip)' },
+  { tabla: 'piezas', texto: 'Piezas de cada caja' },
+  { tabla: 'premios', texto: 'Premios entregados' },
+  { tabla: 'escaneos', texto: 'Escaneos de los chips' },
+];
+---
+
+<Admin title="Exportar a CSV">
+  <p>Respaldo de los datos. Los archivos abren en Excel o Google Sheets.</p>
+  <ul class="tarjeta" style="padding-left: 2rem">
+    {
+      archivos.map((a) => (
+        <li>
+          <a href={`/admin/exportar/${a.tabla}.csv`}>{a.texto}</a>
+        </li>
+      ))
+    }
+  </ul>
+  <p class="ayuda">Contienen datos personales: guárdalos en un lugar seguro y no los compartas.</p>
+</Admin>

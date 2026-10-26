@@ -1,0 +1,268 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { hoyBogota } from '../../../lib/formato';
+import { leerFormularioVenta } from '../../../lib/venta';
+import { listaPaises } from '../../../lib/whatsapp';
+
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const quiereJson = Astro.request.headers.get('Accept')?.includes('application/json');
+  const leido = leerFormularioVenta(await Astro.request.formData());
+
+  if ('error' in leido) {
+    error = leido.error;
+  } else {
+    const { data, error: fallo } = await Astro.locals.supabase.rpc('registrar_venta', { p: leido.payload });
+    if (fallo) {
+      error = fallo.message;
+    } else {
+      const destino = `/admin/ventas/${data.venta_id}?nueva=1`;
+      if (quiereJson) return Response.json({ ok: true, destino });
+      return Astro.redirect(destino);
+    }
+  }
+  if (quiereJson) return Response.json({ ok: false, error }, { status: 422 });
+}
+
+const paises = listaPaises();
+const hoy = hoyBogota();
+---
+
+<Admin title="Registrar venta">
+  <form method="post" id="venta" novalidate>
+    <p class="aviso error" id="error" hidden={!error}>{error}</p>
+
+    <section class="tarjeta">
+      <h2 style="margin-top: 0">Cliente</h2>
+      <div class="fila">
+        <div class="campo">
+          <label for="pais">País del WhatsApp</label>
+          <select id="pais" name="pais">
+            {paises.map((p) => <option value={p.codigo}>{p.nombre}</option>)}
+          </select>
+        </div>
+        <div class="campo">
+          <label for="whatsapp">WhatsApp</label>
+          <input id="whatsapp" name="whatsapp" type="tel" inputmode="tel" autocomplete="off" required placeholder="300 123 4567" />
+        </div>
+      </div>
+      <p class="ayuda" id="estado-cliente">Escribe el número para saber si el cliente ya existe.</p>
+
+      <fieldset id="cliente-nuevo" style="border: 0; padding: 0; margin: 1rem 0 0">
+        <div class="fila">
+          <div class="campo">
+            <label for="nombre">Primer nombre</label>
+            <input id="nombre" name="nombre" autocomplete="off" maxlength="60" />
+          </div>
+          <div class="campo">
+            <label for="apellido">Apellido (opcional)</label>
+            <input id="apellido" name="apellido" autocomplete="off" maxlength="60" />
+          </div>
+        </div>
+        <div class="fila">
+          <div class="campo">
+            <label class="check"><input type="checkbox" name="autorizo_datos" /> Autorizó el tratamiento de datos por WhatsApp</label>
+          </div>
+          <div class="campo">
+            <label for="autorizo_datos_fecha">Fecha de la autorización</label>
+            <input id="autorizo_datos_fecha" name="autorizo_datos_fecha" type="date" value={hoy} max={hoy} />
+          </div>
+        </div>
+        <div class="campo" style="max-width: 20rem">
+          <label for="codigo_referido_de">Código de quien lo refirió (opcional)</label>
+          <input id="codigo_referido_de" name="codigo_referido_de" autocomplete="off" placeholder="MARIA-4821" style="text-transform: uppercase" />
+          <p class="ayuda">Solo para clientes nuevos. No se puede cambiar después.</p>
+        </div>
+      </fieldset>
+    </section>
+
+    <section class="tarjeta">
+      <h2 style="margin-top: 0">Venta</h2>
+      <div class="fila">
+        <div class="campo">
+          <label for="monto">Monto total (COP)</label>
+          <input id="monto" name="monto" inputmode="numeric" autocomplete="off" required placeholder="850.000" />
+        </div>
+        <div class="campo">
+          <label for="fecha">Fecha</label>
+          <input id="fecha" name="fecha" type="date" value={hoy} max={hoy} />
+        </div>
+      </div>
+      <div class="campo">
+        <label for="nota">Nota interna (opcional)</label>
+        <textarea id="nota" name="nota" rows="2"></textarea>
+      </div>
+    </section>
+
+    <div id="cajas"></div>
+    <p><button type="button" class="secundario" id="agregar-caja">+ Agregar otra caja</button></p>
+
+    <datalist id="leyes">
+      <option value="18k"></option>
+      <option value="14k"></option>
+      <option value="10k"></option>
+      <option value="24k"></option>
+    </datalist>
+
+    <p><button type="submit" id="guardar">Guardar venta y generar códigos</button></p>
+  </form>
+
+  <template id="tpl-caja">
+    <section class="tarjeta caja">
+      <div class="acciones" style="justify-content: space-between">
+        <h2 style="margin: 0" class="titulo-caja">Caja</h2>
+        <button type="button" class="enlace quitar-caja">Quitar caja</button>
+      </div>
+      <div class="fila" style="margin-top: 0.75rem">
+        <div class="campo">
+          <label class="check"><input type="checkbox" data-campo="regalo" /> Es un regalo</label>
+        </div>
+        <div class="campo destinatario" hidden>
+          <label>Nombre de quien recibe (opcional)</label>
+          <input data-campo="destinatario" maxlength="60" autocomplete="off" />
+        </div>
+      </div>
+      <div class="piezas"></div>
+      <button type="button" class="enlace agregar-pieza">+ Agregar pieza</button>
+    </section>
+  </template>
+
+  <template id="tpl-pieza">
+    <div class="fila pieza">
+      <div class="campo" style="grid-column: span 2">
+        <label>Pieza</label>
+        <input data-campo="descripcion" maxlength="120" placeholder="Cadena tejido lazo 50 cm" autocomplete="off" />
+      </div>
+      <div class="campo">
+        <label>Peso (g)</label>
+        <input data-campo="peso" inputmode="decimal" placeholder="5,25" autocomplete="off" />
+      </div>
+      <div class="campo">
+        <label>Ley</label>
+        <input data-campo="ley" list="leyes" maxlength="20" autocomplete="off" />
+      </div>
+      <div class="campo" style="align-self: end">
+        <button type="button" class="enlace quitar-pieza">Quitar</button>
+      </div>
+    </div>
+  </template>
+</Admin>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#venta')!;
+  const contenedor = document.querySelector<HTMLElement>('#cajas')!;
+  const tplCaja = document.querySelector<HTMLTemplateElement>('#tpl-caja')!;
+  const tplPieza = document.querySelector<HTMLTemplateElement>('#tpl-pieza')!;
+  const errorBox = document.querySelector<HTMLElement>('#error')!;
+
+  // Los nombres de los campos se recalculan tras cada cambio: caja-{i}-..., caja-{i}-pieza-{j}-...
+  function renumerar() {
+    const cajas = [...contenedor.querySelectorAll<HTMLElement>('.caja')];
+    cajas.forEach((caja, i) => {
+      caja.querySelector('.titulo-caja')!.textContent = `Caja ${i + 1}`;
+      caja.querySelector<HTMLElement>('.quitar-caja')!.hidden = cajas.length === 1;
+      caja.querySelector<HTMLInputElement>('[data-campo="regalo"]')!.name = `caja-${i}-regalo`;
+      caja.querySelector<HTMLInputElement>('[data-campo="destinatario"]')!.name = `caja-${i}-destinatario`;
+      const piezas = [...caja.querySelectorAll<HTMLElement>('.pieza')];
+      piezas.forEach((pieza, j) => {
+        pieza.querySelector<HTMLElement>('.quitar-pieza')!.hidden = piezas.length === 1;
+        for (const input of pieza.querySelectorAll<HTMLInputElement>('[data-campo]')) {
+          input.name = `caja-${i}-pieza-${j}-${input.dataset.campo}`;
+        }
+      });
+    });
+  }
+
+  function agregarPieza(caja: HTMLElement) {
+    caja.querySelector('.piezas')!.append(tplPieza.content.cloneNode(true));
+    renumerar();
+  }
+
+  function agregarCaja() {
+    contenedor.append(tplCaja.content.cloneNode(true));
+    agregarPieza(contenedor.lastElementChild as HTMLElement);
+  }
+
+  contenedor.addEventListener('click', (e) => {
+    const boton = (e.target as HTMLElement).closest('button');
+    if (!boton) return;
+    const caja = boton.closest<HTMLElement>('.caja')!;
+    if (boton.classList.contains('agregar-pieza')) agregarPieza(caja);
+    if (boton.classList.contains('quitar-pieza')) boton.closest('.pieza')!.remove();
+    if (boton.classList.contains('quitar-caja')) caja.remove();
+    renumerar();
+  });
+
+  contenedor.addEventListener('change', (e) => {
+    const input = e.target as HTMLInputElement;
+    if (input.dataset.campo === 'regalo') {
+      input.closest('.caja')!.querySelector<HTMLElement>('.destinatario')!.hidden = !input.checked;
+    }
+  });
+
+  document.querySelector('#agregar-caja')!.addEventListener('click', agregarCaja);
+  agregarCaja();
+
+  // Búsqueda del cliente por WhatsApp.
+  const pais = document.querySelector<HTMLSelectElement>('#pais')!;
+  const whatsapp = document.querySelector<HTMLInputElement>('#whatsapp')!;
+  const estado = document.querySelector<HTMLElement>('#estado-cliente')!;
+  const nuevo = document.querySelector<HTMLFieldSetElement>('#cliente-nuevo')!;
+  let consulta = 0;
+
+  async function buscarCliente() {
+    const id = ++consulta;
+    const numero = whatsapp.value.trim();
+    nuevo.disabled = false;
+    if (numero.replace(/\D/g, '').length < 7) {
+      estado.textContent = 'Escribe el número para saber si el cliente ya existe.';
+      return;
+    }
+    const r = await fetch(`/admin/api/cliente?pais=${pais.value}&numero=${encodeURIComponent(numero)}`);
+    const datos = await r.json();
+    if (id !== consulta) return;
+    if (!datos.valido) {
+      estado.textContent = 'Número no válido para el país elegido.';
+    } else if (datos.cliente) {
+      const c = datos.cliente;
+      estado.textContent = `Cliente existente: ${c.nombre} ${c.apellido ?? ''} · ${c.codigo_referido} · ${c.interacciones} interacciones.`;
+      nuevo.disabled = true;
+    } else {
+      estado.textContent = `Cliente nuevo (${datos.whatsapp}). Completa sus datos.`;
+    }
+  }
+
+  let espera: number | undefined;
+  whatsapp.addEventListener('input', () => {
+    clearTimeout(espera);
+    espera = window.setTimeout(buscarCliente, 400);
+  });
+  pais.addEventListener('change', buscarCliente);
+
+  // Envío sin recargar, para no perder las cajas si hay un error.
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const boton = document.querySelector<HTMLButtonElement>('#guardar')!;
+    boton.disabled = true;
+    errorBox.hidden = true;
+    try {
+      const r = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { Accept: 'application/json' },
+      });
+      const datos = await r.json();
+      if (datos.ok) {
+        location.href = datos.destino;
+        return;
+      }
+      errorBox.textContent = datos.error;
+    } catch {
+      errorBox.textContent = 'No se pudo guardar. Revisa la conexión e intenta de nuevo.';
+    }
+    errorBox.hidden = false;
+    errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    boton.disabled = false;
+  });
+</script>

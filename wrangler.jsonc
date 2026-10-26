@@ -7,6 +7,6 @@
   // No son secretos: la clave publicable solo permite lo que dejan las políticas RLS.
   "vars": {
     "SUPABASE_URL": "https://dtwlwoyvpcpbaswbkanx.supabase.co",
-    "SUPABASE_PUBLISHABLE_KEY": "PENDIENTE"
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_o0AFzSGPL8dxtmIqEfO7jA_WhyScc1o"
   }
 }

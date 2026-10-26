@@ -1,26 +1,42 @@
 ---
 import Admin from '../../../layouts/Admin.astro';
+import { EXPORTACIONES } from '../../../lib/exportar';
 
-const archivos = [
-  { tabla: 'clientes', texto: 'Clientes con su contador del Círculo' },
-  { tabla: 'ventas', texto: 'Ventas' },
-  { tabla: 'cajas', texto: 'Cajas (incluye los códigos de chip)' },
-  { tabla: 'piezas', texto: 'Piezas de cada caja' },
-  { tabla: 'premios', texto: 'Premios entregados' },
-  { tabla: 'escaneos', texto: 'Escaneos de los chips' },
-];
+const lista = Object.entries(EXPORTACIONES);
+const informes = lista.filter(([, e]) => e.formato === 'excel');
+const respaldo = lista.filter(([, e]) => e.formato === 'estandar');
 ---
 
-<Admin title="Exportar a CSV">
-  <p>Respaldo de los datos. Los archivos abren en Excel o Google Sheets.</p>
-  <ul class="tarjeta" style="padding-left: 2rem">
+<Admin title="Exportar">
+  <h2 style="margin-top: 0">Informes</h2>
+  <p>Para abrir en Excel o Google Sheets. Cada uno trae nombres, fechas y montos listos para filtrar y sumar.</p>
+  <div class="tarjeta">
     {
-      archivos.map((a) => (
+      informes.map(([clave, e]) => (
+        <p style="margin: 0 0 0.75rem">
+          <a class="boton secundario" href={`/admin/exportar/${clave}.csv`}>
+            {e.titulo}
+          </a>
+          <span class="ayuda" style="display: block">{e.descripcion}</span>
+        </p>
+      ))
+    }
+  </div>
+
+  <h2>Respaldo técnico</h2>
+  <p class="ayuda">
+    Copia exacta de cada tabla de la base de datos, con sus identificadores internos. No es para leer: sirve para
+    restaurar la información si algo falla. Descárgalos de vez en cuando y guárdalos juntos.
+  </p>
+  <ul>
+    {
+      respaldo.map(([clave, e]) => (
         <li>
-          <a href={`/admin/exportar/${a.tabla}.csv`}>{a.texto}</a>
+          <a href={`/admin/exportar/${clave}.csv`}>{e.titulo}</a>
         </li>
       ))
     }
   </ul>
-  <p class="ayuda">Contienen datos personales: guárdalos en un lugar seguro y no los compartas.</p>
+
+  <p class="ayuda">Todos los archivos contienen datos personales: guárdalos en un lugar seguro y no los compartas.</p>
 </Admin>

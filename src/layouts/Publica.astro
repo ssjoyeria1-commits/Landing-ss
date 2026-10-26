@@ -1,5 +1,6 @@
 ---
 import Base from './Base.astro';
+import Logo from '../components/Logo.astro';
 import Pie from '../components/caja/Pie.astro';
 
 interface Props {
@@ -13,9 +14,9 @@ const { title = 'SS Joyería', noindex = false } = Astro.props;
 
 <Base title={title} noindex={noindex}>
   <div class="publica">
-    <header class="marca">
-      <span class="logo">SS</span>
-      <span class="nombre">Joyería</span>
+    <header class="cabecera">
+      <Logo alto="4.5rem" />
+      {Astro.slots.has('saludo') && <div class="saludo"><slot name="saludo" /></div>}
     </header>
     <main>
       <slot />
@@ -26,36 +27,38 @@ const { title = 'SS Joyería', noindex = false } = Astro.props;
 
 <style is:global>
   .publica {
-    --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-    --oro: #b08a3e;
-    --tarjeta: #fff;
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
   }
 
   .publica main {
-    padding-top: 0.5rem;
+    flex: 1;
+    width: 100%;
+    padding-top: 0.25rem;
   }
 
-  .publica .marca {
-    display: flex;
-    gap: 0.4rem;
-    align-items: baseline;
-    justify-content: center;
-    padding: 1.25rem 1rem 0.5rem;
-    font-family: var(--serif);
-    color: var(--rojo);
+  .publica .cabecera {
+    background: var(--negro);
+    color: #fff;
+    text-align: center;
+    padding: 2rem 1rem 1.75rem;
   }
 
-  .publica .marca .logo {
-    font-size: 1.6rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+  .publica .saludo {
+    max-width: 32rem;
+    margin: 1.5rem auto 0;
   }
 
-  .publica .marca .nombre {
-    font-size: 1.1rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
+  .publica .saludo h1 {
+    color: #fff;
+    font-size: 2.1rem;
+    margin: 0 0 0.35rem;
+  }
+
+  .publica .saludo p {
+    margin: 0;
+    color: #c9c4c2;
   }
 
   .publica h1,
@@ -64,21 +67,26 @@ const { title = 'SS Joyería', noindex = false } = Astro.props;
     font-weight: 600;
   }
 
-  .publica h1 {
-    font-size: 2rem;
-    margin: 0.5rem 0 0.25rem;
-  }
-
   .publica h2 {
     font-size: 1.35rem;
     margin: 0 0 0.75rem;
     color: var(--texto);
   }
 
+  /* Línea roja corta bajo cada título de sección, como acento de marca. */
+  .publica .seccion h2::after {
+    content: '';
+    display: block;
+    width: 2rem;
+    height: 3px;
+    margin-top: 0.45rem;
+    background: var(--rojo);
+  }
+
   .publica .seccion {
-    background: var(--tarjeta);
+    background: #fff;
     border: 1px solid var(--borde);
-    border-radius: 14px;
+    border-radius: 12px;
     padding: 1.25rem;
     margin: 1rem 0;
   }
@@ -104,13 +112,13 @@ const { title = 'SS Joyería', noindex = false } = Astro.props;
     cursor: pointer;
   }
 
-  .publica .boton.whatsapp {
-    color: #fff;
-    background: #1f8f4e;
-  }
-
+  .publica .boton.whatsapp,
   .publica .boton.principal {
     color: #fff;
+    background: var(--negro);
+  }
+
+  .publica .boton.rojo {
     background: var(--rojo);
   }
 

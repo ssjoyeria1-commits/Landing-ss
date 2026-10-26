@@ -1,0 +1,81 @@
+---
+// Símbolo de SS Joyería redibujado a partir del logo: siete rombos en contorno.
+// Medidas tomadas de la imagen original (símbolo de 464 × 721 px). El color sale de `currentColor`.
+
+interface Props {
+  /** 'completo': símbolo + SS + JOYERÍA. 'simbolo': solo los rombos. */
+  variante?: 'completo' | 'simbolo';
+  /** Alto del símbolo. */
+  alto?: string;
+  class?: string;
+}
+
+const { variante = 'completo', alto = '4rem', class: clase } = Astro.props;
+
+const R = 106.5; // semidiagonal exterior de cada rombo
+const r = 63.5; // semidiagonal interior (grosor del trazo: 43 px en vertical)
+const centros = [
+  [232, 106.5],
+  [106.5, 233.5],
+  [357.5, 233.5],
+  [232, 360.5],
+  [106.5, 487.5],
+  [357.5, 487.5],
+  [232, 614.5],
+];
+const rombo = ([x, y]: number[]) =>
+  `M${x} ${y - R}L${x + R} ${y}L${x} ${y + R}L${x - R} ${y}Z` +
+  `M${x} ${y - r}L${x - r} ${y}L${x} ${y + r}L${x + r} ${y}Z`;
+const trazo = centros.map(rombo).join('');
+---
+
+<div class:list={['logo', variante, clase]} style={`--alto: ${alto}`}>
+  <svg viewBox="0 0 464 721" role="img" aria-label="SS Joyería" fill="currentColor" fill-rule="evenodd">
+    <path d={trazo}></path>
+  </svg>
+  {
+    variante === 'completo' && (
+      <div class="texto" aria-hidden="true">
+        <span class="ss">SS</span>
+        <span class="joyeria">Joyería</span>
+      </div>
+    )
+  }
+</div>
+
+<style>
+  .logo {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--rojo);
+    font-family: var(--serif, Georgia, serif);
+    line-height: 1;
+  }
+
+  svg {
+    height: var(--alto);
+    width: auto;
+  }
+
+  .texto {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: calc(var(--alto) * 0.08);
+  }
+
+  .ss {
+    font-size: calc(var(--alto) * 0.42);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .joyeria {
+    margin-top: calc(var(--alto) * 0.06);
+    padding-left: 0.45em; /* compensa el espaciado de la última letra */
+    font-size: calc(var(--alto) * 0.16);
+    letter-spacing: 0.45em;
+    text-transform: uppercase;
+  }
+</style>

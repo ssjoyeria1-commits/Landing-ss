@@ -1,26 +1,35 @@
 ---
+import Logo from '../Logo.astro';
 import { SITIO } from '../../config/sitio';
 import { TEXTOS } from '../../config/textos';
 ---
 
 <footer class="pie">
-  <p>{TEXTOS.etiquetar}</p>
-  <p class="redes">
-    <a href={SITIO.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
-    <a href={SITIO.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>
-  </p>
-  <p class="legal">
-    <a href="/datos">Política de tratamiento de datos</a> · <a href="/garantia">Garantía</a>
-  </p>
+  <div class="contenido">
+    <Logo variante="simbolo" alto="2rem" />
+    <p>{TEXTOS.etiquetar}</p>
+    <p class="redes">
+      <a href={SITIO.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
+      <a href={SITIO.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>
+    </p>
+    <p class="legal">
+      <a href="/datos">Política de tratamiento de datos</a> · <a href="/garantia">Garantía</a>
+    </p>
+  </div>
 </footer>
 
 <style>
   .pie {
+    margin-top: 1.5rem;
+    background: var(--negro);
+    color: #c9c4c2;
+  }
+
+  .contenido {
     max-width: 32rem;
     margin: 0 auto;
-    padding: 1rem 1rem 2.5rem;
+    padding: 2rem 1rem 2.5rem;
     text-align: center;
-    color: var(--suave);
     font-size: 0.95rem;
   }
 
@@ -35,7 +44,7 @@ import { TEXTOS } from '../../config/textos';
     font-size: 0.85rem;
   }
 
-  a {
-    color: var(--texto);
+  .pie a {
+    color: #fff;
   }
 </style>

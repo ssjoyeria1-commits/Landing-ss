@@ -17,7 +17,8 @@ const { title, description = 'SS Joyería', noindex = false } = Astro.props;
     <title>{title}</title>
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex, nofollow" />}
-    <meta name="theme-color" content="#b3122e" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
     <slot />
@@ -26,12 +27,14 @@ const { title, description = 'SS Joyería', noindex = false } = Astro.props;
 
 <style is:global>
   :root {
-    /* Provisional hasta recibir el rojo exacto de los SVG de marca. */
-    --rojo: #b3122e;
-    --texto: #1c1a1a;
-    --suave: #6b6464;
-    --fondo: #fbf8f6;
-    --borde: #e7dfda;
+    /* Colores de marca: rojo medido en el logo digital (referencia impresa: Pantone 7620 C) y negro. */
+    --rojo: #d0041a;
+    --negro: #000;
+    --texto: #141414;
+    --suave: #5c5757;
+    --fondo: #f6f4f2;
+    --borde: #e4dfdc;
+    --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
     color-scheme: light;
   }
 

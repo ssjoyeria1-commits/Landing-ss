@@ -54,7 +54,7 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     <span class="copiado sutil" aria-live="polite"></span>
   </div>
 
-  <BotonWhatsApp href={compartir} texto="Compartir mi código por WhatsApp" />
+  <BotonWhatsApp href={compartir} texto="Compartir mi código por WhatsApp" color="rojo" />
 </section>
 
 <script>
@@ -115,19 +115,20 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     align-items: center;
   }
 
+  /* Rombos, como los del logo. */
   .punto {
     position: relative;
-    width: 0.7rem;
-    height: 0.7rem;
-    border-radius: 50%;
+    width: 0.6rem;
+    height: 0.6rem;
+    transform: rotate(45deg);
     background: #fff;
-    border: 2px solid var(--borde);
+    border: 2px solid #cfc8c4;
   }
 
   .hito .punto {
-    width: 1.3rem;
-    height: 1.3rem;
-    border-color: var(--oro);
+    width: 1.05rem;
+    height: 1.05rem;
+    border: 3px solid var(--negro);
   }
 
   .hecho .punto {
@@ -140,7 +141,7 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     top: 1.65rem;
     font-size: 0.8rem;
     font-weight: 700;
-    color: var(--oro);
+    color: var(--texto);
   }
 
   .siguiente {
@@ -156,8 +157,12 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     text-align: center;
     padding: 1rem;
     margin: 1rem 0;
-    border: 1px dashed var(--oro);
+    background: var(--negro);
     border-radius: 10px;
+  }
+
+  .codigo .sutil {
+    color: #c9c4c2;
   }
 
   .codigo > .sutil:first-child {
@@ -170,7 +175,7 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     font-size: 1.6rem;
     font-weight: 700;
     letter-spacing: 0.05em;
-    color: var(--texto);
+    color: #fff;
     background: none;
     border: 0;
     padding: 0;

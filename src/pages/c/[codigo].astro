@@ -30,11 +30,18 @@ if (!propia) Astro.response.status = temporal ? 503 : 404;
 
 <Publica noindex>
   {
+    propia && (
+      <Fragment slot="saludo">
+        <h1>Hola, {capitalizar(propia.nombre)}</h1>
+        <p>Gracias por elegir SS Joyería.</p>
+      </Fragment>
+    )
+  }
+  {
     propia ? (
       <>
-        <section class="bienvenida">
-          <h1>Hola, {capitalizar(propia.nombre)}</h1>
-          <p class="sutil">Gracias por elegir SS Joyería. {propia.piezas.length === 1 ? 'Esta es tu pieza:' : 'Estas son tus piezas:'}</p>
+        <section class="seccion">
+          <h2>{propia.piezas.length === 1 ? 'Tu pieza' : 'Tus piezas'}</h2>
           <Piezas piezas={propia.piezas} />
         </section>
         <Garantia referencia={propia.referencia} />
@@ -46,9 +53,3 @@ if (!propia) Astro.response.status = temporal ? 503 : 404;
     )
   }
 </Publica>
-
-<style>
-  .bienvenida {
-    padding: 0.5rem 0.25rem;
-  }
-</style>

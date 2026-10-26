@@ -24,7 +24,7 @@ const { piezas } = Astro.props;
 <style>
   .piezas {
     list-style: none;
-    margin: 1rem 0 0;
+    margin: 0;
     padding: 0;
   }
 
@@ -34,11 +34,18 @@ const { piezas } = Astro.props;
     gap: 0.25rem 1rem;
     justify-content: space-between;
     padding: 0.75rem 0;
+  }
+
+  li + li {
     border-top: 1px solid var(--borde);
   }
 
+  li:first-child {
+    padding-top: 0;
+  }
+
   li:last-child {
-    border-bottom: 1px solid var(--borde);
+    padding-bottom: 0;
   }
 
   .descripcion {
@@ -46,7 +53,7 @@ const { piezas } = Astro.props;
   }
 
   .detalle {
-    color: var(--oro);
+    color: var(--rojo);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }

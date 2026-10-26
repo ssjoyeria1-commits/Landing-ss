@@ -1,0 +1,62 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+  /** Las páginas de chip no deben aparecer en buscadores. */
+  noindex?: boolean;
+}
+
+const { title, description = 'SS Joyería', noindex = false } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es-CO">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <meta name="theme-color" content="#b3122e" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    /* Provisional hasta recibir el rojo exacto de los SVG de marca. */
+    --rojo: #b3122e;
+    --texto: #1c1a1a;
+    --suave: #6b6464;
+    --fondo: #fbf8f6;
+    --borde: #e7dfda;
+    color-scheme: light;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    color: var(--texto);
+    background: var(--fondo);
+    line-height: 1.5;
+  }
+
+  main {
+    max-width: 32rem;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  h1 {
+    color: var(--rojo);
+    line-height: 1.2;
+  }
+</style>

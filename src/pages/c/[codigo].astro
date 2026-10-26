@@ -1,0 +1,15 @@
+---
+import Base from '../../layouts/Base.astro';
+
+// Provisional (fase 0): solo confirma que el render en servidor funciona.
+// En la fase 3 consultará la caja por código y mostrará la página neutra si no existe.
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+---
+
+<Base title="SS Joyería" noindex>
+  <main>
+    <h1>SS Joyería</h1>
+    <p>Esta página aún no está disponible.</p>
+    <p><small>Generada en el servidor: {new Date().toISOString()}</small></p>
+  </main>
+</Base>

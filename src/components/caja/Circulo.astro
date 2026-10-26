@@ -1,0 +1,179 @@
+---
+import BotonWhatsApp from './BotonWhatsApp.astro';
+import { PREMIOS, TOPE } from '../../config/circulo';
+import { MENSAJES } from '../../config/mensajes';
+import { TEXTOS } from '../../config/textos';
+import type { CajaPropia } from '../../lib/caja';
+
+interface Props {
+  circulo: CajaPropia['circulo'];
+}
+
+const { interacciones, hitos, proximo_hito, codigo_referido } = Astro.props.circulo;
+const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
+const faltan = proximo_hito === null ? 0 : proximo_hito - interacciones;
+const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(codigo_referido))}`;
+---
+
+<section class="seccion circulo">
+  <h2>Tu Círculo SS</h2>
+  <p class="conteo">
+    <strong>{interacciones}</strong>
+    <span>de {TOPE} interacciones</span>
+  </p>
+
+  <ol class="camino" aria-label={`Llevas ${interacciones} de ${TOPE} interacciones`}>
+    {
+      pasos.map((n) => (
+        <li class:list={{ hecho: n <= interacciones, hito: hitos.includes(n) }} aria-hidden="true">
+          <span class="punto" />
+          {hitos.includes(n) && <span class="numero">{n}</span>}
+        </li>
+      ))
+    }
+  </ol>
+
+  {
+    proximo_hito === null ? (
+      <p class="siguiente">Completaste todos los niveles del Círculo. ¡Gracias por ser parte de SS Joyería!</p>
+    ) : (
+      <p class="siguiente">
+        {faltan === 1 ? 'Te falta 1 interacción' : `Te faltan ${faltan} interacciones`} para el nivel {proximo_hito}:{' '}
+        <strong>{PREMIOS[proximo_hito]}</strong>.
+      </p>
+    )
+  }
+
+  <p class="sutil">{TEXTOS.circuloIntro}</p>
+
+  <div class="codigo">
+    <span class="sutil">Tu código de referido</span>
+    <button type="button" class="valor" data-codigo={codigo_referido} aria-label={`Copiar el código ${codigo_referido}`}>
+      {codigo_referido}
+    </button>
+    <span class="copiado sutil" aria-live="polite"></span>
+  </div>
+
+  <BotonWhatsApp href={compartir} texto="Compartir mi código por WhatsApp" />
+</section>
+
+<script>
+  for (const boton of document.querySelectorAll<HTMLButtonElement>('.circulo .valor')) {
+    boton.addEventListener('click', async () => {
+      const aviso = boton.parentElement!.querySelector('.copiado')!;
+      try {
+        await navigator.clipboard.writeText(boton.dataset.codigo!);
+        aviso.textContent = 'Copiado';
+      } catch {
+        aviso.textContent = '';
+      }
+      setTimeout(() => (aviso.textContent = ''), 2000);
+    });
+  }
+</script>
+
+<style>
+  .conteo {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    margin: 0 0 1rem;
+  }
+
+  .conteo strong {
+    font-family: var(--serif);
+    font-size: 2.75rem;
+    line-height: 1;
+    color: var(--rojo);
+  }
+
+  .camino {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    list-style: none;
+    padding: 0 0 1.4rem;
+    margin: 0 0 0.5rem;
+    position: relative;
+  }
+
+  /* Línea que une los puntos. */
+  .camino::before {
+    content: '';
+    position: absolute;
+    left: 5%;
+    right: 5%;
+    top: 0.75rem;
+    height: 2px;
+    background: var(--borde);
+  }
+
+  .camino li {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    height: 1.5rem;
+    align-items: center;
+  }
+
+  .punto {
+    position: relative;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--borde);
+  }
+
+  .hito .punto {
+    width: 1.3rem;
+    height: 1.3rem;
+    border-color: var(--oro);
+  }
+
+  .hecho .punto {
+    background: var(--rojo);
+    border-color: var(--rojo);
+  }
+
+  .numero {
+    position: absolute;
+    top: 1.65rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--oro);
+  }
+
+  .siguiente {
+    margin: 0.5rem 0 0.75rem;
+  }
+
+  .codigo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 1rem;
+    margin: 1rem 0;
+    border: 1px dashed var(--oro);
+    border-radius: 10px;
+  }
+
+  .codigo > .sutil:first-child {
+    flex-basis: 100%;
+  }
+
+  .valor {
+    font: inherit;
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--texto);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: copy;
+  }
+</style>

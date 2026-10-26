@@ -1,0 +1,21 @@
+---
+import { TEXTOS } from '../../config/textos';
+---
+
+<section class="seccion">
+  <h2>Cuida tu pieza</h2>
+  <ul class="cuidado">
+    {TEXTOS.cuidado.map((t) => <li>{t}</li>)}
+  </ul>
+</section>
+
+<style>
+  .cuidado {
+    margin: 0;
+    padding-left: 1.2rem;
+  }
+
+  li + li {
+    margin-top: 0.4rem;
+  }
+</style>

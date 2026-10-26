@@ -1,15 +1,54 @@
 ---
-import Base from '../../layouts/Base.astro';
+import Publica from '../../layouts/Publica.astro';
+import Piezas from '../../components/caja/Piezas.astro';
+import Garantia from '../../components/caja/Garantia.astro';
+import Circulo from '../../components/caja/Circulo.astro';
+import Cuidado from '../../components/caja/Cuidado.astro';
+import Neutra from '../../components/caja/Neutra.astro';
+import { obtenerCaja, type CajaPublica } from '../../lib/caja';
+import { capitalizar } from '../../lib/formato';
 
-// Provisional (fase 0): solo confirma que el render en servidor funciona.
-// En la fase 3 consultará la caja por código y mostrará la página neutra si no existe.
+// Página privada de cada caja: fuera de buscadores, sin caché (el contador cambia y cada visita
+// cuenta como escaneo) y sin enviar la URL con el código a los sitios que se abran desde aquí.
 Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+
+let caja: CajaPublica | null = null;
+let temporal = false;
+try {
+  caja = await obtenerCaja(Astro.params.codigo ?? '');
+} catch (e) {
+  console.error('pagina_caja', e);
+  temporal = true;
+}
+
+// La versión de regalo llega en la fase 4; mientras tanto muestra la página neutra.
+const propia = caja?.tipo === 'propia' ? caja : null;
+if (!propia) Astro.response.status = temporal ? 503 : 404;
 ---
 
-<Base title="SS Joyería" noindex>
-  <main>
-    <h1>SS Joyería</h1>
-    <p>Esta página aún no está disponible.</p>
-    <p><small>Generada en el servidor: {new Date().toISOString()}</small></p>
-  </main>
-</Base>
+<Publica noindex>
+  {
+    propia ? (
+      <>
+        <section class="bienvenida">
+          <h1>Hola, {capitalizar(propia.nombre)}</h1>
+          <p class="sutil">Gracias por elegir SS Joyería. {propia.piezas.length === 1 ? 'Esta es tu pieza:' : 'Estas son tus piezas:'}</p>
+          <Piezas piezas={propia.piezas} />
+        </section>
+        <Garantia referencia={propia.referencia} />
+        <Circulo circulo={propia.circulo} />
+        <Cuidado />
+      </>
+    ) : (
+      <Neutra temporal={temporal} />
+    )
+  }
+</Publica>
+
+<style>
+  .bienvenida {
+    padding: 0.5rem 0.25rem;
+  }
+</style>

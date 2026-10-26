@@ -1,3 +1,4 @@
+import { capitalizar } from './formato';
 import { normalizarWhatsapp } from './whatsapp';
 
 export interface PiezaForm {
@@ -65,7 +66,7 @@ export function leerFormularioVenta(form: FormData): { payload: PayloadVenta } |
     if (m) {
       const c = caja(Number(m[1]));
       if (m[2] === 'regalo') c.es_regalo = valor === 'on';
-      else c.nombre_destinatario = valor || null;
+      else c.nombre_destinatario = valor ? capitalizar(valor) : null;
       continue;
     }
     m = clave.match(/^caja-(\d+)-pieza-(\d+)-(descripcion|peso|ley)$/);
@@ -93,8 +94,8 @@ export function leerFormularioVenta(form: FormData): { payload: PayloadVenta } |
     payload: {
       cliente: {
         whatsapp,
-        nombre: texto(form, 'nombre'),
-        apellido: texto(form, 'apellido') || null,
+        nombre: capitalizar(texto(form, 'nombre')),
+        apellido: capitalizar(texto(form, 'apellido')) || null,
         autorizo_datos: form.get('autorizo_datos') === 'on',
         autorizo_datos_fecha: texto(form, 'autorizo_datos_fecha') || null,
       },

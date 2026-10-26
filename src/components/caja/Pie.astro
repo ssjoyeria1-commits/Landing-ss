@@ -1,0 +1,41 @@
+---
+import { SITIO } from '../../config/sitio';
+import { TEXTOS } from '../../config/textos';
+---
+
+<footer class="pie">
+  <p>{TEXTOS.etiquetar}</p>
+  <p class="redes">
+    <a href={SITIO.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
+    <a href={SITIO.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>
+  </p>
+  <p class="legal">
+    <a href="/datos">Política de tratamiento de datos</a> · <a href="/garantia">Garantía</a>
+  </p>
+</footer>
+
+<style>
+  .pie {
+    max-width: 32rem;
+    margin: 0 auto;
+    padding: 1rem 1rem 2.5rem;
+    text-align: center;
+    color: var(--suave);
+    font-size: 0.95rem;
+  }
+
+  .redes {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    font-weight: 600;
+  }
+
+  .legal {
+    font-size: 0.85rem;
+  }
+
+  a {
+    color: var(--texto);
+  }
+</style>

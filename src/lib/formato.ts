@@ -1,6 +1,11 @@
 const PESOS = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 const FECHA = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
+/** "maría josé" → "María José". Respeta el resto de cada palabra (p. ej. "McDonald"). */
+export function capitalizar(texto: string): string {
+  return texto.replace(/(^|[\s-])(\p{L})/gu, (_, antes: string, letra: string) => antes + letra.toLocaleUpperCase('es'));
+}
+
 export function pesos(monto: number): string {
   return PESOS.format(monto);
 }

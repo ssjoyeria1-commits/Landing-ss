@@ -1,0 +1,27 @@
+---
+import BotonWhatsApp from './BotonWhatsApp.astro';
+import { SITIO } from '../../config/sitio';
+import { enlaceWhatsApp } from '../../lib/whatsapp';
+
+interface Props {
+  /** Fallo temporal (p. ej. sin conexión con la base de datos), no un código inexistente. */
+  temporal?: boolean;
+}
+
+const { temporal = false } = Astro.props;
+---
+
+<section class="seccion" style="text-align: center">
+  <h1 style="font-size: 1.6rem">{temporal ? 'Vuelve a intentarlo' : 'Hola'}</h1>
+  <p>
+    {
+      temporal
+        ? 'No pudimos cargar esta página en este momento. Prueba de nuevo en unos minutos.'
+        : 'No encontramos información para este enlace. Si tienes una pieza de SS Joyería, escríbenos y te ayudamos.'
+    }
+  </p>
+  <BotonWhatsApp
+    href={enlaceWhatsApp(SITIO.whatsappNegocio, 'Hola, escaneé una caja de SS Joyería y no pude ver la información.')}
+    texto="Escríbenos por WhatsApp"
+  />
+</section>

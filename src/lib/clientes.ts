@@ -1,4 +1,5 @@
 import { MENSAJES } from '../config/mensajes';
+import { capitalizar } from './formato';
 import { enlaceWhatsApp } from './whatsapp';
 
 /** Fila de la vista public.clientes_circulo. */
@@ -21,14 +22,14 @@ export interface ClienteCirculo {
 }
 
 export function nombreCompleto(c: Pick<ClienteCirculo, 'nombre' | 'apellido'>): string {
-  return [c.nombre, c.apellido].filter(Boolean).join(' ');
+  return capitalizar([c.nombre, c.apellido].filter(Boolean).join(' '));
 }
 
 export function enlaceAviso(c: ClienteCirculo): string {
   return enlaceWhatsApp(
     c.whatsapp,
     MENSAJES.avisoComprador({
-      nombre: c.nombre.split(' ')[0],
+      nombre: capitalizar(c.nombre.split(' ')[0]),
       interacciones: c.interacciones,
       proximoHito: c.proximo_hito,
       codigoReferido: c.codigo_referido,

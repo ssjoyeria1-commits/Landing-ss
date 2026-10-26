@@ -1,0 +1,25 @@
+---
+import BotonWhatsApp from './BotonWhatsApp.astro';
+import { MENSAJES } from '../../config/mensajes';
+import { SITIO } from '../../config/sitio';
+import { TEXTOS } from '../../config/textos';
+import { enlaceWhatsApp } from '../../lib/whatsapp';
+
+interface Props {
+  referencia: string;
+}
+
+const { referencia } = Astro.props;
+---
+
+<section class="seccion">
+  <h2>Tu garantía</h2>
+  <p>{TEXTOS.garantiaResumen}</p>
+  <p class="sutil">
+    Referencia de tu caja: <strong>{referencia}</strong>{' · '}<a href="/garantia">Términos completos</a>
+  </p>
+  <BotonWhatsApp
+    href={enlaceWhatsApp(SITIO.whatsappNegocio, MENSAJES.garantia(referencia))}
+    texto="Escríbenos por WhatsApp"
+  />
+</section>

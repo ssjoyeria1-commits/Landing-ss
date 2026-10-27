@@ -43,11 +43,13 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
           </a>
         )
       }
-      {Astro.slots.has('saludo') && <div class="saludo"><slot name="saludo" /></div>}
     </header>
-    <main>
-      <slot />
-    </main>
+    <div class="con-monograma">
+      {Astro.slots.has('saludo') && <div class="saludo"><slot name="saludo" /></div>}
+      <main>
+        <slot />
+      </main>
+    </div>
     <Pie />
   </div>
   <script is:inline>
@@ -99,15 +101,36 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
   }
 
   .publica main {
-    flex: 1;
     width: 100%;
     max-width: 30rem;
     padding: 0;
   }
 
+  /* Fondo fijo con el monograma detrás de las secciones. El saludo y la franja de las piezas lo
+     tapan con su propio fondo, así que se empieza a ver después de la franja. La capa es
+     fija y el recorte de este bloque la deja ver solo en su alto. El recorte se abre a los lados
+     para no cortar la franja de las piezas, que llega a los bordes. Funciona también en iOS, donde
+     background-attachment: fixed no. */
+  .publica .con-monograma {
+    flex: 1;
+    position: relative;
+    isolation: isolate;
+    clip-path: inset(0 -100vw);
+  }
+
+  .publica .con-monograma::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    /* Monograma: los 7 rombos del imagotipo, sin letras, repetidos en tresbolillo. */
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 116'%3E%3Cpath fill='%23d0041a' fill-opacity='.13' fill-rule='evenodd' d='M24 8L30.79 14.79L24 21.59L17.21 14.79ZM24 10.74L19.95 14.79L24 18.85L28.05 14.79ZM15.99 16.1L22.79 22.9L15.99 29.69L9.2 22.9ZM15.99 18.85L11.94 22.9L15.99 26.95L20.04 22.9ZM32.01 16.1L38.8 22.9L32.01 29.69L25.21 22.9ZM32.01 18.85L27.96 22.9L32.01 26.95L36.06 22.9ZM24 24.21L30.79 31L24 37.79L17.21 31ZM24 26.95L19.95 31L24 35.05L28.05 31ZM15.99 32.31L22.79 39.1L15.99 45.9L9.2 39.1ZM15.99 35.05L11.94 39.1L15.99 43.15L20.04 39.1ZM32.01 32.31L38.8 39.1L32.01 45.9L25.21 39.1ZM32.01 35.05L27.96 39.1L32.01 43.15L36.06 39.1ZM24 40.41L30.79 47.21L24 54L17.21 47.21ZM24 43.15L19.95 47.21L24 51.26L28.05 47.21ZM72 66L78.79 72.79L72 79.59L65.21 72.79ZM72 68.74L67.95 72.79L72 76.85L76.05 72.79ZM63.99 74.1L70.79 80.9L63.99 87.69L57.2 80.9ZM63.99 76.85L59.94 80.9L63.99 84.95L68.04 80.9ZM80.01 74.1L86.8 80.9L80.01 87.69L73.21 80.9ZM80.01 76.85L75.96 80.9L80.01 84.95L84.06 80.9ZM72 82.21L78.79 89L72 95.79L65.21 89ZM72 84.95L67.95 89L72 93.05L76.05 89ZM63.99 90.31L70.79 97.1L63.99 103.9L57.2 97.1ZM63.99 93.05L59.94 97.1L63.99 101.15L68.04 97.1ZM80.01 90.31L86.8 97.1L80.01 103.9L73.21 97.1ZM80.01 93.05L75.96 97.1L80.01 101.15L84.06 97.1ZM72 98.41L78.79 105.21L72 112L65.21 105.21ZM72 101.15L67.95 105.21L72 109.26L76.05 105.21Z'/%3E%3C/svg%3E")
+      center top / 96px 116px;
+  }
+
   .publica .cabecera {
     text-align: center;
-    padding: 0 0 1rem;
   }
 
   /* Portada: el logo completo ocupa la primera pantalla del celular; la bienvenida viene al deslizar. */
@@ -155,9 +178,18 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     font-family: var(--display);
   }
 
+  /* El saludo va sobre negro liso de borde a borde (tapa el monograma) y llega pegado a la franja
+     de las piezas. */
   .publica .saludo {
     max-width: 30rem;
-    margin: 1.5rem auto 0;
+    margin: 0 auto;
+    padding: 1.5rem 0 3rem;
+    text-align: center;
+    border-image: conic-gradient(var(--negro) 0 0) fill 0 // 0 100vw;
+  }
+
+  .publica .saludo + main > .seccion.destacada:first-child {
+    margin-top: 0;
   }
 
   .publica h1,
@@ -435,7 +467,8 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     }
   }
 
-  .publica .cabecera > * {
+  .publica .cabecera > *,
+  .publica .saludo {
     animation: publica-entrar 500ms var(--ease-out) backwards;
   }
 
@@ -444,13 +477,14 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     animation: none;
   }
 
-  .publica .cabecera > .saludo {
+  .publica .saludo {
     animation-delay: 1300ms;
   }
 
   /* Con movimiento reducido: solo un fundido corto, sin desplazamiento. */
   @media (prefers-reduced-motion: reduce) {
-    .publica .cabecera > * {
+    .publica .cabecera > *,
+    .publica .saludo {
       animation-name: publica-aparecer;
       animation-duration: 200ms;
     }

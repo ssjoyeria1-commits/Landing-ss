@@ -12,6 +12,10 @@ interface Props {
 const { interacciones, hitos, proximo_hito, codigo_referido } = Astro.props.circulo;
 const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
 const faltan = proximo_hito === null ? 0 : proximo_hito - interacciones;
+// Premios de los niveles ya alcanzados, en una frase: "A", "A y B", "A, B y C". Vacío antes del nivel 3.
+const logrados = new Intl.ListFormat('es', { type: 'conjunction' }).format(
+  hitos.filter((h) => h <= interacciones).map((h) => PREMIOS[h] ?? `el premio del nivel ${h}`),
+);
 const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(codigo_referido))}`;
 ---
 
@@ -39,7 +43,15 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
 
   {
     proximo_hito === null ? (
-      <p class="siguiente">Completaste todos los niveles del Círculo. ¡Gracias por ser parte de SS Joyería!</p>
+      <p class="siguiente">
+        Completaste todos los niveles del Círculo y ya has logrado conseguir <strong>{logrados}</strong>. ¡Gracias por
+        ser parte de SS Joyería!
+      </p>
+    ) : logrados ? (
+      <p class="siguiente">
+        Ya has logrado conseguir <strong>{logrados}</strong>. Ahora estás cerca de alcanzar{' '}
+        <strong>{PREMIOS[proximo_hito]}</strong>: {faltan === 1 ? 'te falta 1 interacción' : `te faltan ${faltan} interacciones`}.
+      </p>
     ) : (
       <p class="siguiente">
         {faltan === 1 ? 'Te falta 1 interacción' : `Te faltan ${faltan} interacciones`} para el nivel {proximo_hito}:{' '}

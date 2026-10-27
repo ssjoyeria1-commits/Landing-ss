@@ -8,9 +8,11 @@ interface Props {
   /** Alto del símbolo. */
   alto?: string;
   class?: string;
+  /** Entrada al cargar: los rombos aparecen uno a uno de arriba abajo y luego el texto. */
+  animado?: boolean;
 }
 
-const { variante = 'completo', alto = '4rem', class: clase } = Astro.props;
+const { variante = 'completo', alto = '4rem', class: clase, animado = false } = Astro.props;
 
 const R = 106.5; // semidiagonal exterior de cada rombo
 const r = 63.5; // semidiagonal interior (grosor del trazo: 43 px en vertical)
@@ -26,12 +28,13 @@ const centros = [
 const rombo = ([x, y]: number[]) =>
   `M${x} ${y - R}L${x + R} ${y}L${x} ${y + R}L${x - R} ${y}Z` +
   `M${x} ${y - r}L${x - r} ${y}L${x} ${y + r}L${x + r} ${y}Z`;
-const trazo = centros.map(rombo).join('');
+// Un trazo por rombo (en orden de arriba abajo) para poder animarlos por separado.
+const rombos = centros.map(rombo);
 ---
 
-<div class:list={['logo', variante, clase]} style={`--alto: ${alto}`}>
+<div class:list={['logo', variante, clase, { animado }]} style={`--alto: ${alto}`}>
   <svg viewBox="0 0 464 721" role="img" aria-label="SS Joyería" fill="currentColor" fill-rule="evenodd">
-    <path d={trazo}></path>
+    {rombos.map((d, i) => <path d={d} style={`--i: ${i}`} />)}
   </svg>
   {
     variante === 'completo' && (
@@ -77,5 +80,46 @@ const trazo = centros.map(rombo).join('');
     font-size: calc(var(--alto) * 0.16);
     letter-spacing: 0.45em;
     text-transform: uppercase;
+  }
+
+  /* Cada rombo gira un cuarto de vuelta y crece hasta su sitio, 70 ms después del anterior,
+     como una piedra que se engasta; al final sube el texto. Una vez, al cargar. */
+  @keyframes rombo-engastar {
+    from {
+      opacity: 0;
+      transform: rotate(-90deg) scale(0.4);
+    }
+  }
+
+  @keyframes texto-subir {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+    }
+  }
+
+  .animado path {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rombo-engastar 520ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+    animation-delay: calc(var(--i) * 70ms);
+  }
+
+  .animado .texto {
+    animation: texto-subir 500ms cubic-bezier(0.23, 1, 0.32, 1) 450ms backwards;
+  }
+
+  /* Con movimiento reducido: un fundido corto de todo el logo, sin giros. */
+  @media (prefers-reduced-motion: reduce) {
+    .animado path,
+    .animado .texto {
+      animation: aparecer 200ms ease-out backwards;
+    }
   }
 </style>

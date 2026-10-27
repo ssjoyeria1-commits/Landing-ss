@@ -23,7 +23,10 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
   </Fragment>
   <div class="publica">
     <header class="cabecera">
-      <Logo alto="6.5rem" />
+      <div class="portada">
+        <Logo alto="min(36svh, 17rem)" animado />
+        <span class="desliza" aria-hidden="true"></span>
+      </div>
       {Astro.slots.has('saludo') && <div class="saludo"><slot name="saludo" /></div>}
     </header>
     <main>
@@ -47,6 +50,8 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     --tinta: #f2ece4;
     --gris: #a39a92;
     --superficie: #131110;
+    /* Rojo de la marca llevado a vino muy oscuro (mismo tono 354°, luminosidad de un café oscuro). */
+    --franja: #1f0507;
     /* Filete marfil: da forma a botones y tarjetas oscuras sobre el negro. */
     --filete: inset 0 0 0 1px rgb(242 236 228 / 0.35);
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -55,6 +60,7 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     display: flex;
     flex-direction: column;
     padding: 0 1.5rem;
+    overflow-x: clip;
     color: var(--tinta);
     background: var(--negro);
     line-height: 1.6;
@@ -69,7 +75,42 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
 
   .publica .cabecera {
     text-align: center;
-    padding: 4rem 0 0;
+    padding: 0 0 1rem;
+  }
+
+  /* Portada: el logo completo ocupa la primera pantalla del celular; la bienvenida viene al deslizar. */
+  .publica .portada {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    min-height: 100svh;
+  }
+
+  /* Indicador para deslizar: un rombo abierto hacia abajo que baja y sube despacio. */
+  .publica .desliza {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    width: 0.8rem;
+    height: 0.8rem;
+    margin-left: -0.4rem;
+    border-right: 1.5px solid var(--gris);
+    border-bottom: 1.5px solid var(--gris);
+    transform: rotate(45deg);
+    animation: publica-desliza 1.8s ease-in-out 1.2s infinite;
+  }
+
+  @keyframes publica-desliza {
+    50% {
+      transform: translateY(0.4rem) rotate(45deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .publica .desliza {
+      animation: none;
+    }
   }
 
   /* El logotipo toma la fuente de la marca. */
@@ -79,7 +120,7 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
 
   .publica .saludo {
     max-width: 30rem;
-    margin: 3rem auto 0;
+    margin: 1.5rem auto 0;
   }
 
   .publica h1,
@@ -98,24 +139,46 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     margin: 0 0 0.5rem;
   }
 
+  /* El saludo es lo primero que se lee: grande, y el agradecimiento también en la letra de la marca. */
+  .publica .saludo h1 {
+    font-size: clamp(2.75rem, 13vw, 3.75rem);
+    line-height: 1;
+    margin-bottom: 0.9rem;
+  }
+
   .publica .saludo p {
     margin: 0;
-    color: var(--gris);
+    font-family: var(--display);
+    font-size: 1.45rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: #cfc7bf;
   }
 
   .publica .seccion {
+    padding: 3.5rem 0 4.5rem;
     text-align: center;
   }
 
-  /* Separador: un rombo del imagotipo antes de cada sección. */
+  /* Secciones intercaladas en una franja algo más clara que llega a los bordes de la pantalla
+     (border-image solo pinta, no ensancha la página). */
+  .publica main > .seccion:nth-of-type(even) {
+    border-image: conic-gradient(var(--franja) 0 0) fill 0 // 0 100vw;
+  }
+
+  /* Separador al inicio de cada sección: filete marfil a todo el ancho, interrumpido en el centro
+     por tres rombos del imagotipo (el del medio rojo, los de los lados en gris). */
   .publica .seccion::before {
+    --linea: linear-gradient(rgb(242 236 228 / 0.45), rgb(242 236 228 / 0.45));
     content: '';
     display: block;
-    width: 0.7rem;
-    height: 0.7rem;
-    margin: 4.5rem auto;
-    border: 2px solid var(--rojo);
-    transform: rotate(45deg);
+    height: 20px;
+    margin: 0 0 3.25rem;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 20'%3E%3Cg fill='none' stroke-width='1.75'%3E%3Cpath d='M10 5.5 14.5 10 10 14.5 5.5 10Z' stroke='%23a39a92'/%3E%3Cpath d='M70 5.5 74.5 10 70 14.5 65.5 10Z' stroke='%23a39a92'/%3E%3Cpath d='M40 1.5 48.5 10 40 18.5 31.5 10Z' stroke='%23d0041a' stroke-width='2.25'/%3E%3C/g%3E%3C/svg%3E")
+        center / 80px 20px no-repeat,
+      var(--linea) left center / calc(50% - 52px) 1px no-repeat,
+      var(--linea) right center / calc(50% - 52px) 1px no-repeat;
   }
 
   .publica h2 {
@@ -197,8 +260,13 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     animation: publica-entrar 500ms var(--ease-out) backwards;
   }
 
+  /* El logo trae su propia animación (Logo.astro); el saludo entra cuando el logo ya está armado. */
+  .publica .cabecera > .portada {
+    animation: none;
+  }
+
   .publica .cabecera > .saludo {
-    animation-delay: 90ms;
+    animation-delay: 550ms;
   }
 
   /* Con movimiento reducido: solo un fundido corto, sin desplazamiento. */

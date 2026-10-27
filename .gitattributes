@@ -1,1 +1,3 @@
 * text=auto eol=lf
+# Los scripts .cmd de Windows necesitan CRLF para que funcionen sus etiquetas (goto).
+*.cmd text eol=crlf

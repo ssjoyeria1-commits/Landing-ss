@@ -25,7 +25,7 @@ const { caja, temporal = false } = Astro.props;
     caja?.tipo === 'propia' && (
       <Fragment slot="saludo">
         <h1>Hola, {capitalizar(caja.nombre)}</h1>
-        <p>Gracias por elegir SS Joyería.</p>
+        <p>Eres parte de la familia SS.</p>
       </Fragment>
     )
   }
@@ -40,16 +40,17 @@ const { caja, temporal = false } = Astro.props;
   {
     caja ? (
       <>
-        <section class="seccion">
+        {/* Orden: las piezas (protagonistas), el Círculo, la garantía y el cuidado. */}
+        <section class="seccion destacada">
           <h2>{caja.piezas.length === 1 ? 'Tu pieza' : 'Tus piezas'}</h2>
           <Piezas piezas={caja.piezas} />
         </section>
-        <Garantia referencia={caja.referencia} />
         {caja.tipo === 'propia' ? (
           <Circulo circulo={caja.circulo} />
         ) : (
           <CirculoRegalo comprador={capitalizar(caja.nombre_comprador)} codigoReferido={caja.codigo_referido_comprador} />
         )}
+        <Garantia referencia={caja.referencia} />
         <Cuidado />
       </>
     ) : (

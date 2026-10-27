@@ -12,7 +12,7 @@ const { piezas } = Astro.props;
   {
     piezas.map((p) => (
       <li>
-        <span class="descripcion">{p.descripcion}</span>
+        <span class:list={["descripcion", { larga: p.descripcion.length > 40 }]}>{p.descripcion}</span>
         <span class="detalle">
           {peso(p.peso_gramos)} · {p.ley}
         </span>

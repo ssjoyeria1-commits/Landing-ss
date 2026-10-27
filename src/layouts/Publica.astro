@@ -188,6 +188,63 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     margin-top: 3rem;
   }
 
+  /* Tarjeta de las piezas: la protagonista. Más aire por dentro y por fuera, filete rojo más
+     marcado y la descripción de cada pieza más grande. */
+  /* No es tarjeta: es una franja de borde a borde, un poco más oscura que las tarjetas, con un
+     filete rojo arriba y abajo (border-image solo pinta, no ensancha la página). */
+  .publica .seccion.destacada {
+    --banda: #140304;
+    --filo: rgb(208 4 26 / 0.6);
+    margin: 3rem 0 4.5rem;
+    padding: 2.75rem 0.25rem 3.25rem;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    border-image: linear-gradient(
+        var(--filo) 0 1px,
+        var(--banda) 1px calc(100% - 1px),
+        var(--filo) calc(100% - 1px)
+      )
+      fill 0 // 0 100vw;
+  }
+
+  .publica .seccion.destacada h2 {
+    font-size: 2.4rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .publica .seccion.destacada .descripcion {
+    font-size: 2.1rem;
+  }
+
+  /* Las descripciones largas (más de 40 caracteres) bajan un paso para no ocupar media pantalla. */
+  .publica .seccion.destacada .descripcion.larga {
+    font-size: 1.6rem;
+  }
+
+  .publica .seccion.destacada .detalle {
+    font-size: 1.05rem;
+  }
+
+  /* Tarjeta secundaria (consejos de cuidado): más baja y con letra un poco menor. */
+  .publica .seccion.compacta {
+    padding: 1.25rem 1rem 1.5rem;
+    font-size: 0.92rem;
+  }
+
+  .publica .seccion.compacta::before {
+    margin-bottom: 1rem;
+  }
+
+  .publica .seccion.compacta h2 {
+    font-size: 1.6rem;
+    margin-bottom: 1rem;
+  }
+
+  .publica .seccion.compacta li + li {
+    margin-top: 0.6rem;
+  }
+
   /* Encabezado de cada tarjeta: filete marfil de lado a lado, interrumpido en el centro por tres
      rombos del imagotipo (el del medio rojo, los de los lados en gris). */
   .publica .seccion::before {

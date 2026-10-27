@@ -22,6 +22,12 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
   <Fragment slot="head">
     <link rel="preload" href={fuente} as="font" type="font/woff2" crossorigin />
     <style set:html={caraFuente}></style>
+    <!-- Las tarjetas se ocultan para entrar al hacer scroll solo si hay con qué mostrarlas
+         (IntersectionObserver) y si el visitante no pidió menos movimiento. -->
+    <script is:inline>
+      if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+        document.documentElement.classList.add('entrada');
+    </script>
   </Fragment>
   <div class="publica">
     <header class="cabecera">
@@ -44,6 +50,22 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     </main>
     <Pie />
   </div>
+  <script is:inline>
+    // Cada tarjeta (y cada título de fuera) sube y aparece la primera vez que entra en pantalla.
+    if (document.documentElement.classList.contains('entrada')) {
+      const observador = new IntersectionObserver(
+        (entradas) => {
+          for (const e of entradas) {
+            if (!e.isIntersecting) continue;
+            e.target.classList.add('visible');
+            observador.unobserve(e.target);
+          }
+        },
+        { threshold: 0.12 },
+      );
+      for (const el of document.querySelectorAll('.publica main .seccion, .publica main .titulo-fuera')) observador.observe(el);
+    }
+  </script>
 </Base>
 
 <style is:global>
@@ -184,6 +206,39 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
       inset 0 1px 0 rgb(242 236 228 / 0.12);
   }
 
+  /* Título fuera de la tarjeta (Círculo y garantía): sobre el negro, justo encima. */
+  .publica .bloque {
+    margin: 2.5rem 0 1.5rem;
+  }
+
+  .publica .bloque > .seccion {
+    margin: 0;
+  }
+
+  .publica .titulo-fuera {
+    font-size: 2.6rem;
+    margin: 0 0 1.1rem;
+    text-align: center;
+  }
+
+  /* Entrada al hacer scroll: suben 2 rem y aparecen. Solo con la clase `entrada` (ver <head>). */
+  .entrada .publica main :is(.seccion, .titulo-fuera) {
+    opacity: 0;
+    transform: translateY(2rem);
+    transition:
+      opacity 700ms ease-out,
+      transform 900ms var(--ease-out);
+  }
+
+  .entrada .publica main .bloque > .seccion {
+    transition-delay: 120ms;
+  }
+
+  .entrada .publica main :is(.seccion, .titulo-fuera).visible {
+    opacity: 1;
+    transform: none;
+  }
+
   .publica main > .seccion:first-child {
     margin-top: 3rem;
   }
@@ -215,6 +270,51 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
 
   .publica .seccion.destacada .descripcion {
     font-size: 2.1rem;
+  }
+
+  /* Nombre de cada pieza en marfil, con una luz dorada que lo cruza cada pocos segundos, como el
+     reflejo sobre el metal. Sin soporte para recortar el fondo al texto queda marfil liso; con
+     movimiento reducido, sin luz. */
+  .publica .seccion.destacada .descripcion {
+    color: var(--tinta);
+  }
+
+  @supports ((background-clip: text) or (-webkit-background-clip: text)) {
+    .publica .seccion.destacada .descripcion {
+      color: transparent;
+      background: linear-gradient(
+          100deg,
+          var(--tinta) 0%,
+          var(--tinta) 40%,
+          #d9b45a 46%,
+          #fff1c2 50%,
+          #d9b45a 54%,
+          var(--tinta) 60%,
+          var(--tinta) 100%
+        )
+        0 0 / 300% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: publica-oro 7s ease-in-out infinite;
+    }
+  }
+
+  /* La luz cruza en 4 s y luego descansa 3 s (4/7 del ciclo = 57,14 %). */
+  @keyframes publica-oro {
+    0% {
+      background-position: 100% 0;
+    }
+    57.14%,
+    100% {
+      background-position: 0% 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .publica .seccion.destacada .descripcion {
+      animation: none;
+      background-position: 0% 0;
+    }
   }
 
   /* Las descripciones largas (más de 40 caracteres) bajan un paso para no ocupar media pantalla. */

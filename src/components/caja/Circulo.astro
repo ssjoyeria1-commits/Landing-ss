@@ -19,56 +19,58 @@ const logrados = new Intl.ListFormat('es', { type: 'conjunction' }).format(
 const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(codigo_referido))}`;
 ---
 
-<section class="seccion circulo">
-  <h2>Tu Círculo SS</h2>
-  <p class="conteo">
-    <strong>{interacciones}</strong>
-    <span>de {TOPE} interacciones</span>
-  </p>
+<section class="bloque">
+  <h2 class="titulo-fuera">Tu Círculo SS</h2>
+  <div class="seccion circulo">
+    <p class="conteo">
+      <strong>{interacciones}</strong>
+      <span>de {TOPE} interacciones</span>
+    </p>
 
-  <ol class="camino" role="img" aria-label={`Llevas ${interacciones} de ${TOPE} interacciones`}>
+    <ol class="camino" role="img" aria-label={`Llevas ${interacciones} de ${TOPE} interacciones`}>
+      {
+        pasos.map((n) => (
+          <li class:list={{ hecho: n <= interacciones, hito: hitos.includes(n) }} style={`--i: ${n - 1}`}>
+            <span class="punto" />
+            {hitos.includes(n) && <span class="numero">{n}</span>}
+          </li>
+        ))
+      }
+    </ol>
+    <script is:inline>
+      if ('IntersectionObserver' in window && document.currentScript.previousElementSibling.querySelector('.hecho'))
+        document.currentScript.previousElementSibling.dataset.estado = 'esperando';
+    </script>
+
     {
-      pasos.map((n) => (
-        <li class:list={{ hecho: n <= interacciones, hito: hitos.includes(n) }} style={`--i: ${n - 1}`}>
-          <span class="punto" />
-          {hitos.includes(n) && <span class="numero">{n}</span>}
-        </li>
-      ))
+      proximo_hito === null ? (
+        <p class="siguiente">
+          Completaste todos los niveles del Círculo y ya has logrado conseguir <strong>{logrados}</strong>. ¡Gracias por
+          ser parte de SS Joyería!
+        </p>
+      ) : logrados ? (
+        <p class="siguiente">
+          Ya has logrado conseguir <strong>{logrados}</strong>. Ahora estás cerca de alcanzar{' '}
+          <strong>{PREMIOS[proximo_hito]}</strong>: {faltan === 1 ? 'te falta 1 interacción' : `te faltan ${faltan} interacciones`}.
+        </p>
+      ) : (
+        <p class="siguiente">
+          {faltan === 1 ? 'Te falta 1 interacción' : `Te faltan ${faltan} interacciones`} para el nivel {proximo_hito}:{' '}
+          <strong>{PREMIOS[proximo_hito]}</strong>.
+        </p>
+      )
     }
-  </ol>
-  <script is:inline>
-    if ('IntersectionObserver' in window && document.currentScript.previousElementSibling.querySelector('.hecho'))
-      document.currentScript.previousElementSibling.dataset.estado = 'esperando';
-  </script>
 
-  {
-    proximo_hito === null ? (
-      <p class="siguiente">
-        Completaste todos los niveles del Círculo y ya has logrado conseguir <strong>{logrados}</strong>. ¡Gracias por
-        ser parte de SS Joyería!
-      </p>
-    ) : logrados ? (
-      <p class="siguiente">
-        Ya has logrado conseguir <strong>{logrados}</strong>. Ahora estás cerca de alcanzar{' '}
-        <strong>{PREMIOS[proximo_hito]}</strong>: {faltan === 1 ? 'te falta 1 interacción' : `te faltan ${faltan} interacciones`}.
-      </p>
-    ) : (
-      <p class="siguiente">
-        {faltan === 1 ? 'Te falta 1 interacción' : `Te faltan ${faltan} interacciones`} para el nivel {proximo_hito}:{' '}
-        <strong>{PREMIOS[proximo_hito]}</strong>.
-      </p>
-    )
-  }
+    <p class="sutil">{TEXTOS.circuloIntro}</p>
 
-  <p class="sutil">{TEXTOS.circuloIntro}</p>
+    <button type="button" class="codigo" data-codigo={codigo_referido} aria-label={`Copiar el código ${codigo_referido}`}>
+      <span class="sutil">Tu código de referido</span>
+      <span class="valor">{codigo_referido}</span>
+      <span class="sutil aviso" aria-live="polite">Toca para copiar</span>
+    </button>
 
-  <button type="button" class="codigo" data-codigo={codigo_referido} aria-label={`Copiar el código ${codigo_referido}`}>
-    <span class="sutil">Tu código de referido</span>
-    <span class="valor">{codigo_referido}</span>
-    <span class="sutil aviso" aria-live="polite">Toca para copiar</span>
-  </button>
-
-  <BotonWhatsApp href={compartir} texto="Compartir mi código" color="rojo" />
+    <BotonWhatsApp href={compartir} texto="Compartir mi código" color="rojo" />
+  </div>
 </section>
 
 <script>

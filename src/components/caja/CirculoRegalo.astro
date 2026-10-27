@@ -16,12 +16,14 @@ interface Props {
 const { comprador, codigoReferido } = Astro.props;
 ---
 
-<section class="seccion">
-  <h2>El Círculo SS</h2>
-  <p>{TEXTOS.circuloRegalo(comprador)}</p>
-  <BotonWhatsApp
-    href={enlaceWhatsApp(SITIO.whatsappNegocio, MENSAJES.destinatarioRegalo(codigoReferido))}
-    texto="Quiero conocer el Círculo"
-    color="rojo"
-  />
+<section class="bloque">
+  <h2 class="titulo-fuera">El Círculo SS</h2>
+  <div class="seccion">
+    <p>{TEXTOS.circuloRegalo(comprador)}</p>
+    <BotonWhatsApp
+      href={enlaceWhatsApp(SITIO.whatsappNegocio, MENSAJES.destinatarioRegalo(codigoReferido))}
+      texto="Quiero conocer el Círculo"
+      color="rojo"
+    />
+  </div>
 </section>

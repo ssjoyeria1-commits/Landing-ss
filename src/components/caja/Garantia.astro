@@ -12,14 +12,16 @@ interface Props {
 const { referencia } = Astro.props;
 ---
 
-<section class="seccion">
-  <h2>Tu garantía</h2>
-  <p>{TEXTOS.garantiaResumen}</p>
-  <p class="sutil">
-    Referencia de tu caja: <strong>{referencia}</strong>{' · '}<a href="/garantia">Términos completos</a>
-  </p>
-  <BotonWhatsApp
-    href={enlaceWhatsApp(SITIO.whatsappNegocio, MENSAJES.garantia(referencia))}
-    texto="Escríbenos por WhatsApp"
-  />
+<section class="bloque">
+  <h2 class="titulo-fuera">Tu garantía</h2>
+  <div class="seccion">
+    <p>{TEXTOS.garantiaResumen}</p>
+    <p class="sutil">
+      Referencia de tu caja: <strong>{referencia}</strong>{' · '}<a href="/garantia">Términos completos</a>
+    </p>
+    <BotonWhatsApp
+      href={enlaceWhatsApp(SITIO.whatsappNegocio, MENSAJES.garantia(referencia))}
+      texto="Escríbenos por WhatsApp"
+    />
+  </div>
 </section>

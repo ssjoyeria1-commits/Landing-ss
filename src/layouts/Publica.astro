@@ -295,16 +295,16 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
         0 0 / 300% 100%;
       -webkit-background-clip: text;
       background-clip: text;
-      animation: publica-oro 7s ease-in-out infinite;
+      animation: publica-oro 5s ease-in-out infinite;
     }
   }
 
-  /* La luz cruza en 4 s y luego descansa 3 s (4/7 del ciclo = 57,14 %). */
+  /* La luz cruza en 4 s y luego descansa 1 s (4/5 del ciclo = 80 %). */
   @keyframes publica-oro {
     0% {
       background-position: 100% 0;
     }
-    57.14%,
+    80%,
     100% {
       background-position: 0% 0;
     }

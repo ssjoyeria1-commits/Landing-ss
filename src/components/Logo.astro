@@ -82,7 +82,7 @@ const rombos = centros.map(rombo);
     text-transform: uppercase;
   }
 
-  /* Cada rombo gira un cuarto de vuelta y crece hasta su sitio, 70 ms después del anterior,
+  /* Cada rombo gira un cuarto de vuelta y crece hasta su sitio, 150 ms después del anterior,
      como una piedra que se engasta; al final sube el texto. Una vez, al cargar. */
   @keyframes rombo-engastar {
     from {
@@ -107,12 +107,12 @@ const rombos = centros.map(rombo);
   .animado path {
     transform-box: fill-box;
     transform-origin: center;
-    animation: rombo-engastar 520ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
-    animation-delay: calc(var(--i) * 70ms);
+    animation: rombo-engastar 1000ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    animation-delay: calc(var(--i) * 150ms);
   }
 
   .animado .texto {
-    animation: texto-subir 500ms cubic-bezier(0.23, 1, 0.32, 1) 450ms backwards;
+    animation: texto-subir 1000ms cubic-bezier(0.16, 1, 0.3, 1) 1100ms backwards;
   }
 
   /* Con movimiento reducido: un fundido corto de todo el logo, sin giros. */

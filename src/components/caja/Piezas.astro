@@ -28,33 +28,28 @@ const { piezas } = Astro.props;
     padding: 0;
   }
 
+  /* Cada pieza como objeto de vitrina: el nombre grande y el dato discreto debajo. */
   li {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 1rem;
-    justify-content: space-between;
-    padding: 0.75rem 0;
+    flex-direction: column;
+    gap: 0.35rem;
   }
 
   li + li {
-    border-top: 1px solid var(--borde);
-  }
-
-  li:first-child {
-    padding-top: 0;
-  }
-
-  li:last-child {
-    padding-bottom: 0;
+    margin-top: 2rem;
   }
 
   .descripcion {
+    font-family: var(--display);
+    font-size: 1.75rem;
     font-weight: 600;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
   }
 
   .detalle {
-    color: var(--rojo);
-    font-weight: 600;
+    color: var(--gris);
     font-variant-numeric: tabular-nums;
   }
 </style>

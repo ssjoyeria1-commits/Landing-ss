@@ -4,9 +4,11 @@ interface Props {
   description?: string;
   /** Las páginas de chip no deben aparecer en buscadores. */
   noindex?: boolean;
+  /** Clase del <body> (la página pública usa fondo negro). */
+  clase?: string;
 }
 
-const { title, description = 'SS Joyería', noindex = false } = Astro.props;
+const { title, description = 'SS Joyería', noindex = false, clase } = Astro.props;
 ---
 
 <!doctype html>
@@ -19,8 +21,9 @@ const { title, description = 'SS Joyería', noindex = false } = Astro.props;
     {noindex && <meta name="robots" content="noindex, nofollow" />}
     <meta name="theme-color" content="#000000" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <slot name="head" />
   </head>
-  <body>
+  <body class={clase}>
     <slot />
   </body>
 </html>

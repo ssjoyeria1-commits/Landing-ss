@@ -66,9 +66,13 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 
 - Código, comentarios, nombres y textos en español. Commits en español.
 - Marca: rojo `#d0041a` (medido en el logo digital; referencia impresa Pantone 7620 C) y negro `#000`.
-  Variables en `src/layouts/Base.astro`. Tipografía serif del sistema (`--serif`), sin fuentes web.
-- Página pública: cabecera negra con logo y saludo, tarjetas blancas con línea roja bajo el título,
-  contador con rombos, pie negro. Botones negros; rojo solo para la acción principal.
+  Variables en `src/layouts/Base.astro`. El panel usa la serif del sistema (`--serif`).
+- Página pública, dirección "Oscura" (`src/layouts/Publica.astro`): todo negro, texto marfil `#f2ece4`,
+  gris `#a39a92`. Una sola fuente web, Cormorant Garamond (`src/assets/fuentes/`, OFL, 37 KB, `swap`),
+  para títulos, piezas, contador y código. Rombos del imagotipo como separadores y viñetas. Rojo solo
+  para el botón principal y los rombos ganados del Círculo. Botones oscuros con filete marfil.
+- Datos de prueba de la página del chip sin base de datos: `/pruebas/casos?datos=demo|peor|cero|diez|neutra|temporal`
+  (solo en desarrollo; en producción da 404).
 - Nombres con mayúscula inicial (`capitalizar()` al guardar y al mostrar).
 - CSV "informes" para Excel en español: separador `;` y decimales con coma. Los de "respaldo técnico"
   usan formato estándar con coma.

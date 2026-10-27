@@ -2,6 +2,8 @@
 import Base from './Base.astro';
 import Logo from '../components/Logo.astro';
 import Pie from '../components/caja/Pie.astro';
+// Única fuente web: Cormorant Garamond (OFL, subconjunto latino, 37 KB). Va a /_astro con caché inmutable.
+import fuente from '../assets/fuentes/cormorant-garamond.woff2?url';
 
 interface Props {
   title?: string;
@@ -10,12 +12,18 @@ interface Props {
 }
 
 const { title = 'SS Joyería', noindex = false } = Astro.props;
+// `swap`: el texto se ve de inmediato con la serif del sistema y cambia cuando llega la fuente.
+const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuente}') format('woff2');font-weight:500 700;font-display:swap}`;
 ---
 
-<Base title={title} noindex={noindex}>
+<Base title={title} noindex={noindex} clase="fondo-publico">
+  <Fragment slot="head">
+    <link rel="preload" href={fuente} as="font" type="font/woff2" crossorigin />
+    <style set:html={caraFuente}></style>
+  </Fragment>
   <div class="publica">
     <header class="cabecera">
-      <Logo alto="4.5rem" />
+      <Logo alto="6.5rem" />
       {Astro.slots.has('saludo') && <div class="saludo"><slot name="saludo" /></div>}
     </header>
     <main>
@@ -26,113 +34,178 @@ const { title = 'SS Joyería', noindex = false } = Astro.props;
 </Base>
 
 <style is:global>
+  /* Dirección "Oscura": un solo fondo negro y cada cosa iluminada como en vitrina.
+     El rojo queda para la acción principal y los rombos ganados del Círculo. */
+  .fondo-publico {
+    background: var(--negro);
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   .publica {
+    --display: 'Cormorant Garamond', var(--serif);
+    --tinta: #f2ece4;
+    --gris: #a39a92;
+    --superficie: #131110;
+    /* Filete marfil: da forma a botones y tarjetas oscuras sobre el negro. */
+    --filete: inset 0 0 0 1px rgb(242 236 228 / 0.35);
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
+    padding: 0 1.5rem;
+    color: var(--tinta);
+    background: var(--negro);
+    line-height: 1.6;
   }
 
   .publica main {
     flex: 1;
     width: 100%;
-    padding-top: 0.25rem;
+    max-width: 30rem;
+    padding: 0;
   }
 
   .publica .cabecera {
-    background: var(--negro);
-    color: #fff;
     text-align: center;
-    padding: 2rem 1rem 1.75rem;
+    padding: 4rem 0 0;
+  }
+
+  /* El logotipo toma la fuente de la marca. */
+  .publica .logo {
+    font-family: var(--display);
   }
 
   .publica .saludo {
-    max-width: 32rem;
-    margin: 1.5rem auto 0;
-  }
-
-  .publica .saludo h1 {
-    color: #fff;
-    font-size: 2.1rem;
-    margin: 0 0 0.35rem;
-  }
-
-  .publica .saludo p {
-    margin: 0;
-    color: #c9c4c2;
+    max-width: 30rem;
+    margin: 3rem auto 0;
   }
 
   .publica h1,
   .publica h2 {
-    font-family: var(--serif);
+    font-family: var(--display);
     font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--tinta);
+    overflow-wrap: anywhere;
+    text-wrap: balance;
   }
 
-  .publica h2 {
-    font-size: 1.35rem;
-    margin: 0 0 0.75rem;
-    color: var(--texto);
+  .publica h1 {
+    font-size: 2.75rem;
+    line-height: 1.05;
+    margin: 0 0 0.5rem;
   }
 
-  /* Línea roja corta bajo cada título de sección, como acento de marca. */
-  .publica .seccion h2::after {
-    content: '';
-    display: block;
-    width: 2rem;
-    height: 3px;
-    margin-top: 0.45rem;
-    background: var(--rojo);
+  .publica .saludo p {
+    margin: 0;
+    color: var(--gris);
   }
 
   .publica .seccion {
-    background: #fff;
-    border: 1px solid var(--borde);
-    border-radius: 12px;
-    padding: 1.25rem;
-    margin: 1rem 0;
+    text-align: center;
+  }
+
+  /* Separador: un rombo del imagotipo antes de cada sección. */
+  .publica .seccion::before {
+    content: '';
+    display: block;
+    width: 0.7rem;
+    height: 0.7rem;
+    margin: 4.5rem auto;
+    border: 2px solid var(--rojo);
+    transform: rotate(45deg);
+  }
+
+  .publica h2 {
+    font-size: 2rem;
+    line-height: 1.1;
+    margin: 0 0 1.75rem;
+  }
+
+  .publica p,
+  .publica li {
+    text-wrap: pretty;
   }
 
   .publica .sutil {
-    color: var(--suave);
+    color: var(--gris);
     font-size: 0.95rem;
+  }
+
+  .publica a {
+    color: var(--tinta);
+    text-underline-offset: 0.2em;
   }
 
   .publica .boton {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.6rem;
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 3rem;
+    min-height: 3.25rem;
+    margin-top: 1.75rem;
     padding: 0.75rem 1rem;
     border: 0;
-    border-radius: 999px;
+    border-radius: 0;
     font: inherit;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
+    color: var(--tinta);
+    background: var(--superficie);
+    box-shadow: var(--filete);
+    transition: transform 160ms var(--ease-out);
   }
 
-  .publica .boton.whatsapp,
-  .publica .boton.principal {
-    color: #fff;
-    background: var(--negro);
+  .publica .boton:active {
+    transform: scale(0.98);
   }
 
   .publica .boton.rojo {
+    color: #fff;
     background: var(--rojo);
-  }
-
-  .publica .boton.secundario {
-    color: var(--texto);
-    background: transparent;
-    border: 1px solid var(--borde);
+    box-shadow: none;
   }
 
   .publica .boton + .boton {
     margin-top: 0.6rem;
   }
 
-  .publica a {
-    color: var(--rojo);
+  .publica :focus-visible {
+    outline: 2px solid var(--tinta);
+    outline-offset: 3px;
+  }
+
+  /* Entrada al abrir la caja: el logo sube y aparece; el saludo lo sigue. Ocurre una vez. */
+  @keyframes publica-entrar {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+
+  @keyframes publica-aparecer {
+    from {
+      opacity: 0;
+    }
+  }
+
+  .publica .cabecera > * {
+    animation: publica-entrar 500ms var(--ease-out) backwards;
+  }
+
+  .publica .cabecera > .saludo {
+    animation-delay: 90ms;
+  }
+
+  /* Con movimiento reducido: solo un fundido corto, sin desplazamiento. */
+  @media (prefers-reduced-motion: reduce) {
+    .publica .cabecera > * {
+      animation-name: publica-aparecer;
+      animation-duration: 200ms;
+    }
   }
 </style>

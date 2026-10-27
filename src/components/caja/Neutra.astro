@@ -11,8 +11,8 @@ interface Props {
 const { temporal = false } = Astro.props;
 ---
 
-<section class="seccion" style="text-align: center">
-  <h1 style="font-size: 1.6rem">{temporal ? 'Vuelve a intentarlo' : 'Hola'}</h1>
+<section class="seccion">
+  <h1>{temporal ? 'Vuelve a intentarlo' : 'Hola'}</h1>
   <p>
     {
       temporal

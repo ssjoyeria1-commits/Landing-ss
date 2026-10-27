@@ -22,16 +22,20 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     <span>de {TOPE} interacciones</span>
   </p>
 
-  <ol class="camino" aria-label={`Llevas ${interacciones} de ${TOPE} interacciones`}>
+  <ol class="camino" role="img" aria-label={`Llevas ${interacciones} de ${TOPE} interacciones`}>
     {
       pasos.map((n) => (
-        <li class:list={{ hecho: n <= interacciones, hito: hitos.includes(n) }} aria-hidden="true">
+        <li class:list={{ hecho: n <= interacciones, hito: hitos.includes(n) }} style={`--i: ${n - 1}`}>
           <span class="punto" />
           {hitos.includes(n) && <span class="numero">{n}</span>}
         </li>
       ))
     }
   </ol>
+  <script is:inline>
+    if ('IntersectionObserver' in window && document.currentScript.previousElementSibling.querySelector('.hecho'))
+      document.currentScript.previousElementSibling.dataset.estado = 'esperando';
+  </script>
 
   {
     proximo_hito === null ? (
@@ -46,89 +50,94 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
 
   <p class="sutil">{TEXTOS.circuloIntro}</p>
 
-  <div class="codigo">
+  <button type="button" class="codigo" data-codigo={codigo_referido} aria-label={`Copiar el código ${codigo_referido}`}>
     <span class="sutil">Tu código de referido</span>
-    <button type="button" class="valor" data-codigo={codigo_referido} aria-label={`Copiar el código ${codigo_referido}`}>
-      {codigo_referido}
-    </button>
-    <span class="copiado sutil" aria-live="polite"></span>
-  </div>
+    <span class="valor">{codigo_referido}</span>
+    <span class="sutil aviso" aria-live="polite">Toca para copiar</span>
+  </button>
 
   <BotonWhatsApp href={compartir} texto="Compartir mi código por WhatsApp" color="rojo" />
 </section>
 
 <script>
-  for (const boton of document.querySelectorAll<HTMLButtonElement>('.circulo .valor')) {
+  for (const boton of document.querySelectorAll<HTMLButtonElement>('.circulo .codigo')) {
+    const aviso = boton.querySelector('.aviso')!;
+    let espera: ReturnType<typeof setTimeout>;
     boton.addEventListener('click', async () => {
-      const aviso = boton.parentElement!.querySelector('.copiado')!;
       try {
         await navigator.clipboard.writeText(boton.dataset.codigo!);
         aviso.textContent = 'Copiado';
       } catch {
-        aviso.textContent = '';
+        aviso.textContent = 'No se pudo copiar';
       }
-      setTimeout(() => (aviso.textContent = ''), 2000);
+      clearTimeout(espera);
+      espera = setTimeout(() => (aviso.textContent = 'Toca para copiar'), 2000);
     });
+  }
+
+  // Los rombos ganados se llenan uno a uno cuando el contador entra en pantalla.
+  // Sin JavaScript (o sin IntersectionObserver) se ven llenos desde el principio.
+  if ('IntersectionObserver' in window) {
+    for (const camino of document.querySelectorAll<HTMLElement>('.circulo .camino[data-estado="esperando"]')) {
+      const observador = new IntersectionObserver(
+        ([entrada]) => {
+          if (!entrada.isIntersecting) return;
+          camino.dataset.estado = 'llenando';
+          observador.disconnect();
+        },
+        { threshold: 0.6 },
+      );
+      observador.observe(camino);
+    }
   }
 </script>
 
 <style>
   .conteo {
-    display: flex;
-    gap: 0.5rem;
-    align-items: baseline;
-    margin: 0 0 1rem;
+    margin: 0 0 1.5rem;
+    color: var(--gris);
   }
 
+  /* El número en marfil, no en rojo: un 0 rojo se leería como error. */
   .conteo strong {
-    font-family: var(--serif);
-    font-size: 2.75rem;
+    display: block;
+    font-family: var(--display);
+    font-size: 5rem;
+    font-weight: 600;
     line-height: 1;
-    color: var(--rojo);
+    color: var(--tinta);
+    /* Cifras de caja alta: en Cormorant, el 0 y el 1 de estilo antiguo parecen letras. */
+    font-variant-numeric: lining-nums tabular-nums;
   }
 
   .camino {
     display: grid;
     grid-template-columns: repeat(10, 1fr);
     list-style: none;
-    padding: 0 0 1.4rem;
-    margin: 0 0 0.5rem;
-    position: relative;
-  }
-
-  /* Línea que une los puntos. */
-  .camino::before {
-    content: '';
-    position: absolute;
-    left: 5%;
-    right: 5%;
-    top: 0.75rem;
-    height: 2px;
-    background: var(--borde);
+    margin: 0 0 2rem;
+    padding: 0 0 1.5rem;
   }
 
   .camino li {
     position: relative;
     display: flex;
     justify-content: center;
-    height: 1.5rem;
     align-items: center;
+    height: 1.6rem;
   }
 
   /* Rombos, como los del logo. */
   .punto {
-    position: relative;
-    width: 0.6rem;
-    height: 0.6rem;
+    width: 0.65rem;
+    height: 0.65rem;
+    border: 2px solid #6f6760;
     transform: rotate(45deg);
-    background: #fff;
-    border: 2px solid #cfc8c4;
   }
 
   .hito .punto {
-    width: 1.05rem;
-    height: 1.05rem;
-    border: 3px solid var(--negro);
+    width: 1.1rem;
+    height: 1.1rem;
+    border-color: var(--tinta);
   }
 
   .hecho .punto {
@@ -136,49 +145,83 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     border-color: var(--rojo);
   }
 
+  /* Antes de entrar en pantalla, los ganados se ven vacíos; luego se llenan con 60 ms entre uno y otro. */
+  .camino[data-estado='esperando'] .hecho:not(.hito) .punto {
+    background: transparent;
+    border-color: #6f6760;
+  }
+
+  .camino[data-estado='esperando'] .hito.hecho .punto {
+    background: transparent;
+    border-color: var(--tinta);
+  }
+
+  @keyframes llenar {
+    from {
+      opacity: 0;
+      transform: rotate(45deg) scale(0.5);
+    }
+  }
+
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+    }
+  }
+
+  .camino[data-estado='llenando'] .hecho .punto {
+    animation: llenar 260ms var(--ease-out) backwards;
+    animation-delay: calc(var(--i) * 60ms);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .camino[data-estado='llenando'] .hecho .punto {
+      animation-name: aparecer;
+      animation-delay: 0ms;
+    }
+  }
+
   .numero {
     position: absolute;
-    top: 1.65rem;
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: var(--texto);
+    top: 1.75rem;
+    font-size: 0.85rem;
+    color: var(--gris);
   }
 
   .siguiente {
-    margin: 0.5rem 0 0.75rem;
+    margin: 0 0 1rem;
   }
 
   .codigo {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 0.75rem;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 1rem;
-    margin: 1rem 0;
-    background: var(--negro);
-    border-radius: 10px;
+    gap: 0.2rem;
+    width: 100%;
+    margin-top: 1.75rem;
+    padding: 1.25rem 1rem;
+    border: 0;
+    color: var(--tinta);
+    background: var(--superficie);
+    box-shadow: var(--filete);
+    font: inherit;
+    cursor: pointer;
+    transition: transform 160ms var(--ease-out);
+    container-type: inline-size;
   }
 
-  .codigo .sutil {
-    color: #c9c4c2;
-  }
-
-  .codigo > .sutil:first-child {
-    flex-basis: 100%;
+  .codigo:active {
+    transform: scale(0.98);
   }
 
   .valor {
-    font: inherit;
-    font-family: var(--serif);
-    font-size: 1.6rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: #fff;
-    background: none;
-    border: 0;
-    padding: 0;
-    cursor: copy;
+    font-family: var(--display);
+    /* Un código no se parte: se achica para caber (el más largo tiene 17 caracteres). */
+    font-size: 1.5rem;
+    font-size: min(1.9rem, 8.5cqi);
+    font-weight: 600;
+    font-variant-numeric: lining-nums;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
   }
 </style>

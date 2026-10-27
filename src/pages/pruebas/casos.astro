@@ -1,0 +1,112 @@
+---
+// SOLO DESARROLLO: la página del chip con datos de prueba (?datos=demo|peor|cero|diez|neutra|temporal).
+// No consulta la base ni suma escaneos. En producción responde 404.
+import Publica from '../../layouts/Publica.astro';
+import Piezas from '../../components/caja/Piezas.astro';
+import Garantia from '../../components/caja/Garantia.astro';
+import Circulo from '../../components/caja/Circulo.astro';
+import Cuidado from '../../components/caja/Cuidado.astro';
+import Neutra from '../../components/caja/Neutra.astro';
+import type { CajaPropia } from '../../lib/caja';
+import { capitalizar } from '../../lib/formato';
+
+if (import.meta.env.PROD) return new Response(null, { status: 404 });
+
+const demo: CajaPropia = {
+  tipo: 'propia',
+  referencia: 'SS-4GKKS',
+  nombre: 'valentina',
+  piezas: [
+    { descripcion: 'Cadena tejido lazo, 50 cm', peso_gramos: 3.5, ley: '18k' },
+    { descripcion: 'Dije rombo con circón', peso_gramos: 1.2, ley: '18k' },
+  ],
+  circulo: { interacciones: 4, hitos: [3, 5, 10], proximo_hito: 5, codigo_referido: 'VALENTINA-8310' },
+};
+
+// Peor caso realista: primer nombre largo con guion (límite 60), descripciones cerca del límite de 120,
+// ley de 20, 6 piezas y el código de referido más largo posible (12 letras + guion + 4 dígitos).
+const peor: CajaPropia = {
+  tipo: 'propia',
+  referencia: 'SS-9XWQM',
+  nombre: 'maximiliano-alejandro',
+  piezas: [
+    { descripcion: 'Anillo de compromiso solitario en oro blanco con diamante talla brillante de 0,30 ct y certificado gemológico', peso_gramos: 4.25, ley: 'Oro blanco 18k (750)' },
+    { descripcion: 'Argollas de matrimonio media caña', peso_gramos: 12.75, ley: '18k' },
+    { descripcion: 'Topos', peso_gramos: 0.8, ley: '18k' },
+    { descripcion: 'Pulsera tejido cartier con dije de rombo calado y broche de seguridad', peso_gramos: 7.1, ley: 'Oro rosado 18k' },
+    { descripcion: 'Cadena gargantilla 45 cm', peso_gramos: 2.33, ley: '14k' },
+    { descripcion: 'Dije medalla Virgen del Carmen', peso_gramos: 1.5, ley: '18k' },
+  ],
+  circulo: { interacciones: 9, hitos: [3, 5, 10], proximo_hito: 10, codigo_referido: 'MAXIMILIANOA-4821' },
+};
+
+const casos: Record<string, CajaPropia | 'neutra' | 'temporal'> = {
+  demo,
+  peor,
+  cero: { ...demo, nombre: 'jo', piezas: [demo.piezas[0]], circulo: { interacciones: 0, hitos: [3, 5, 10], proximo_hito: 3, codigo_referido: 'JO-0042' } },
+  diez: { ...demo, circulo: { interacciones: 10, hitos: [3, 5, 10], proximo_hito: null, codigo_referido: 'VALENTINA-8310' } },
+  neutra: 'neutra',
+  temporal: 'temporal',
+};
+const clave = Astro.url.searchParams.get('datos') ?? 'demo';
+const caso = casos[clave] ?? demo;
+const propia = typeof caso === 'object' ? caso : null;
+---
+
+<Publica noindex>
+  {
+    propia && (
+      <Fragment slot="saludo">
+        <h1>Hola, {capitalizar(propia.nombre)}</h1>
+        <p>Gracias por elegir SS Joyería.</p>
+      </Fragment>
+    )
+  }
+  {
+    propia ? (
+      <>
+        <section class="seccion">
+          <h2>{propia.piezas.length === 1 ? 'Tu pieza' : 'Tus piezas'}</h2>
+          <Piezas piezas={propia.piezas} />
+        </section>
+        <Garantia referencia={propia.referencia} />
+        <Circulo circulo={propia.circulo} />
+        <Cuidado />
+      </>
+    ) : (
+      <Neutra temporal={caso === 'temporal'} />
+    )
+  }
+</Publica>
+
+<nav class="datos-prueba" aria-label="Datos de prueba">
+  {Object.keys(casos).map((k) => <a href={`?datos=${k}`} aria-current={k === clave ? 'page' : undefined}>{k}</a>)}
+</nav>
+
+<style>
+  .datos-prueba {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    background: #e5e5e5;
+    font: 12px/1 system-ui, sans-serif;
+  }
+
+  .datos-prueba a {
+    padding: 6px 9px;
+    border-radius: 999px;
+    color: #333;
+    text-decoration: none;
+  }
+
+  .datos-prueba a[aria-current] {
+    background: #fff;
+    color: #000;
+  }
+</style>

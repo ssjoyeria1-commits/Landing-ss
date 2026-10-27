@@ -5,46 +5,44 @@ import { TEXTOS } from '../../config/textos';
 ---
 
 <footer class="pie">
-  <div class="contenido">
-    <Logo variante="simbolo" alto="2rem" />
-    <p>{TEXTOS.etiquetar}</p>
-    <p class="redes">
-      <a href={SITIO.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
-      <a href={SITIO.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>
-    </p>
-    <p class="legal">
-      <a href="/datos">Política de tratamiento de datos</a> · <a href="/garantia">Garantía</a>
-    </p>
-  </div>
+  <Logo variante="simbolo" alto="2.75rem" />
+  <p>{TEXTOS.etiquetar}</p>
+  <p class="enlaces">
+    <a href={SITIO.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
+    <a href={SITIO.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>
+  </p>
+  <p class="enlaces legal">
+    <a href="/datos">Política de tratamiento de datos</a>
+    <a href="/garantia">Garantía</a>
+  </p>
 </footer>
 
 <style>
   .pie {
-    margin-top: 1.5rem;
-    background: var(--negro);
-    color: #c9c4c2;
-  }
-
-  .contenido {
-    max-width: 32rem;
-    margin: 0 auto;
-    padding: 2rem 1rem 2.5rem;
+    width: 100%;
+    max-width: 30rem;
+    margin: 6rem auto 0;
+    padding: 0 0 3rem;
     text-align: center;
-    font-size: 0.95rem;
+    color: var(--gris);
   }
 
-  .redes {
+  .enlaces {
     display: flex;
-    gap: 1.5rem;
+    flex-wrap: wrap;
     justify-content: center;
-    font-weight: 600;
+    gap: 0 1.5rem;
+    margin: 0;
+  }
+
+  /* Área táctil de 44 px aunque el texto sea pequeño. */
+  .enlaces a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
   }
 
   .legal {
-    font-size: 0.85rem;
-  }
-
-  .pie a {
-    color: #fff;
+    font-size: 0.9rem;
   }
 </style>

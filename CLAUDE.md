@@ -48,7 +48,9 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 - `src/lib/` — `supabase.ts` (cliente con sesión en cookies httpOnly), `caja.ts` (página pública),
   `venta.ts` (formulario de venta), `exportar.ts` + `csv.ts` (informes), `whatsapp.ts`, `formato.ts`.
 - `src/middleware.ts` — protege `/admin/*`: exige sesión y estar en la tabla `admins`.
-- `src/pages/c/[codigo].astro` — página del chip. `src/pages/admin/` — panel.
+- `src/pages/c/[codigo].astro` — página del chip; su cuerpo (propia, regalo o neutra) está en
+  `src/components/caja/PaginaCaja.astro`. `/garantia` y `/datos` leen `src/config/legal.ts`.
+  `src/pages/admin/` — panel.
 - `src/components/Logo.astro` — símbolo de los 7 rombos redibujado en SVG (medidas del logo original).
 - `.claude/skills/` — skills de diseño instaladas (origen y qué ejecutan: `.claude/skills-fuentes/FUENTES.md`).
   `impeccable` descarga un ejecutable la primera vez; sus hooks están apagados.
@@ -71,7 +73,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   gris `#a39a92`. Una sola fuente web, Cormorant Garamond (`src/assets/fuentes/`, OFL, 37 KB, `swap`),
   para títulos, piezas, contador y código. Rombos del imagotipo como separadores y viñetas. Rojo solo
   para el botón principal y los rombos ganados del Círculo. Botones oscuros con filete marfil.
-- Datos de prueba de la página del chip sin base de datos: `/pruebas/casos?datos=demo|peor|cero|diez|neutra|temporal`
+- Datos de prueba de la página del chip sin base de datos: `/pruebas/casos?datos=demo|peor|cero|diez|regalo|regalo-sin-nombre|neutra|temporal`
   (solo en desarrollo; en producción da 404).
 - Nombres con mayúscula inicial (`capitalizar()` al guardar y al mostrar).
 - CSV "informes" para Excel en español: separador `;` y decimales con coma. Los de "respaldo técnico"
@@ -106,11 +108,11 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 - [x] Fase 2 — panel: login, registrar venta, clientes, avisar por WhatsApp, premios, anular/regenerar
       chip, exportar (informes para Excel y respaldo técnico).
 - [x] Fase 3 — página del chip (compra propia) y página neutra. Identidad de marca aplicada.
-- [ ] **Fase 4 (siguiente)** — versión de regalo en `/c/[codigo]` (hoy muestra la página neutra; los datos
-      ya llegan de `pagina_caja` con `tipo: 'regalo'`), páginas `/garantia` y `/datos`.
-      Regalo: "Hola, {destinatario}" o solo "Hola" si no hay nombre; "Te lo regala {comprador}"; muestra
-      las piezas; Círculo sin contador del comprador, con botón de WhatsApp que incluye su código.
-- [ ] Fase 5 — límite de intentos en `/c/` (regla de Cloudflare), cabeceras de seguridad, respaldo
+- [x] Fase 4 — versión de regalo en `/c/[codigo]` (saludo con el primer nombre del destinatario o solo
+      "Hola", "Te lo regala {comprador}", piezas, Círculo sin contador con WhatsApp que lleva el código
+      del comprador) y páginas `/garantia` y `/datos` (muestran un aviso con WhatsApp hasta que
+      `src/config/legal.ts` tenga los textos).
+- [ ] **Fase 5 (siguiente)** — límite de intentos en `/c/` (regla de Cloudflare), cabeceras de seguridad, respaldo
       automático, tarea que evite la pausa de Supabase por inactividad, QR de respaldo para la carta,
       revisión de rendimiento.
 - [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.
@@ -119,6 +121,6 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 
 - Número de WhatsApp de atención, enlaces de Instagram y TikTok (`src/config/sitio.ts`).
 - Premios de los niveles 3, 5 y 10 (`src/config/circulo.ts`).
-- Resumen y términos de la garantía; texto de la política de datos (habeas data).
+- Resumen y términos de la garantía; texto de la política de datos (habeas data), en `src/config/legal.ts`.
 - Revisar los consejos de cuidado (`src/config/textos.ts`).
 - Fuente tipográfica original del logo, si quieren usarla en lugar de la serif del sistema.

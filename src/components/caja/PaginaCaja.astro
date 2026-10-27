@@ -1,0 +1,59 @@
+---
+// Cuerpo de la página del chip: compra propia, regalo o página neutra. Lo usan /c/[codigo] y la
+// página de datos de prueba (/pruebas/casos), para que las dos muestren exactamente lo mismo.
+import Publica from '../../layouts/Publica.astro';
+import Piezas from './Piezas.astro';
+import Garantia from './Garantia.astro';
+import Circulo from './Circulo.astro';
+import CirculoRegalo from './CirculoRegalo.astro';
+import Cuidado from './Cuidado.astro';
+import Neutra from './Neutra.astro';
+import type { CajaPublica } from '../../lib/caja';
+import { capitalizar, primerNombre } from '../../lib/formato';
+
+interface Props {
+  caja: CajaPublica | null;
+  /** Sin caja por un fallo temporal (no porque el código no exista). */
+  temporal?: boolean;
+}
+
+const { caja, temporal = false } = Astro.props;
+---
+
+<Publica noindex>
+  {
+    caja?.tipo === 'propia' && (
+      <Fragment slot="saludo">
+        <h1>Hola, {capitalizar(caja.nombre)}</h1>
+        <p>Gracias por elegir SS Joyería.</p>
+      </Fragment>
+    )
+  }
+  {
+    caja?.tipo === 'regalo' && (
+      <Fragment slot="saludo">
+        <h1>{caja.nombre_destinatario ? `Hola, ${capitalizar(primerNombre(caja.nombre_destinatario))}` : 'Hola'}</h1>
+        <p>Te lo regala {capitalizar(caja.nombre_comprador)}.</p>
+      </Fragment>
+    )
+  }
+  {
+    caja ? (
+      <>
+        <section class="seccion">
+          <h2>{caja.piezas.length === 1 ? 'Tu pieza' : 'Tus piezas'}</h2>
+          <Piezas piezas={caja.piezas} />
+        </section>
+        <Garantia referencia={caja.referencia} />
+        {caja.tipo === 'propia' ? (
+          <Circulo circulo={caja.circulo} />
+        ) : (
+          <CirculoRegalo comprador={capitalizar(caja.nombre_comprador)} codigoReferido={caja.codigo_referido_comprador} />
+        )}
+        <Cuidado />
+      </>
+    ) : (
+      <Neutra temporal={temporal} />
+    )
+  }
+</Publica>

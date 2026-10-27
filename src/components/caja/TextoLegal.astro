@@ -1,0 +1,55 @@
+---
+// Cuerpo de /garantia y /datos: las secciones del texto, o un aviso con WhatsApp mientras los
+// socios entregan el texto (ver src/config/legal.ts).
+import BotonWhatsApp from './BotonWhatsApp.astro';
+import { SITIO } from '../../config/sitio';
+import type { SeccionLegal } from '../../config/legal';
+import { enlaceWhatsApp } from '../../lib/whatsapp';
+import { fecha } from '../../lib/formato';
+
+interface Props {
+  titulo: string;
+  secciones: SeccionLegal[];
+  actualizado: string;
+  /** Mensaje prellenado del botón de WhatsApp. */
+  mensaje: string;
+}
+
+const { titulo, secciones, actualizado, mensaje } = Astro.props;
+---
+
+<section class="seccion legal">
+  <h1>{titulo}</h1>
+  {
+    secciones.length > 0 ? (
+      <>
+        {actualizado && <p class="sutil">Actualizado el {fecha(actualizado)}.</p>}
+        {secciones.map((s) => (
+          <>
+            <h2>{s.titulo}</h2>
+            {s.parrafos.map((p) => <p>{p}</p>)}
+          </>
+        ))}
+      </>
+    ) : (
+      <p>Estamos terminando este texto. Mientras tanto, escríbenos y te respondemos cualquier pregunta.</p>
+    )
+  }
+  <BotonWhatsApp href={enlaceWhatsApp(SITIO.whatsappNegocio, mensaje)} texto="Escríbenos por WhatsApp" />
+</section>
+
+<style>
+  /* Texto para leer: alineado a la izquierda y títulos más pequeños que los de la página del chip. */
+  :global(.publica) .seccion.legal {
+    text-align: left;
+  }
+
+  :global(.publica) .seccion.legal h1 {
+    text-align: center;
+  }
+
+  :global(.publica) .seccion.legal h2 {
+    font-size: 1.5rem;
+    margin: 2.25rem 0 0.75rem;
+  }
+</style>

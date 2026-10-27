@@ -9,9 +9,11 @@ interface Props {
   title?: string;
   /** Las páginas de chip llevan noindex. */
   noindex?: boolean;
+  /** Logo a pantalla completa como primer impacto (página del chip). Las páginas de texto lo llevan compacto. */
+  portada?: boolean;
 }
 
-const { title = 'SS Joyería', noindex = false } = Astro.props;
+const { title = 'SS Joyería', noindex = false, portada = true } = Astro.props;
 // `swap`: el texto se ve de inmediato con la serif del sistema y cambia cuando llega la fuente.
 const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuente}') format('woff2');font-weight:500 700;font-display:swap}`;
 ---
@@ -23,10 +25,18 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
   </Fragment>
   <div class="publica">
     <header class="cabecera">
-      <div class="portada">
-        <Logo alto="min(36svh, 17rem)" animado />
-        <span class="desliza" aria-hidden="true"></span>
-      </div>
+      {
+        portada ? (
+          <div class="portada">
+            <Logo alto="min(36svh, 17rem)" animado />
+            <span class="desliza" aria-hidden="true" />
+          </div>
+        ) : (
+          <a class="logo-compacto" href="/" aria-label="SS Joyería, inicio">
+            <Logo alto="4.5rem" />
+          </a>
+        )
+      }
       {Astro.slots.has('saludo') && <div class="saludo"><slot name="saludo" /></div>}
     </header>
     <main>
@@ -85,6 +95,11 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     place-items: center;
     min-height: 100vh;
     min-height: 100svh;
+  }
+
+  .publica .logo-compacto {
+    display: inline-block;
+    padding: 3rem 0 1rem;
   }
 
   /* Indicador para deslizar: un rombo abierto hacia abajo que baja y sube despacio. */

@@ -1,0 +1,16 @@
+---
+import Publica from '../layouts/Publica.astro';
+import TextoLegal from '../components/caja/TextoLegal.astro';
+import { ACTUALIZADO, TERMINOS_GARANTIA } from '../config/legal';
+
+export const prerender = true;
+---
+
+<Publica title="Garantía · SS Joyería" portada={false}>
+  <TextoLegal
+    titulo="Términos de la garantía"
+    secciones={TERMINOS_GARANTIA}
+    actualizado={ACTUALIZADO.garantia}
+    mensaje="Hola, tengo una pregunta sobre la garantía de SS Joyería."
+  />
+</Publica>

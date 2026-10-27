@@ -6,6 +6,11 @@ export function capitalizar(texto: string): string {
   return texto.replace(/(^|[\s-])(\p{L})/gu, (_, antes: string, letra: string) => antes + letra.toLocaleUpperCase('es'));
 }
 
+/** Solo el primer nombre ("laura maría gómez" → "laura"): la página pública no muestra más. */
+export function primerNombre(texto: string): string {
+  return texto.trim().split(/\s+/)[0] ?? '';
+}
+
 export function pesos(monto: number): string {
   return PESOS.format(monto);
 }

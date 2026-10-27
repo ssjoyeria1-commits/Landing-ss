@@ -1,12 +1,6 @@
 ---
-import Publica from '../../layouts/Publica.astro';
-import Piezas from '../../components/caja/Piezas.astro';
-import Garantia from '../../components/caja/Garantia.astro';
-import Circulo from '../../components/caja/Circulo.astro';
-import Cuidado from '../../components/caja/Cuidado.astro';
-import Neutra from '../../components/caja/Neutra.astro';
+import PaginaCaja from '../../components/caja/PaginaCaja.astro';
 import { obtenerCaja, type CajaPublica } from '../../lib/caja';
-import { capitalizar } from '../../lib/formato';
 
 // Página privada de cada caja: fuera de buscadores, sin caché (el contador cambia y cada visita
 // cuenta como escaneo) y sin enviar la URL con el código a los sitios que se abran desde aquí.
@@ -23,33 +17,7 @@ try {
   temporal = true;
 }
 
-// La versión de regalo llega en la fase 4; mientras tanto muestra la página neutra.
-const propia = caja?.tipo === 'propia' ? caja : null;
-if (!propia) Astro.response.status = temporal ? 503 : 404;
+if (!caja) Astro.response.status = temporal ? 503 : 404;
 ---
 
-<Publica noindex>
-  {
-    propia && (
-      <Fragment slot="saludo">
-        <h1>Hola, {capitalizar(propia.nombre)}</h1>
-        <p>Gracias por elegir SS Joyería.</p>
-      </Fragment>
-    )
-  }
-  {
-    propia ? (
-      <>
-        <section class="seccion">
-          <h2>{propia.piezas.length === 1 ? 'Tu pieza' : 'Tus piezas'}</h2>
-          <Piezas piezas={propia.piezas} />
-        </section>
-        <Garantia referencia={propia.referencia} />
-        <Circulo circulo={propia.circulo} />
-        <Cuidado />
-      </>
-    ) : (
-      <Neutra temporal={temporal} />
-    )
-  }
-</Publica>
+<PaginaCaja caja={caja} temporal={temporal} />

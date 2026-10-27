@@ -16,5 +16,9 @@ export const TEXTOS = {
     'Límpiala con agua tibia, jabón suave y un paño que no suelte pelusa.',
   ],
 
+  /** Círculo en la versión de regalo: quien recibe no ve el contador del comprador. */
+  circuloRegalo: (comprador: string) =>
+    `Es nuestro programa para quienes nos eligen: cada compra desde $600.000 y cada persona que nos recomiendan suma, y al llegar a 3, 5 y 10 reciben un premio. Si te animas a tu primera compra desde $600.000, también le suma a ${comprador}.`,
+
   etiquetar: 'Si la luces, etiquétanos en tus fotos. Nos encanta ver cómo la llevas.',
 };

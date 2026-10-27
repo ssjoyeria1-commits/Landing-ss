@@ -1,0 +1,16 @@
+---
+import Publica from '../layouts/Publica.astro';
+import TextoLegal from '../components/caja/TextoLegal.astro';
+import { ACTUALIZADO, POLITICA_DATOS } from '../config/legal';
+
+export const prerender = true;
+---
+
+<Publica title="Tratamiento de datos · SS Joyería" portada={false}>
+  <TextoLegal
+    titulo="Política de tratamiento de datos"
+    secciones={POLITICA_DATOS}
+    actualizado={ACTUALIZADO.datos}
+    mensaje="Hola, tengo una pregunta sobre el tratamiento de mis datos en SS Joyería."
+  />
+</Publica>

@@ -1,0 +1,27 @@
+---
+// Círculo en la versión de regalo: explica el programa sin mostrar el contador del comprador.
+// El botón escribe a la línea de atención con el código de referido del comprador ya incluido.
+import BotonWhatsApp from './BotonWhatsApp.astro';
+import { MENSAJES } from '../../config/mensajes';
+import { SITIO } from '../../config/sitio';
+import { TEXTOS } from '../../config/textos';
+import { enlaceWhatsApp } from '../../lib/whatsapp';
+
+interface Props {
+  /** Primer nombre del comprador, ya capitalizado. */
+  comprador: string;
+  codigoReferido: string;
+}
+
+const { comprador, codigoReferido } = Astro.props;
+---
+
+<section class="seccion">
+  <h2>El Círculo SS</h2>
+  <p>{TEXTOS.circuloRegalo(comprador)}</p>
+  <BotonWhatsApp
+    href={enlaceWhatsApp(SITIO.whatsappNegocio, MENSAJES.destinatarioRegalo(codigoReferido))}
+    texto="Quiero conocer el Círculo"
+    color="rojo"
+  />
+</section>

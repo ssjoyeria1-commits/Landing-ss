@@ -1,14 +1,8 @@
 ---
-// SOLO DESARROLLO: la página del chip con datos de prueba (?datos=demo|peor|cero|diez|neutra|temporal).
+// SOLO DESARROLLO: la página del chip con datos de prueba (?datos=demo|peor|cero|diez|regalo|regalo-sin-nombre|neutra|temporal).
 // No consulta la base ni suma escaneos. En producción responde 404.
-import Publica from '../../layouts/Publica.astro';
-import Piezas from '../../components/caja/Piezas.astro';
-import Garantia from '../../components/caja/Garantia.astro';
-import Circulo from '../../components/caja/Circulo.astro';
-import Cuidado from '../../components/caja/Cuidado.astro';
-import Neutra from '../../components/caja/Neutra.astro';
-import type { CajaPropia } from '../../lib/caja';
-import { capitalizar } from '../../lib/formato';
+import PaginaCaja from '../../components/caja/PaginaCaja.astro';
+import type { CajaPropia, CajaPublica, CajaRegalo } from '../../lib/caja';
 
 if (import.meta.env.PROD) return new Response(null, { status: 404 });
 
@@ -40,44 +34,31 @@ const peor: CajaPropia = {
   circulo: { interacciones: 9, hitos: [3, 5, 10], proximo_hito: 10, codigo_referido: 'MAXIMILIANOA-4821' },
 };
 
-const casos: Record<string, CajaPropia | 'neutra' | 'temporal'> = {
+// Regalo: el destinatario se guarda con nombre completo; la página muestra solo el primero.
+const regalo: CajaRegalo = {
+  tipo: 'regalo',
+  referencia: 'SS-7RTPA',
+  nombre_destinatario: 'laura maría gómez',
+  nombre_comprador: 'andrés',
+  codigo_referido_comprador: 'ANDRES-5521',
+  piezas: [{ descripcion: 'Aretes candonga lisos', peso_gramos: 2.1, ley: '18k' }],
+};
+
+const casos: Record<string, CajaPublica | 'neutra' | 'temporal'> = {
   demo,
   peor,
   cero: { ...demo, nombre: 'jo', piezas: [demo.piezas[0]], circulo: { interacciones: 0, hitos: [3, 5, 10], proximo_hito: 3, codigo_referido: 'JO-0042' } },
   diez: { ...demo, circulo: { interacciones: 10, hitos: [3, 5, 10], proximo_hito: null, codigo_referido: 'VALENTINA-8310' } },
+  regalo,
+  'regalo-sin-nombre': { ...regalo, nombre_destinatario: null, nombre_comprador: 'maximiliano-alejandro', piezas: peor.piezas },
   neutra: 'neutra',
   temporal: 'temporal',
 };
 const clave = Astro.url.searchParams.get('datos') ?? 'demo';
 const caso = casos[clave] ?? demo;
-const propia = typeof caso === 'object' ? caso : null;
 ---
 
-<Publica noindex>
-  {
-    propia && (
-      <Fragment slot="saludo">
-        <h1>Hola, {capitalizar(propia.nombre)}</h1>
-        <p>Gracias por elegir SS Joyería.</p>
-      </Fragment>
-    )
-  }
-  {
-    propia ? (
-      <>
-        <section class="seccion">
-          <h2>{propia.piezas.length === 1 ? 'Tu pieza' : 'Tus piezas'}</h2>
-          <Piezas piezas={propia.piezas} />
-        </section>
-        <Garantia referencia={propia.referencia} />
-        <Circulo circulo={propia.circulo} />
-        <Cuidado />
-      </>
-    ) : (
-      <Neutra temporal={caso === 'temporal'} />
-    )
-  }
-</Publica>
+<PaginaCaja caja={typeof caso === 'object' ? caso : null} temporal={caso === 'temporal'} />
 
 <nav class="datos-prueba" aria-label="Datos de prueba">
   {Object.keys(casos).map((k) => <a href={`?datos=${k}`} aria-current={k === clave ? 'page' : undefined}>{k}</a>)}
@@ -91,6 +72,10 @@ const propia = typeof caso === 'object' ? caso : null;
     transform: translateX(-50%);
     z-index: 10;
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: max-content;
+    max-width: calc(100vw - 16px);
     gap: 2px;
     padding: 3px;
     border-radius: 999px;

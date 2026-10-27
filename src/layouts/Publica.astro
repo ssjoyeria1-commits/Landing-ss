@@ -60,7 +60,7 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     --tinta: #f2ece4;
     --gris: #a39a92;
     --superficie: #131110;
-    /* Rojo de la marca llevado a vino muy oscuro (mismo tono 354°, luminosidad de un café oscuro). */
+    /* Fondo de las tarjetas: el rojo de la marca llevado a vino muy oscuro (mismo tono 354°). */
     --franja: #1f0507;
     /* Filete marfil: da forma a botones y tarjetas oscuras sobre el negro. */
     --filete: inset 0 0 0 1px rgb(242 236 228 / 0.35);
@@ -69,7 +69,7 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    padding: 0 1.5rem;
+    padding: 0 1rem;
     overflow-x: clip;
     color: var(--tinta);
     background: var(--negro);
@@ -170,25 +170,32 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     color: #cfc7bf;
   }
 
+  /* Cada sección es una tarjeta vino oscuro sobre el negro, con filete fino y esquinas apenas
+     redondeadas: se distinguen sin perder el aire de vitrina. */
   .publica .seccion {
-    padding: 3.5rem 0 4.5rem;
+    margin: 1.5rem 0;
+    padding: 1.75rem 1rem 2.25rem;
+    border-radius: 12px;
     text-align: center;
+    background: var(--franja);
+    /* Filete rojo de la marca y un brillo marfil apenas visible en el borde de arriba. */
+    box-shadow:
+      inset 0 0 0 1px rgb(208 4 26 / 0.4),
+      inset 0 1px 0 rgb(242 236 228 / 0.12);
   }
 
-  /* Secciones intercaladas en una franja algo más clara que llega a los bordes de la pantalla
-     (border-image solo pinta, no ensancha la página). */
-  .publica main > .seccion:nth-of-type(even) {
-    border-image: conic-gradient(var(--franja) 0 0) fill 0 // 0 100vw;
+  .publica main > .seccion:first-child {
+    margin-top: 3rem;
   }
 
-  /* Separador al inicio de cada sección: filete marfil a todo el ancho, interrumpido en el centro
-     por tres rombos del imagotipo (el del medio rojo, los de los lados en gris). */
+  /* Encabezado de cada tarjeta: filete marfil de lado a lado, interrumpido en el centro por tres
+     rombos del imagotipo (el del medio rojo, los de los lados en gris). */
   .publica .seccion::before {
-    --linea: linear-gradient(rgb(242 236 228 / 0.45), rgb(242 236 228 / 0.45));
+    --linea: linear-gradient(rgb(242 236 228 / 0.3), rgb(242 236 228 / 0.3));
     content: '';
     display: block;
     height: 20px;
-    margin: 0 0 3.25rem;
+    margin: 0 0 1.75rem;
     background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 20'%3E%3Cg fill='none' stroke-width='1.75'%3E%3Cpath d='M10 5.5 14.5 10 10 14.5 5.5 10Z' stroke='%23a39a92'/%3E%3Cpath d='M70 5.5 74.5 10 70 14.5 65.5 10Z' stroke='%23a39a92'/%3E%3Cpath d='M40 1.5 48.5 10 40 18.5 31.5 10Z' stroke='%23d0041a' stroke-width='2.25'/%3E%3C/g%3E%3C/svg%3E")
         center / 80px 20px no-repeat,
@@ -199,7 +206,7 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
   .publica h2 {
     font-size: 2rem;
     line-height: 1.1;
-    margin: 0 0 1.75rem;
+    margin: 0 0 1.25rem;
   }
 
   .publica p,
@@ -225,7 +232,7 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     width: 100%;
     min-height: 3.25rem;
     margin-top: 1.75rem;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem;
     border: 0;
     border-radius: 0;
     font: inherit;

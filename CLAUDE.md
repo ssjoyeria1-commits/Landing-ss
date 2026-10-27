@@ -71,7 +71,8 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   Variables en `src/layouts/Base.astro`. El panel usa la serif del sistema (`--serif`).
 - Página pública, dirección "Oscura" (`src/layouts/Publica.astro`): todo negro, texto marfil `#f2ece4`,
   gris `#a39a92`. Una sola fuente web, Cormorant Garamond (`src/assets/fuentes/`, OFL, 37 KB, `swap`),
-  para títulos, piezas, contador y código. Rombos del imagotipo como separadores y viñetas. Rojo solo
+  para títulos, piezas, contador y código. Primera pantalla: el logo completo a pantalla entera.
+  Cada sección es una tarjeta vino oscuro (`--franja`) con tres rombos del imagotipo arriba. Rojo solo
   para el botón principal y los rombos ganados del Círculo. Botones oscuros con filete marfil.
 - Datos de prueba de la página del chip sin base de datos: `/pruebas/casos?datos=demo|peor|cero|diez|regalo|regalo-sin-nombre|neutra|temporal`
   (solo en desarrollo; en producción da 404).

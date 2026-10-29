@@ -1,0 +1,196 @@
+---
+// Conteo físico de un producto: por cada peso, cuántas piezas hay en la vitrina frente a las del
+// sistema. Las que faltan se dan de baja con su motivo (registrar_conteo); las que sobran se avisan.
+import Admin from '../../../../../layouts/Admin.astro';
+import { pesos } from '../../../../../lib/formato';
+import { gramos, mensajeError, MOTIVOS_BAJA, type ProductoCatalogo, type UnidadDetalle } from '../../../../../lib/inventario';
+
+const supabase = Astro.locals.supabase;
+const id = Astro.params.id ?? '';
+
+const [{ data: dataProducto }, { data: dataPiezas }] = await Promise.all([
+  supabase.from('productos_catalogo').select('id, codigo, nombre').eq('id', id).maybeSingle(),
+  supabase.from('unidades_detalle').select('id, peso_gramos, precio_cop').eq('producto_id', id).eq('estado', 'disponible').order('peso_gramos'),
+]);
+const producto = dataProducto as Pick<ProductoCatalogo, 'id' | 'codigo' | 'nombre'> | null;
+if (!producto) return new Response(null, { status: 404 });
+
+// Piezas del sistema agrupadas por peso.
+const grupos = new Map<string, { peso: number; enSistema: number; precio: number }>();
+for (const p of (dataPiezas ?? []) as Pick<UnidadDetalle, 'id' | 'peso_gramos' | 'precio_cop'>[]) {
+  const k = Number(p.peso_gramos).toFixed(2);
+  const g = grupos.get(k) ?? { peso: Number(p.peso_gramos), enSistema: 0, precio: Number(p.precio_cop) };
+  g.enSistema += 1;
+  grupos.set(k, g);
+}
+const lista = [...grupos.entries()];
+const enSistema = lista.reduce((s, [, g]) => s + g.enSistema, 0);
+
+let error = '';
+let enviado: FormData | null = null;
+
+if (Astro.request.method === 'POST') {
+  enviado = await Astro.request.formData();
+  const faltantes: { peso_gramos: number; cantidad: number }[] = [];
+  const sobrantes: string[] = [];
+  let contadas = 0;
+  for (const [k, g] of lista) {
+    const valor = String(enviado.get(`contadas-${k}`) ?? '').trim();
+    const n = Number(valor);
+    if (valor === '' || !Number.isInteger(n) || n < 0) {
+      error = `Escribe cuántas piezas de ${gramos(g.peso)} contaste (un número entero, 0 si no hay).`;
+      break;
+    }
+    contadas += n;
+    if (n < g.enSistema) faltantes.push({ peso_gramos: g.peso, cantidad: g.enSistema - n });
+    if (n > g.enSistema) sobrantes.push(`${n - g.enSistema} de ${gramos(g.peso)}`);
+  }
+  const otras = Number(String(enviado.get('otras') ?? '0').trim() || '0');
+  if (!error && (!Number.isInteger(otras) || otras < 0)) error = 'Las piezas de otros pesos deben ser un número entero.';
+
+  if (!error) {
+    const { data, error: fallo } = await supabase.rpc('registrar_conteo', {
+      p: {
+        producto_id: id,
+        contadas: contadas + otras,
+        faltantes,
+        motivo: String(enviado.get('motivo') ?? ''),
+        nota: String(enviado.get('nota') ?? ''),
+      },
+    });
+    if (fallo) {
+      error = mensajeError(fallo.message);
+    } else {
+      const partes = [data.bajas ? `${data.bajas} ${data.bajas === 1 ? 'pieza dada de baja' : 'piezas dadas de baja'}` : 'sin faltantes'];
+      if (sobrantes.length || otras) {
+        partes.push(
+          `sobraron ${[...sobrantes, otras ? `${otras} de otros pesos` : ''].filter(Boolean).join(', ')}: regístralas con un lote o reintegra una baja`,
+        );
+      }
+      return Astro.redirect(`/admin/inventario/productos/${id}?aviso=${encodeURIComponent(`Conteo guardado: ${partes.join('; ')}.`)}`);
+    }
+  }
+}
+
+const valor = (campo: string, porDefecto: string) => String(enviado?.get(campo) ?? porDefecto);
+---
+
+<Admin title={`Conteo de ${producto.codigo}`}>
+  <p><a href={`/admin/inventario/productos/${id}`}>← {producto.nombre}</a></p>
+  {error && <p class="aviso error">{error}</p>}
+
+  {
+    lista.length === 0 ? (
+      <p class="tarjeta">Este producto no tiene piezas disponibles en el sistema.</p>
+    ) : (
+      <form method="post" id="conteo">
+        <p class="ayuda">
+          Cuenta las piezas de la vitrina y escribe cuántas hay de cada peso. Empieza con lo que dice el sistema: cambia
+          solo donde no coincida.
+        </p>
+        <div class="tabla">
+          <table>
+            <thead>
+              <tr>
+                <th class="num">Peso</th>
+                <th class="num">Precio hoy</th>
+                <th class="num">En el sistema</th>
+                <th class="num">Contadas</th>
+                <th class="num">Diferencia</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lista.map(([k, g]) => (
+                <tr data-sistema={g.enSistema}>
+                  <td class="num">{gramos(g.peso)}</td>
+                  <td class="num">{pesos(g.precio)}</td>
+                  <td class="num">{g.enSistema}</td>
+                  <td class="num">
+                    <input
+                      name={`contadas-${k}`}
+                      value={valor(`contadas-${k}`, String(g.enSistema))}
+                      inputmode="numeric"
+                      aria-label={`Piezas de ${gramos(g.peso)} contadas`}
+                      style="max-width: 6rem; text-align: right"
+                    />
+                  </td>
+                  <td class="num diferencia" />
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th colspan="2">Total</th>
+                <th class="num">{enSistema}</th>
+                <th class="num" id="total-contadas" />
+                <th class="num" id="total-diferencia" />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="fila" style="margin-top: 1rem">
+          <div class="campo">
+            <label for="otras">Piezas de este producto con otros pesos</label>
+            <input id="otras" name="otras" inputmode="numeric" value={valor('otras', '0')} />
+            <p class="ayuda">Si encontraste piezas que no están en el sistema.</p>
+          </div>
+          <div class="campo">
+            <label for="motivo">Motivo de las faltantes</label>
+            <select id="motivo" name="motivo">
+              {MOTIVOS_BAJA.map((m) => (
+                <option selected={valor('motivo', MOTIVOS_BAJA[0]) === m}>{m}</option>
+              ))}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="nota">Nota (opcional)</label>
+            <input id="nota" name="nota" value={valor('nota', '')} autocomplete="off" placeholder="Conteo de fin de mes" />
+          </div>
+        </div>
+
+        <p id="resumen" class="aviso" style="background: #f6f4f2" aria-live="polite" />
+        <button type="submit">Guardar conteo</button>
+      </form>
+    )
+  }
+</Admin>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#conteo');
+  if (form) {
+    const filas = [...form.querySelectorAll<HTMLTableRowElement>('tbody tr')];
+    const resumen = form.querySelector<HTMLElement>('#resumen')!;
+    let faltan = 0;
+    const actualizar = () => {
+      let contadas = 0;
+      let sistema = 0;
+      faltan = 0;
+      let sobran = 0;
+      for (const fila of filas) {
+        const enSistema = Number(fila.dataset.sistema);
+        const n = Number(fila.querySelector('input')!.value) || 0;
+        const d = n - enSistema;
+        contadas += n;
+        sistema += enSistema;
+        if (d < 0) faltan += -d;
+        if (d > 0) sobran += d;
+        fila.querySelector<HTMLElement>('.diferencia')!.textContent = d === 0 ? '—' : d > 0 ? `+${d}` : String(d);
+      }
+      const otras = Number(form.querySelector<HTMLInputElement>('#otras')!.value) || 0;
+      sobran += otras;
+      form.querySelector<HTMLElement>('#total-contadas')!.textContent = String(contadas + otras);
+      const dt = contadas + otras - sistema;
+      form.querySelector<HTMLElement>('#total-diferencia')!.textContent = dt === 0 ? '—' : dt > 0 ? `+${dt}` : String(dt);
+      const partes = [];
+      if (faltan) partes.push(`Faltan ${faltan}: se darán de baja al guardar.`);
+      if (sobran) partes.push(`Sobran ${sobran}: después regístralas con un lote o reintegra una baja.`);
+      resumen.textContent = partes.length ? partes.join(' ') : 'Todo coincide con el sistema.';
+    };
+    form.addEventListener('input', actualizar);
+    form.addEventListener('submit', (e) => {
+      if (faltan && !confirm(`¿Guardar el conteo y dar de baja ${faltan} ${faltan === 1 ? 'pieza' : 'piezas'}?`)) e.preventDefault();
+    });
+    actualizar();
+  }
+</script>

@@ -252,3 +252,32 @@ export function mensajeError(mensaje: string): string {
   if (/foreign key/.test(mensaje)) return 'No se puede borrar: hay productos que la usan. Desactívala en su lugar.';
   return mensaje;
 }
+
+/** Motivos para dar de baja una pieza (el primero es el de los conteos). */
+export const MOTIVOS_BAJA = [
+  'Faltante en conteo',
+  'Pérdida',
+  'Robo',
+  'Daño',
+  'Devolución al proveedor',
+  'Error de registro',
+  'Otro',
+] as const;
+
+/** Fila de la vista ajustes_detalle. */
+export interface AjusteDetalle {
+  id: string;
+  tipo: 'baja' | 'reintegro';
+  motivo: string;
+  nota: string | null;
+  conteo_id: string | null;
+  created_at: string;
+  creado_por_nombre: string | null;
+  unidad_id: string;
+  producto_id: string;
+  codigo: string;
+  producto: string;
+  peso_gramos: number;
+  costo_cop: number;
+  estado: 'disponible' | 'vendida' | 'baja';
+}

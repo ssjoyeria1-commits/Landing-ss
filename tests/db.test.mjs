@@ -316,7 +316,7 @@ test('el visitante anónimo no puede leer tablas ni usar funciones del panel', a
   const r = await venta(db);
 
   const tablas = ['clientes', 'ventas', 'cajas', 'piezas', 'premios', 'escaneos', 'admins', 'clientes_circulo'];
-  const inventario = ['categorias', 'productos', 'productos_catalogo', 'proveedores', 'lotes', 'unidades', 'unidades_detalle', 'existencias', 'lotes_resumen', 'ventas_margen', 'piezas_vendidas'];
+  const inventario = ['categorias', 'productos', 'productos_catalogo', 'proveedores', 'lotes', 'unidades', 'unidades_detalle', 'existencias', 'lotes_resumen', 'ventas_margen', 'piezas_vendidas', 'conteos', 'ajustes', 'ajustes_detalle'];
   for (const tabla of [...tablas, ...inventario]) {
     await assert.rejects(
       como(db, 'anon', null, () => db.query(`select * from public.${tabla}`)),
@@ -626,4 +626,71 @@ test('informes: cada pieza vendida reparte el descuento según su precio y trae 
   assert.equal(filas[0].dias_en_inventario, 0);
   assert.equal(filas[2].categoria, 'Fuera del inventario');
   assert.equal(filas[2].margen_cop, null, 'sin costo no hay margen');
+});
+
+// ---------------------------------------------------------------------------
+// Fase 4E: conteo físico y ajustes
+// ---------------------------------------------------------------------------
+
+async function rpc(db, funcion, p, usuario = ADMIN) {
+  return como(db, 'authenticated', usuario, async () => (await uno(db, `select public.${funcion}($1) as r`, [p])).r);
+}
+
+test('conteo: las piezas que faltan de cada peso se dan de baja con su motivo y quedan registradas', async () => {
+  const db = await nuevaBase();
+  await inventario(db, [2, 2, 2, 1.5]);
+  const producto = (await uno(db, "select id from public.productos where codigo = 'AN-014'")).id;
+  const r = await rpc(db, 'registrar_conteo', {
+    producto_id: producto,
+    contadas: 2,
+    faltantes: [{ peso_gramos: 2, cantidad: 2 }],
+    nota: 'Conteo de fin de mes',
+  });
+  assert.equal(r.bajas, 2);
+  assert.equal(r.en_sistema, 4);
+  const estados = (await db.query('select peso_gramos, estado from public.unidades order by peso_gramos, estado')).rows;
+  assert.deepEqual(estados.map((e) => `${Number(e.peso_gramos)} ${e.estado}`), ['1.5 disponible', '2 baja', '2 baja', '2 disponible']);
+  const ajustes = await como(db, 'authenticated', ADMIN, async () => (await db.query('select * from public.ajustes_detalle')).rows);
+  assert.equal(ajustes.length, 2);
+  assert.equal(ajustes[0].motivo, 'Faltante en conteo');
+  assert.equal(ajustes[0].creado_por_nombre, 'Socio');
+  const conteo = await uno(db, 'select en_sistema, contadas from public.conteos');
+  assert.deepEqual([conteo.en_sistema, conteo.contadas], [4, 2]);
+  // Las dadas de baja ya no se pueden vender.
+  const baja = (await uno(db, "select id from public.unidades where estado = 'baja' limit 1")).id;
+  await assert.rejects(venta(db, { cajas: [{ piezas: [{ unidad_id: baja }] }] }), /ya no está disponible/);
+});
+
+test('conteo: no se pueden dar de baja más piezas de un peso de las que hay', async () => {
+  const db = await nuevaBase();
+  await inventario(db, [2]);
+  const producto = (await uno(db, "select id from public.productos where codigo = 'AN-014'")).id;
+  await assert.rejects(
+    rpc(db, 'registrar_conteo', { producto_id: producto, contadas: 0, faltantes: [{ peso_gramos: 2, cantidad: 3 }] }),
+    /Faltan más piezas/,
+  );
+  assert.equal((await uno(db, 'select count(*)::int as n from public.conteos')).n, 0, 'todo o nada');
+});
+
+test('ajustes: baja y reintegro de piezas sueltas; no se da de baja una pieza vendida', async () => {
+  const db = await nuevaBase();
+  const [u, v] = await inventario(db, [2, 1.5]);
+  assert.equal(await rpc(db, 'ajustar_inventario', { tipo: 'baja', unidades: [u], motivo: 'Daño' }), 1);
+  assert.equal(await estadoUnidad(db, u), 'baja');
+  assert.equal(await rpc(db, 'ajustar_inventario', { tipo: 'reintegro', unidades: [u], motivo: 'Apareció' }), 1);
+  assert.equal(await estadoUnidad(db, u), 'disponible');
+  await venta(db, { cajas: [{ piezas: [{ unidad_id: v }] }] });
+  await assert.rejects(rpc(db, 'ajustar_inventario', { tipo: 'baja', unidades: [v], motivo: 'Pérdida' }), /Solo se puede dar de baja/);
+  await assert.rejects(rpc(db, 'ajustar_inventario', { tipo: 'baja', unidades: [u], motivo: ' ' }), /Falta el motivo/);
+});
+
+test('ajustes: solo los admins ajustan, y el historial no se puede editar ni borrar', async () => {
+  const db = await nuevaBase();
+  const [u] = await inventario(db, [2]);
+  await assert.rejects(rpc(db, 'ajustar_inventario', { tipo: 'baja', unidades: [u], motivo: 'Daño' }, NO_ADMIN), /No autorizado/);
+  await rpc(db, 'ajustar_inventario', { tipo: 'baja', unidades: [u], motivo: 'Daño' });
+  await como(db, 'authenticated', ADMIN, async () => {
+    await assert.rejects(db.query("update public.ajustes set motivo = 'x'"), /permission denied/);
+    await assert.rejects(db.query('delete from public.ajustes'), /permission denied/);
+  });
 });

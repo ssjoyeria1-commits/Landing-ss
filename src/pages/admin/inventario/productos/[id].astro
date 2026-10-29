@@ -6,28 +6,50 @@ import {
   gramos,
   leerProducto,
   mensajeError,
+  MOTIVOS_BAJA,
+  type AjusteDetalle,
   type Categoria,
   type ProductoCatalogo,
   type UnidadDetalle,
 } from '../../../../lib/inventario';
+import type { PiezaVendida } from '../../../../lib/informes';
 
 const supabase = Astro.locals.supabase;
 const id = Astro.params.id ?? '';
 const nuevo = id === 'nuevo';
 let error = '';
+let aviso = Astro.url.searchParams.get('aviso') ?? '';
 let enviado: FormData | null = null;
 
 if (Astro.request.method === 'POST') {
-  enviado = await Astro.request.formData();
-  const leido = leerProducto(enviado);
-  if ('error' in leido) {
-    error = leido.error;
+  const form = await Astro.request.formData();
+  const accion = String(form.get('accion') ?? 'guardar');
+
+  if (accion === 'baja' || accion === 'reintegro') {
+    // Bajas y reintegros de piezas sueltas, con motivo (quedan en el historial).
+    const unidades = form.getAll('unidades').map(String).filter(Boolean);
+    const motivo = String(form.get('motivo') ?? '').trim() || (accion === 'reintegro' ? 'Reintegro' : '');
+    if (unidades.length === 0) {
+      error = 'Marca al menos una pieza.';
+    } else {
+      const { data, error: fallo } = await supabase.rpc('ajustar_inventario', {
+        p: { tipo: accion, unidades, motivo, nota: String(form.get('nota') ?? '') },
+      });
+      if (fallo) error = mensajeError(fallo.message);
+      else aviso = accion === 'baja' ? `${data} ${data === 1 ? 'pieza dada de baja' : 'piezas dadas de baja'}.` : 'Pieza reintegrada al inventario.';
+    }
   } else {
-    const { error: fallo } = nuevo
-      ? await supabase.from('productos').insert(leido.datos)
-      : await supabase.from('productos').update(leido.datos).eq('id', id);
-    if (fallo) error = mensajeError(fallo.message);
-    else return Astro.redirect('/admin/inventario');
+    enviado = form;
+    const leido = leerProducto(enviado);
+    if ('error' in leido) {
+      error = leido.error;
+    } else {
+      const { error: fallo } = nuevo
+        ? await supabase.from('productos').insert(leido.datos)
+        : await supabase.from('productos').update(leido.datos).eq('id', id);
+      if (fallo) error = mensajeError(fallo.message);
+      else return Astro.redirect('/admin/inventario');
+    }
   }
 }
 
@@ -44,11 +66,56 @@ if (!nuevo) {
   if (!producto) return new Response(null, { status: 404 });
 }
 
-// Piezas disponibles de esta referencia, de la más liviana a la más pesada.
-const { data: dataPiezas } = nuevo
-  ? { data: [] }
-  : await supabase.from('unidades_detalle').select('*').eq('producto_id', id).eq('estado', 'disponible').order('peso_gramos');
-const piezas = (dataPiezas ?? []) as UnidadDetalle[];
+// Todas las piezas de esta referencia (disponibles, vendidas y de baja), sus ventas, ajustes y conteos.
+const [{ data: dataPiezas }, { data: dataVendidas }, { data: dataAjustes }, { data: dataConteos }] = nuevo
+  ? [{ data: [] }, { data: [] }, { data: [] }, { data: [] }]
+  : await Promise.all([
+      supabase.from('unidades_detalle').select('*').eq('producto_id', id).order('peso_gramos'),
+      supabase.from('piezas_vendidas').select('*').eq('producto_id', id).order('fecha', { ascending: false }).limit(200),
+      supabase.from('ajustes_detalle').select('*').eq('producto_id', id).order('created_at', { ascending: false }).limit(200),
+      supabase.from('conteos').select('id, fecha, en_sistema, contadas, nota, created_at').eq('producto_id', id).order('created_at', { ascending: false }).limit(50),
+    ]);
+const todas = (dataPiezas ?? []) as UnidadDetalle[];
+const piezas = todas.filter((p) => p.estado === 'disponible');
+const deBaja = todas.filter((p) => p.estado === 'baja');
+const vendidas = (dataVendidas ?? []) as PiezaVendida[];
+const ajustes = (dataAjustes ?? []) as AjusteDetalle[];
+const conteos = (dataConteos ?? []) as { id: string; fecha: string; en_sistema: number; contadas: number; nota: string | null; created_at: string }[];
+
+// Historial: entradas por lote, ventas, ajustes y conteos, del más reciente al más antiguo.
+type Evento = { cuando: string; fecha: string; texto: string; detalle?: string };
+const porLote = new Map<string, { fecha: string; piezas: number; gramos: number; creado: string }>();
+for (const p of todas) {
+  const l = porLote.get(p.lote_id) ?? { fecha: p.lote_fecha, piezas: 0, gramos: 0, creado: p.lote_fecha };
+  l.piezas += 1;
+  l.gramos += Number(p.peso_gramos);
+  porLote.set(p.lote_id, l);
+}
+const historial: Evento[] = [
+  ...[...porLote.entries()].map(([, l]) => ({
+    cuando: `${l.fecha}T00:00:00`,
+    fecha: l.fecha,
+    texto: `Entrada de ${l.piezas} ${l.piezas === 1 ? 'pieza' : 'piezas'} (${gramos(l.gramos)})`,
+  })),
+  ...vendidas.map((v) => ({
+    cuando: `${v.fecha}T12:00:00`,
+    fecha: v.fecha,
+    texto: `Venta de ${gramos(v.peso_gramos)} · ${pesos(Number(v.precio_neto_cop ?? 0))}${v.anulada ? ' (anulada)' : ''}`,
+    detalle: v.referencia,
+  })),
+  ...ajustes.map((a) => ({
+    cuando: a.created_at,
+    fecha: a.created_at.slice(0, 10),
+    texto: `${a.tipo === 'baja' ? 'Baja' : 'Reintegro'} de ${gramos(a.peso_gramos)}: ${a.motivo}`,
+    detalle: [a.nota, a.creado_por_nombre].filter(Boolean).join(' · '),
+  })),
+  ...conteos.map((c) => ({
+    cuando: c.created_at,
+    fecha: c.fecha,
+    texto: `Conteo: ${c.contadas} contadas de ${c.en_sistema} en el sistema${c.contadas < c.en_sistema ? ` (faltaron ${c.en_sistema - c.contadas})` : c.contadas > c.en_sistema ? ` (sobraron ${c.contadas - c.en_sistema})` : ''}`,
+    detalle: c.nota ?? '',
+  })),
+].sort((a, b) => b.cuando.localeCompare(a.cuando)).slice(0, 100);
 
 // Si el formulario volvió con error, se conservan los valores escritos.
 const valor = (campo: string, original: string | number | null | undefined) =>
@@ -58,6 +125,7 @@ const valor = (campo: string, original: string | number | null | undefined) =>
 <Admin title={nuevo ? 'Nuevo producto' : producto!.nombre}>
   <p><a href="/admin/inventario">← Productos</a></p>
   {error && <p class="aviso error">{error}</p>}
+  {aviso && <p class="aviso ok">{aviso}</p>}
 
   {
     categorias.length === 0 ? (
@@ -114,39 +182,146 @@ const valor = (campo: string, original: string | number | null | undefined) =>
 
   {
     !nuevo && (
+      <>
       <section>
-        <h2>Piezas disponibles ({piezas.length})</h2>
+        <div class="acciones" style="justify-content: space-between; margin-top: 2rem">
+          <h2 style="margin: 0">Piezas disponibles ({piezas.length})</h2>
+          {piezas.length > 0 && (
+            <a class="boton secundario" href={`/admin/inventario/productos/${id}/conteo`}>
+              Contar este producto
+            </a>
+          )}
+        </div>
         {piezas.length === 0 ? (
           <p class="tarjeta">
             No hay piezas disponibles. <a href="/admin/inventario/lotes/nuevo">Registrar lote</a>
           </p>
         ) : (
+          <form method="post" id="bajas">
+            <input type="hidden" name="accion" value="baja" />
+            <div class="tabla">
+              <table>
+                <thead>
+                  <tr>
+                    <th />
+                    <th class="num">Peso</th>
+                    <th class="num">Costo</th>
+                    <th class="num">Precio hoy</th>
+                    <th>Lote</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {piezas.map((p) => (
+                    <tr>
+                      <td>
+                        <input type="checkbox" name="unidades" value={p.id} aria-label={`Marcar la pieza de ${gramos(p.peso_gramos)}`} />
+                      </td>
+                      <td class="num">{gramos(p.peso_gramos)}</td>
+                      <td class="num">{pesos(p.costo_cop)}</td>
+                      <td class="num">{pesos(p.precio_cop)}</td>
+                      <td>
+                        <a href={`/admin/inventario/lotes/${p.lote_id}`}>{fecha(p.lote_fecha)}</a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div class="fila" style="margin-top: 0.75rem">
+              <div class="campo">
+                <label for="motivo">Dar de baja las marcadas por</label>
+                <select id="motivo" name="motivo">
+                  {MOTIVOS_BAJA.slice(1).map((m) => (
+                    <option>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div class="campo" style="grid-column: span 2">
+                <label for="nota-baja">Nota (opcional)</label>
+                <input id="nota-baja" name="nota" autocomplete="off" />
+              </div>
+            </div>
+            <button type="submit" class="secundario">Dar de baja las marcadas</button>
+          </form>
+        )}
+      </section>
+
+      {deBaja.length > 0 && (
+        <section>
+          <h2>Piezas dadas de baja ({deBaja.length})</h2>
+          <p class="ayuda">Si una aparece, reintégrala y vuelve a estar disponible.</p>
           <div class="tabla">
             <table>
               <thead>
                 <tr>
                   <th class="num">Peso</th>
                   <th class="num">Costo</th>
-                  <th class="num">Precio hoy</th>
                   <th>Lote</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
-                {piezas.map((p) => (
+                {deBaja.map((p) => (
                   <tr>
                     <td class="num">{gramos(p.peso_gramos)}</td>
                     <td class="num">{pesos(p.costo_cop)}</td>
-                    <td class="num">{pesos(p.precio_cop)}</td>
+                    <td>{fecha(p.lote_fecha)}</td>
                     <td>
-                      <a href={`/admin/inventario/lotes/${p.lote_id}`}>{fecha(p.lote_fecha)}</a>
+                      <form method="post">
+                        <input type="hidden" name="accion" value="reintegro" />
+                        <input type="hidden" name="unidades" value={p.id} />
+                        <input type="hidden" name="motivo" value="Apareció la pieza" />
+                        <button type="submit" class="enlace">Reintegrar</button>
+                      </form>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-      </section>
+        </section>
+      )}
+
+      {historial.length > 0 && (
+        <section>
+          <h2>Historial</h2>
+          <div class="tabla">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Movimiento</th>
+                  <th>Detalle</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historial.map((e) => (
+                  <tr>
+                    <td>{fecha(e.fecha)}</td>
+                    <td>{e.texto}</td>
+                    <td>{e.detalle ? <small>{e.detalle}</small> : null}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+      </>
     )
   }
 </Admin>
+
+<script>
+  document.querySelector<HTMLFormElement>('#bajas')?.addEventListener('submit', (e) => {
+    const form = e.currentTarget as HTMLFormElement;
+    const n = form.querySelectorAll('input[name="unidades"]:checked').length;
+    const motivo = form.querySelector<HTMLSelectElement>('[name="motivo"]')!.value;
+    if (n === 0) {
+      e.preventDefault();
+      alert('Marca las piezas que quieres dar de baja.');
+    } else if (!confirm(`¿Dar de baja ${n} ${n === 1 ? 'pieza' : 'piezas'} por "${motivo}"? Dejan de estar disponibles para la venta.`)) {
+      e.preventDefault();
+    }
+  });
+</script>

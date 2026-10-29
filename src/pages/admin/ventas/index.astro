@@ -1,0 +1,207 @@
+---
+// Lista de ventas con filtros, para revisarlas y anular o reactivar varias de una vez.
+import Admin from '../../../layouts/Admin.astro';
+import { limpiarBusqueda, nombreCompleto } from '../../../lib/clientes';
+import { fecha, hoyBogota, pesos } from '../../../lib/formato';
+
+const supabase = Astro.locals.supabase;
+let aviso = '';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = String(form.get('accion') ?? '');
+  const ids = form.getAll('ids').map(String).filter(Boolean);
+  if (!['anular', 'reactivar'].includes(accion)) {
+    error = 'Acción no válida.';
+  } else if (ids.length === 0) {
+    error = 'Marca al menos una venta.';
+  } else {
+    // Solo las que cambian de estado; el inventario se mueve en la base (anular devuelve las piezas).
+    const { data, error: fallo } = await supabase
+      .from('ventas')
+      .update({ anulada: accion === 'anular' })
+      .in('id', ids)
+      .eq('anulada', accion !== 'anular')
+      .select('id');
+    if (fallo) error = fallo.message;
+    else {
+      const n = data?.length ?? 0;
+      aviso =
+        accion === 'anular'
+          ? `${n} ${n === 1 ? 'venta anulada' : 'ventas anuladas'}: ya no cuentan en el Círculo, sus chips muestran la página neutra y sus piezas volvieron al inventario.`
+          : `${n} ${n === 1 ? 'venta reactivada' : 'ventas reactivadas'}.`;
+    }
+  }
+}
+
+const parametros = Astro.url.searchParams;
+const fechaValida = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
+const q = limpiarBusqueda(parametros.get('q') ?? '');
+const desde = fechaValida(parametros.get('desde'));
+const hasta = fechaValida(parametros.get('hasta'));
+const estado = ['activas', 'anuladas', 'todas'].includes(parametros.get('estado') ?? '') ? parametros.get('estado')! : 'activas';
+const esReferencia = /^ss-/i.test(q);
+
+let consulta = supabase
+  .from('ventas')
+  .select(
+    `id, fecha, monto_cop, descuento_cop, anulada, nota, created_at, clientes${!esReferencia && q ? '!inner' : ''}(nombre, apellido), cajas${esReferencia ? '!inner' : ''}(referencia, es_regalo, piezas(count))`,
+  )
+  .order('fecha', { ascending: false })
+  .order('created_at', { ascending: false })
+  .limit(300);
+if (q && esReferencia) consulta = consulta.ilike('cajas.referencia', `*${q}*`);
+else if (q) consulta = consulta.or(`nombre.ilike.*${q}*,apellido.ilike.*${q}*`, { referencedTable: 'clientes' });
+if (desde) consulta = consulta.gte('fecha', desde);
+if (hasta) consulta = consulta.lte('fecha', hasta);
+if (estado !== 'todas') consulta = consulta.eq('anulada', estado === 'anuladas');
+
+const { data, error: falloLista } = await consulta;
+type Fila = {
+  id: string;
+  fecha: string;
+  monto_cop: number;
+  descuento_cop: number;
+  anulada: boolean;
+  nota: string | null;
+  clientes: { nombre: string; apellido: string | null };
+  cajas: { referencia: string; es_regalo: boolean; piezas: { count: number }[] }[];
+};
+const ventas = (data ?? []) as unknown as Fila[];
+const total = ventas.filter((v) => !v.anulada).reduce((s, v) => s + Number(v.monto_cop), 0);
+const hoy = hoyBogota();
+const accionMasiva = estado === 'anuladas' ? 'reactivar' : 'anular';
+---
+
+<Admin title="Ventas">
+  <div class="acciones" style="margin-bottom: 1rem">
+    <a class="boton" href="/admin/ventas/nueva">+ Registrar venta</a>
+  </div>
+
+  <form method="get" class="acciones" style="margin-bottom: 1rem">
+    <input name="q" value={q} placeholder="Cliente o referencia (SS-…)" style="max-width: 16rem" />
+    <label for="desde" style="margin: 0">Desde</label>
+    <input id="desde" name="desde" type="date" value={desde} max={hoy} style="max-width: 10.5rem" />
+    <label for="hasta" style="margin: 0">Hasta</label>
+    <input id="hasta" name="hasta" type="date" value={hasta} max={hoy} style="max-width: 10.5rem" />
+    <select name="estado" aria-label="Estado" style="max-width: 9rem">
+      <option value="activas" selected={estado === 'activas'}>Activas</option>
+      <option value="anuladas" selected={estado === 'anuladas'}>Anuladas</option>
+      <option value="todas" selected={estado === 'todas'}>Todas</option>
+    </select>
+    <button type="submit" class="secundario">Buscar</button>
+  </form>
+
+  {aviso && <p class="aviso ok">{aviso}</p>}
+  {error && <p class="aviso error">{error}</p>}
+  {falloLista && <p class="aviso error">No se pudo cargar la lista: {falloLista.message}</p>}
+
+  {
+    !falloLista && ventas.length === 0 && (
+      <p class="tarjeta">{q || desde || hasta || estado !== 'activas' ? 'No hay ventas que coincidan.' : 'Todavía no hay ventas.'}</p>
+    )
+  }
+
+  {
+    ventas.length > 0 && (
+      <form method="post" id="masiva">
+        <div class="acciones" style="margin-bottom: 0.75rem">
+          <input type="hidden" name="accion" value={accionMasiva} />
+          <button type="submit" class="secundario" id="boton-masivo" disabled>
+            {accionMasiva === 'anular' ? 'Anular' : 'Reactivar'} las marcadas
+          </button>
+          <span class="ayuda" id="marcadas">Marca las ventas en la primera columna.</span>
+        </div>
+        <div class="tabla">
+          <table>
+            <thead>
+              <tr>
+                <th>
+                  <input type="checkbox" id="todas" aria-label="Marcar todas" />
+                </th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>Cajas</th>
+                <th class="num">Piezas</th>
+                <th class="num">Total</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ventas.map((v) => {
+                const piezas = v.cajas.reduce((s, c) => s + (c.piezas[0]?.count ?? 0), 0);
+                return (
+                  <tr>
+                    <td>
+                      <input type="checkbox" name="ids" value={v.id} aria-label={`Marcar la venta del ${fecha(v.fecha)}`} />
+                    </td>
+                    <td>
+                      <a href={`/admin/ventas/${v.id}`}>{fecha(v.fecha)}</a>
+                    </td>
+                    <td>{nombreCompleto(v.clientes)}</td>
+                    <td>
+                      {v.cajas.map((c) => (
+                        <>
+                          <code>{c.referencia}</code>
+                          {c.es_regalo && ' (regalo)'}{' '}
+                        </>
+                      ))}
+                    </td>
+                    <td class="num">{piezas}</td>
+                    <td class="num">
+                      {pesos(v.monto_cop)}
+                      {v.descuento_cop > 0 && <small style="display: block">desc. {pesos(v.descuento_cop)}</small>}
+                    </td>
+                    <td>{v.anulada ? <span class="etiqueta alerta">Anulada</span> : 'Activa'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            {estado !== 'anuladas' && (
+              <tfoot>
+                <tr>
+                  <th colspan="5">Total de las activas ({ventas.filter((v) => !v.anulada).length})</th>
+                  <th class="num">{pesos(total)}</th>
+                  <th />
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+        {ventas.length === 300 && <p class="ayuda">Se muestran las 300 más recientes. Usa las fechas para ver otras.</p>}
+      </form>
+    )
+  }
+</Admin>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#masiva');
+  if (form) {
+    const todas = form.querySelector<HTMLInputElement>('#todas')!;
+    const boton = form.querySelector<HTMLButtonElement>('#boton-masivo')!;
+    const texto = form.querySelector<HTMLElement>('#marcadas')!;
+    const casillas = [...form.querySelectorAll<HTMLInputElement>('input[name="ids"]')];
+    const accion = form.querySelector<HTMLInputElement>('input[name="accion"]')!.value;
+    const actualizar = () => {
+      const n = casillas.filter((c) => c.checked).length;
+      boton.disabled = n === 0;
+      texto.textContent = n ? `${n} ${n === 1 ? 'marcada' : 'marcadas'}` : 'Marca las ventas en la primera columna.';
+      todas.checked = n === casillas.length;
+      todas.indeterminate = n > 0 && n < casillas.length;
+    };
+    todas.addEventListener('change', () => {
+      for (const c of casillas) c.checked = todas.checked;
+      actualizar();
+    });
+    form.addEventListener('change', actualizar);
+    form.addEventListener('submit', (e) => {
+      const n = casillas.filter((c) => c.checked).length;
+      const mensaje =
+        accion === 'anular'
+          ? `¿Anular ${n} ${n === 1 ? 'venta' : 'ventas'}? Dejan de contar en el Círculo, sus chips muestran la página neutra y sus piezas vuelven al inventario.`
+          : `¿Reactivar ${n} ${n === 1 ? 'venta' : 'ventas'}?`;
+      if (!confirm(mensaje)) e.preventDefault();
+    });
+  }
+</script>

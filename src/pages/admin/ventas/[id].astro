@@ -49,6 +49,7 @@ const margen = venta.monto_cop - costo;
 ---
 
 <Admin title={`Venta del ${fecha(venta.fecha)}`}>
+  <p><a href="/admin/ventas">← Ventas</a></p>
   {aviso && <p class="aviso ok">{aviso}</p>}
   {error && <p class="aviso error">{error}</p>}
 

@@ -2,6 +2,8 @@ import type { Supabase } from './supabase';
 import type { FormatoCsv } from './csv';
 import { nombreCompleto, type ClienteCirculo } from './clientes';
 import { formatoWhatsapp } from './whatsapp';
+import type { PiezaVendida } from './informes';
+import type { UnidadDetalle } from './inventario';
 
 const LOTE = 1000; // máximo de filas que Supabase devuelve por consulta
 
@@ -137,6 +139,83 @@ export const EXPORTACIONES: Record<string, Exportacion> = {
             ]),
           ),
         ),
+      };
+    },
+  },
+
+  'informe-ventas-por-pieza': {
+    titulo: 'Ventas por pieza, con costo y margen',
+    descripcion: 'Una fila por pieza vendida con precio: producto, categoría, descuento repartido, costo, margen y días en inventario.',
+    formato: 'excel',
+    async generar(supabase) {
+      const filas = await traerTodo<PiezaVendida>((d, h) =>
+        supabase
+          .from('piezas_vendidas')
+          .select('*')
+          .not('precio_cop', 'is', null)
+          .order('fecha', { ascending: false })
+          .order('id')
+          .range(d, h),
+      );
+      return {
+        encabezados: [
+          'Fecha', 'Referencia de la caja', 'Código', 'Pieza', 'Categoría', 'Peso (g)', 'Precio (COP)',
+          'Descuento (COP)', 'Precio neto (COP)', 'Costo (COP)', 'Margen (COP)', 'Margen (%)', 'Fecha del lote',
+          'Días en inventario', 'Estado de la venta',
+        ],
+        filas: filas.map((p) => [
+          p.fecha,
+          p.referencia,
+          p.codigo ?? '',
+          p.descripcion,
+          p.categoria ?? '',
+          Number(p.peso_gramos),
+          Number(p.precio_cop),
+          Number(p.descuento_cop ?? 0),
+          Number(p.precio_neto_cop),
+          p.costo_cop == null ? '' : Number(p.costo_cop),
+          p.margen_cop == null ? '' : Number(p.margen_cop),
+          p.margen_cop == null || !p.precio_neto_cop ? '' : redondear((Number(p.margen_cop) / Number(p.precio_neto_cop)) * 100),
+          p.lote_fecha ?? '',
+          p.dias_en_inventario ?? '',
+          p.anulada ? 'Anulada' : 'Activa',
+        ]),
+      };
+    },
+  },
+
+  'informe-inventario': {
+    titulo: 'Inventario disponible',
+    descripcion: 'Una fila por pieza disponible: producto, categoría, peso, lote, costo y precio de venta de hoy.',
+    formato: 'excel',
+    async generar(supabase) {
+      const filas = await traerTodo<UnidadDetalle>((d, h) =>
+        supabase
+          .from('unidades_detalle')
+          .select('*')
+          .eq('estado', 'disponible')
+          .order('codigo')
+          .order('peso_gramos')
+          .order('id')
+          .range(d, h),
+      );
+      return {
+        encabezados: [
+          'Código', 'Producto', 'Categoría', 'Peso (g)', 'Fecha del lote', 'Proveedor', 'Oro por gramo (COP)',
+          'Mano de obra por gramo (COP)', 'Costo (COP)', 'Precio de venta hoy (COP)',
+        ],
+        filas: filas.map((u) => [
+          u.codigo,
+          u.producto,
+          u.categoria,
+          Number(u.peso_gramos),
+          u.lote_fecha,
+          u.proveedor ?? '',
+          Number(u.oro_gramo_cop),
+          Number(u.mano_obra_gramo_cop),
+          Number(u.costo_cop),
+          Number(u.precio_cop),
+        ]),
       };
     },
   },

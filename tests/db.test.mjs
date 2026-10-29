@@ -316,7 +316,7 @@ test('el visitante anónimo no puede leer tablas ni usar funciones del panel', a
   const r = await venta(db);
 
   const tablas = ['clientes', 'ventas', 'cajas', 'piezas', 'premios', 'escaneos', 'admins', 'clientes_circulo'];
-  const inventario = ['categorias', 'productos', 'productos_catalogo', 'proveedores', 'lotes', 'unidades', 'unidades_detalle', 'existencias', 'lotes_resumen', 'ventas_margen'];
+  const inventario = ['categorias', 'productos', 'productos_catalogo', 'proveedores', 'lotes', 'unidades', 'unidades_detalle', 'existencias', 'lotes_resumen', 'ventas_margen', 'piezas_vendidas'];
   for (const tabla of [...tablas, ...inventario]) {
     await assert.rejects(
       como(db, 'anon', null, () => db.query(`select * from public.${tabla}`)),
@@ -603,4 +603,27 @@ test('venta por pieza: piezas fuera del inventario con precio, descuento válido
   const r2 = await venta(db, { whatsapp, cajas: [{ piezas: [manual, { ...manual, precio_cop: 400000 }] }] });
   assert.equal(Number(r2.monto_cop), 650000);
   assert.equal((await interacciones(db, r.cliente.id)).interacciones, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Fase 4D: informes
+// ---------------------------------------------------------------------------
+
+test('informes: cada pieza vendida reparte el descuento según su precio y trae su margen y días en inventario', async () => {
+  const db = await nuevaBase();
+  const [u2, u15] = await inventario(db); // 2 g = 800.000 y 1,5 g = 600.000; costo 700.000 y 525.000
+  const manual = { descripcion: 'Topos', peso_gramos: 0.8, precio_cop: 200000 };
+  await venta(db, { cajas: [{ piezas: [{ unidad_id: u2 }, { unidad_id: u15 }, manual] }], descuento: 160000 });
+  const filas = await como(db, 'authenticated', ADMIN, async () =>
+    (await db.query('select * from public.piezas_vendidas order by precio_cop desc')).rows,
+  );
+  // 160.000 repartido sobre 1.600.000: 10 % de cada precio.
+  assert.deepEqual(filas.map((f) => Number(f.descuento_cop)), [80000, 60000, 20000]);
+  assert.equal(Number(filas[0].precio_neto_cop), 720000);
+  assert.equal(Number(filas[0].margen_cop), 720000 - 700000);
+  assert.equal(filas[0].categoria, 'Anillos');
+  assert.equal(filas[0].codigo, 'AN-014');
+  assert.equal(filas[0].dias_en_inventario, 0);
+  assert.equal(filas[2].categoria, 'Fuera del inventario');
+  assert.equal(filas[2].margen_cop, null, 'sin costo no hay margen');
 });

@@ -1,0 +1,343 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { fecha, hoyBogota, pesos } from '../../../lib/formato';
+import { gramos, type Existencia, type UnidadDetalle } from '../../../lib/inventario';
+import {
+  agrupar,
+  diasEntre,
+  nombreMes,
+  porcentajeMargen,
+  rangoDelMes,
+  totalizar,
+  type PiezaVendida,
+  type Totales,
+} from '../../../lib/informes';
+
+const supabase = Astro.locals.supabase;
+const hoy = hoyBogota();
+const porDefecto = rangoDelMes(hoy);
+const fechaValida = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+const desde = fechaValida(Astro.url.searchParams.get('desde')) ?? porDefecto.desde;
+const hasta = fechaValida(Astro.url.searchParams.get('hasta')) ?? porDefecto.hasta;
+const DIAS_VIEJA = 90;
+
+const [{ data: dataVendidas, error }, { data: dataDisponibles }, { data: dataExistencias }] = await Promise.all([
+  supabase
+    .from('piezas_vendidas')
+    .select('*')
+    .eq('anulada', false)
+    .not('precio_cop', 'is', null)
+    .gte('fecha', desde)
+    .lte('fecha', hasta)
+    .limit(10000),
+  supabase
+    .from('unidades_detalle')
+    .select('id, codigo, producto, categoria, peso_gramos, costo_cop, precio_cop, lote_fecha')
+    .eq('estado', 'disponible')
+    .order('lote_fecha')
+    .limit(10000),
+  supabase.from('existencias').select('id, codigo, nombre, categoria, disponibles, valor_cop').gt('disponibles', 0),
+]);
+const vendidas = (dataVendidas ?? []) as PiezaVendida[];
+const disponibles = (dataDisponibles ?? []) as Pick<
+  UnidadDetalle,
+  'id' | 'codigo' | 'producto' | 'categoria' | 'peso_gramos' | 'costo_cop' | 'precio_cop' | 'lote_fecha'
+>[];
+const existencias = (dataExistencias ?? []) as Pick<Existencia, 'id' | 'codigo' | 'nombre' | 'categoria' | 'disponibles' | 'valor_cop'>[];
+
+const total = totalizar(vendidas);
+const porMes = agrupar(vendidas, (p) => p.fecha.slice(0, 7)).sort((a, b) => a[0].localeCompare(b[0]));
+const porCategoria = agrupar(vendidas, (p) => p.categoria ?? 'Sin categoría');
+const porProducto = agrupar(vendidas, (p) => (p.codigo ? `${p.codigo} · ${p.descripcion}` : `${p.descripcion} (fuera del inventario)`));
+
+// Inventario de hoy, por categoría, y las piezas que llevan más tiempo esperando.
+const inventario = new Map<string, { piezas: number; gramos: number; costo: number; valor: number }>();
+for (const u of disponibles) {
+  const g = inventario.get(u.categoria) ?? { piezas: 0, gramos: 0, costo: 0, valor: 0 };
+  g.piezas += 1;
+  g.gramos += Number(u.peso_gramos);
+  g.costo += Number(u.costo_cop);
+  g.valor += Number(u.precio_cop);
+  inventario.set(u.categoria, g);
+}
+const inventarioTotal = [...inventario.values()].reduce(
+  (t, g) => ({ piezas: t.piezas + g.piezas, gramos: t.gramos + g.gramos, costo: t.costo + g.costo, valor: t.valor + g.valor }),
+  { piezas: 0, gramos: 0, costo: 0, valor: 0 },
+);
+const viejas = disponibles
+  .map((u) => ({ ...u, dias: diasEntre(u.lote_fecha, hoy) }))
+  .filter((u) => u.dias >= DIAS_VIEJA)
+  .slice(0, 30);
+const vendidosEnRango = new Set(vendidas.map((p) => p.producto_id).filter(Boolean));
+const sinVentas = existencias.filter((e) => !vendidosEnRango.has(e.id)).sort((a, b) => Number(b.valor_cop) - Number(a.valor_cop));
+
+const fila = (t: Totales) => ({
+  ingresos: pesos(t.ingresos),
+  costo: t.ingresosConCosto ? pesos(t.costo) : '—',
+  margen: t.ingresosConCosto ? pesos(t.margen) : '—',
+  porcentaje: porcentajeMargen(t),
+});
+const rangos = [
+  { texto: 'Este mes', desde: porDefecto.desde, hasta: hoy },
+  { texto: 'Últimos 90 días', desde: new Date(Date.parse(`${hoy}T00:00:00Z`) - 89 * 86400000).toISOString().slice(0, 10), hasta: hoy },
+  { texto: 'Este año', desde: `${hoy.slice(0, 4)}-01-01`, hasta: hoy },
+];
+---
+
+<Admin title="Informes">
+  <form method="get" class="acciones" style="margin-bottom: 0.5rem">
+    <label for="desde" style="margin: 0">Desde</label>
+    <input id="desde" name="desde" type="date" value={desde} max={hoy} style="max-width: 11rem" />
+    <label for="hasta" style="margin: 0">Hasta</label>
+    <input id="hasta" name="hasta" type="date" value={hasta} max={hoy} style="max-width: 11rem" />
+    <button type="submit" class="secundario">Ver</button>
+  </form>
+  <p class="acciones" style="margin-top: 0">
+    {rangos.map((r) => <a href={`/admin/informes?desde=${r.desde}&hasta=${r.hasta}`}>{r.texto}</a>)}
+  </p>
+
+  {error && <p class="aviso error">No se pudieron cargar las ventas: {error.message}</p>}
+
+  <h2>Ventas del {fecha(desde)} al {fecha(hasta)}</h2>
+  {
+    total.piezas === 0 ? (
+      <p class="tarjeta">No hay ventas con precio por pieza en estas fechas (las ventas anuladas no cuentan).</p>
+    ) : (
+      <>
+        <div class="tarjeta">
+          <p style="margin: 0">
+            <strong>{total.ventas}</strong> {total.ventas === 1 ? 'venta' : 'ventas'} · <strong>{total.piezas}</strong>{' '}
+            {total.piezas === 1 ? 'pieza' : 'piezas'} · {gramos(total.gramos)}
+          </p>
+          <p>
+            <strong>Ingresos:</strong> {pesos(total.ingresos)}
+            {total.descuentos > 0 && <> (precio de lista {pesos(total.bruto)}, descuentos {pesos(total.descuentos)})</>}
+            <br />
+            <strong>Costo:</strong> {pesos(total.costo)} · <strong>Margen:</strong> {pesos(total.margen)} ({porcentajeMargen(total)})
+            {total.diasPromedio != null && (
+              <>
+                <br />
+                <strong>Tiempo promedio en inventario:</strong> {total.diasPromedio} días
+              </>
+            )}
+          </p>
+          {total.sinCosto > 0 && (
+            <p class="ayuda">
+              {total.sinCosto} {total.sinCosto === 1 ? 'pieza vendida no tiene' : 'piezas vendidas no tienen'} costo (fuera del
+              inventario): cuentan en los ingresos pero no en el costo ni en el margen.
+            </p>
+          )}
+        </div>
+
+        {porMes.length > 1 && (
+          <>
+            <h2>Por mes</h2>
+            <div class="tabla">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mes</th>
+                    <th class="num">Ventas</th>
+                    <th class="num">Piezas</th>
+                    <th class="num">Ingresos</th>
+                    <th class="num">Costo</th>
+                    <th class="num">Margen</th>
+                    <th class="num">%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {porMes.map(([mes, t]) => (
+                    <tr>
+                      <td>{nombreMes(mes)}</td>
+                      <td class="num">{t.ventas}</td>
+                      <td class="num">{t.piezas}</td>
+                      <td class="num">{fila(t).ingresos}</td>
+                      <td class="num">{fila(t).costo}</td>
+                      <td class="num">{fila(t).margen}</td>
+                      <td class="num">{fila(t).porcentaje}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        <h2>Por categoría</h2>
+        <div class="tabla">
+          <table>
+            <thead>
+              <tr>
+                <th>Categoría</th>
+                <th class="num">Piezas</th>
+                <th class="num">Gramos</th>
+                <th class="num">Ingresos</th>
+                <th class="num">Costo</th>
+                <th class="num">Margen</th>
+                <th class="num">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {porCategoria.map(([nombre, t]) => (
+                <tr>
+                  <td>{nombre}</td>
+                  <td class="num">{t.piezas}</td>
+                  <td class="num">{gramos(t.gramos)}</td>
+                  <td class="num">{fila(t).ingresos}</td>
+                  <td class="num">{fila(t).costo}</td>
+                  <td class="num">{fila(t).margen}</td>
+                  <td class="num">{fila(t).porcentaje}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <h2>Por producto</h2>
+        <div class="tabla">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th class="num">Piezas</th>
+                <th class="num">Gramos</th>
+                <th class="num">Ingresos</th>
+                <th class="num">Margen</th>
+                <th class="num">%</th>
+                <th class="num">Días en inventario</th>
+              </tr>
+            </thead>
+            <tbody>
+              {porProducto.map(([nombre, t]) => (
+                <tr>
+                  <td>{nombre}</td>
+                  <td class="num">{t.piezas}</td>
+                  <td class="num">{gramos(t.gramos)}</td>
+                  <td class="num">{fila(t).ingresos}</td>
+                  <td class="num">{fila(t).margen}</td>
+                  <td class="num">{fila(t).porcentaje}</td>
+                  <td class="num">{t.diasPromedio ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    )
+  }
+
+  <h2>Inventario de hoy</h2>
+  {
+    inventarioTotal.piezas === 0 ? (
+      <p class="tarjeta">No hay piezas disponibles.</p>
+    ) : (
+      <div class="tabla">
+        <table>
+          <thead>
+            <tr>
+              <th>Categoría</th>
+              <th class="num">Piezas</th>
+              <th class="num">Gramos</th>
+              <th class="num">Costo</th>
+              <th class="num">Valor de venta hoy</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...inventario.entries()]
+              .sort((a, b) => b[1].valor - a[1].valor)
+              .map(([nombre, g]) => (
+                <tr>
+                  <td>{nombre}</td>
+                  <td class="num">{g.piezas}</td>
+                  <td class="num">{gramos(g.gramos)}</td>
+                  <td class="num">{pesos(g.costo)}</td>
+                  <td class="num">{pesos(g.valor)}</td>
+                </tr>
+              ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>Total</th>
+              <th class="num">{inventarioTotal.piezas}</th>
+              <th class="num">{gramos(inventarioTotal.gramos)}</th>
+              <th class="num">{pesos(inventarioTotal.costo)}</th>
+              <th class="num">{pesos(inventarioTotal.valor)}</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    )
+  }
+
+  {
+    sinVentas.length > 0 && (
+      <>
+        <h2>Productos sin ventas en estas fechas</h2>
+        <p class="ayuda">Tienen piezas disponibles pero no se vendió ninguna entre el {fecha(desde)} y el {fecha(hasta)}.</p>
+        <div class="tabla">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th class="num">Disponibles</th>
+                <th class="num">Valor de venta hoy</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sinVentas.map((e) => (
+                <tr>
+                  <td>
+                    <a href={`/admin/inventario/productos/${e.id}`}>
+                      {e.codigo} · {e.nombre}
+                    </a>
+                  </td>
+                  <td>{e.categoria}</td>
+                  <td class="num">{e.disponibles}</td>
+                  <td class="num">{pesos(e.valor_cop)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    )
+  }
+
+  {
+    viejas.length > 0 && (
+      <>
+        <h2>Piezas con más de {DIAS_VIEJA} días en inventario</h2>
+        <div class="tabla">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th class="num">Peso</th>
+                <th class="num">Días</th>
+                <th class="num">Precio hoy</th>
+              </tr>
+            </thead>
+            <tbody>
+              {viejas.map((u) => (
+                <tr>
+                  <td>
+                    {u.codigo} · {u.producto}
+                  </td>
+                  <td class="num">{gramos(u.peso_gramos)}</td>
+                  <td class="num">{u.dias}</td>
+                  <td class="num">{pesos(u.precio_cop)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    )
+  }
+
+  <p class="ayuda" style="margin-top: 1.5rem">
+    Ingresos = precio de cada pieza menos su parte del descuento de la venta. Margen = ingresos − costo, solo de las
+    piezas del inventario. Para Excel: <a href="/admin/exportar">Exportar</a> (ventas por pieza e inventario disponible).
+  </p>
+</Admin>

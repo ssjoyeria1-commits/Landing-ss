@@ -1,6 +1,9 @@
 import { capitalizar } from './formato';
 import { normalizarWhatsapp } from './whatsapp';
 
+/** Todas las piezas de SS Joyería son de oro de 18 quilates: el formulario ya no pregunta la ley. */
+export const LEY = '18k';
+
 export interface PiezaForm {
   descripcion: string;
   peso_gramos: number;
@@ -37,7 +40,7 @@ export function leerMonto(valor: string): number {
 }
 
 /** Pesos como "5,25" o "5.25". */
-function leerPeso(valor: string): number {
+export function leerPeso(valor: string): number {
   return Number(valor.replace(',', '.'));
 }
 
@@ -58,7 +61,7 @@ export function leerFormularioVenta(form: FormData): { payload: PayloadVenta } |
     if (!cajas.has(i)) cajas.set(i, { es_regalo: false, nombre_destinatario: null, piezas: [] });
     return cajas.get(i)!;
   };
-  const piezas = new Map<string, Partial<Record<'descripcion' | 'peso' | 'ley', string>>>();
+  const piezas = new Map<string, Partial<Record<'descripcion' | 'peso', string>>>();
 
   for (const [clave, valorBruto] of form.entries()) {
     const valor = String(valorBruto).trim();
@@ -69,7 +72,7 @@ export function leerFormularioVenta(form: FormData): { payload: PayloadVenta } |
       else c.nombre_destinatario = valor ? capitalizar(valor) : null;
       continue;
     }
-    m = clave.match(/^caja-(\d+)-pieza-(\d+)-(descripcion|peso|ley)$/);
+    m = clave.match(/^caja-(\d+)-pieza-(\d+)-(descripcion|peso)$/);
     if (m) {
       caja(Number(m[1]));
       const id = `${m[1]}-${m[2]}`;
@@ -79,12 +82,11 @@ export function leerFormularioVenta(form: FormData): { payload: PayloadVenta } |
 
   for (const [id, p] of piezas) {
     const [i] = id.split('-').map(Number);
-    if (!p.descripcion && !p.peso && !p.ley) continue; // fila vacía
+    if (!p.descripcion && !p.peso) continue; // fila vacía
     const peso = leerPeso(p.peso ?? '');
     if (!p.descripcion) return { error: `Caja ${i + 1}: falta la descripción de una pieza.` };
     if (!(peso > 0)) return { error: `Caja ${i + 1}: el peso de "${p.descripcion}" no es válido.` };
-    if (!p.ley) return { error: `Caja ${i + 1}: falta la ley de "${p.descripcion}".` };
-    caja(i).piezas.push({ descripcion: p.descripcion, peso_gramos: peso, ley: p.ley });
+    caja(i).piezas.push({ descripcion: p.descripcion, peso_gramos: peso, ley: LEY });
   }
 
   const listaCajas = [...cajas.entries()].sort(([a], [b]) => a - b).map(([, c]) => c);

@@ -1,0 +1,127 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { leerCategoria, mensajeError, type Categoria } from '../../../lib/inventario';
+import { pesos } from '../../../lib/formato';
+
+const supabase = Astro.locals.supabase;
+let error = '';
+let ok = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const leido = leerCategoria(form);
+  const id = String(form.get('id') ?? '');
+  if ('error' in leido) {
+    error = leido.error;
+  } else {
+    const { error: fallo } = id
+      ? await supabase.from('categorias').update(leido.datos).eq('id', id)
+      : await supabase.from('categorias').insert(leido.datos);
+    if (fallo) error = mensajeError(fallo.message);
+    else ok = id ? `Se guardó "${leido.datos.nombre}".` : `Se creó la categoría "${leido.datos.nombre}".`;
+  }
+}
+
+const { data, error: falloLista } = await supabase
+  .from('categorias')
+  .select('id, nombre, mano_obra_gramo_cop, precio_gramo_cop, activa')
+  .order('nombre');
+const categorias = (data ?? []) as Categoria[];
+const editar = Astro.url.searchParams.get('editar');
+---
+
+<Admin title="Categorías">
+  <p><a href="/admin/inventario">← Productos</a></p>
+  <p class="ayuda" style="margin-bottom: 1rem">
+    Cada categoría tiene su mano de obra y su precio de venta por gramo. El precio de cada pieza será su peso × el
+    precio por gramo, y su costo, su peso × (oro del lote + mano de obra por gramo).
+  </p>
+
+  {error && <p class="aviso error">{error}</p>}
+  {ok && <p class="aviso ok">{ok}</p>}
+  {falloLista && <p class="aviso error">No se pudo cargar la lista: {falloLista.message}</p>}
+
+  {
+    categorias.length > 0 && (
+      <div class="tabla">
+        <table>
+          <thead>
+            <tr>
+              <th>Categoría</th>
+              <th class="num">Mano de obra / g</th>
+              <th class="num">Precio / g</th>
+              <th>Estado</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {categorias.map((c) =>
+              editar === c.id ? (
+                <tr>
+                  <td colspan="5">
+                    <form method="post" action="/admin/inventario/categorias">
+                      <input type="hidden" name="id" value={c.id} />
+                      <div class="fila">
+                        <div class="campo">
+                          <label for={`nombre-${c.id}`}>Nombre</label>
+                          <input id={`nombre-${c.id}`} name="nombre" value={c.nombre} maxlength="40" required />
+                        </div>
+                        <div class="campo">
+                          <label for={`mano-${c.id}`}>Mano de obra por gramo (COP)</label>
+                          <input id={`mano-${c.id}`} name="mano_obra" inputmode="numeric" value={c.mano_obra_gramo_cop} required />
+                        </div>
+                        <div class="campo">
+                          <label for={`precio-${c.id}`}>Precio de venta por gramo (COP)</label>
+                          <input id={`precio-${c.id}`} name="precio_gramo" inputmode="numeric" value={c.precio_gramo_cop} required />
+                        </div>
+                      </div>
+                      <div class="acciones">
+                        <label class="check">
+                          <input type="checkbox" name="activa" checked={c.activa} /> Activa
+                        </label>
+                        <button type="submit">Guardar</button>
+                        <a href="/admin/inventario/categorias">Cancelar</a>
+                      </div>
+                    </form>
+                  </td>
+                </tr>
+              ) : (
+                <tr>
+                  <td>{c.nombre}</td>
+                  <td class="num">{pesos(c.mano_obra_gramo_cop)}</td>
+                  <td class="num">{pesos(c.precio_gramo_cop)}</td>
+                  <td>{c.activa ? 'Activa' : <span class="etiqueta">Inactiva</span>}</td>
+                  <td>
+                    <a href={`/admin/inventario/categorias?editar=${c.id}`}>Editar</a>
+                  </td>
+                </tr>
+              ),
+            )}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  <section class="tarjeta">
+    <h2 style="margin-top: 0">Nueva categoría</h2>
+    <form method="post" action="/admin/inventario/categorias">
+      <div class="fila">
+        <div class="campo">
+          <label for="nombre">Nombre</label>
+          <input id="nombre" name="nombre" maxlength="40" placeholder="Cadenas" required />
+        </div>
+        <div class="campo">
+          <label for="mano_obra">Mano de obra por gramo (COP)</label>
+          <input id="mano_obra" name="mano_obra" inputmode="numeric" placeholder="40.000" required />
+        </div>
+        <div class="campo">
+          <label for="precio_gramo">Precio de venta por gramo (COP)</label>
+          <input id="precio_gramo" name="precio_gramo" inputmode="numeric" placeholder="320.000" required />
+        </div>
+      </div>
+      <input type="hidden" name="activa" value="on" />
+      <button type="submit">Crear categoría</button>
+    </form>
+  </section>
+</Admin>

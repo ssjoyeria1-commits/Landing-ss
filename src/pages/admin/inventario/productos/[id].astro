@@ -1,0 +1,152 @@
+---
+// Crear (/admin/inventario/productos/nuevo) o editar un producto del catálogo.
+import Admin from '../../../../layouts/Admin.astro';
+import { fecha, pesos } from '../../../../lib/formato';
+import {
+  gramos,
+  leerProducto,
+  mensajeError,
+  type Categoria,
+  type ProductoCatalogo,
+  type UnidadDetalle,
+} from '../../../../lib/inventario';
+
+const supabase = Astro.locals.supabase;
+const id = Astro.params.id ?? '';
+const nuevo = id === 'nuevo';
+let error = '';
+let enviado: FormData | null = null;
+
+if (Astro.request.method === 'POST') {
+  enviado = await Astro.request.formData();
+  const leido = leerProducto(enviado);
+  if ('error' in leido) {
+    error = leido.error;
+  } else {
+    const { error: fallo } = nuevo
+      ? await supabase.from('productos').insert(leido.datos)
+      : await supabase.from('productos').update(leido.datos).eq('id', id);
+    if (fallo) error = mensajeError(fallo.message);
+    else return Astro.redirect('/admin/inventario');
+  }
+}
+
+const { data: dataCategorias } = await supabase
+  .from('categorias')
+  .select('id, nombre, activa')
+  .order('nombre');
+const categorias = (dataCategorias ?? []) as Pick<Categoria, 'id' | 'nombre' | 'activa'>[];
+
+let producto: ProductoCatalogo | null = null;
+if (!nuevo) {
+  const { data } = await supabase.from('productos_catalogo').select('*').eq('id', id).maybeSingle();
+  producto = data as ProductoCatalogo | null;
+  if (!producto) return new Response(null, { status: 404 });
+}
+
+// Piezas disponibles de esta referencia, de la más liviana a la más pesada.
+const { data: dataPiezas } = nuevo
+  ? { data: [] }
+  : await supabase.from('unidades_detalle').select('*').eq('producto_id', id).eq('estado', 'disponible').order('peso_gramos');
+const piezas = (dataPiezas ?? []) as UnidadDetalle[];
+
+// Si el formulario volvió con error, se conservan los valores escritos.
+const valor = (campo: string, original: string | number | null | undefined) =>
+  String(enviado ? (enviado.get(campo) ?? '') : (original ?? ''));
+---
+
+<Admin title={nuevo ? 'Nuevo producto' : producto!.nombre}>
+  <p><a href="/admin/inventario">← Productos</a></p>
+  {error && <p class="aviso error">{error}</p>}
+
+  {
+    categorias.length === 0 ? (
+      <p class="tarjeta">
+        Primero crea una categoría. <a href="/admin/inventario/categorias">Crear categorías</a>
+      </p>
+    ) : (
+      <form method="post" class="tarjeta">
+        <div class="fila">
+          <div class="campo">
+            <label for="codigo">Código</label>
+            <input id="codigo" name="codigo" value={valor('codigo', producto?.codigo)} maxlength="20" placeholder="AN-014" required style="text-transform: uppercase" autocomplete="off" />
+            <p class="ayuda">El de la etiqueta. Letras, números y guiones.</p>
+          </div>
+          <div class="campo" style="grid-column: span 2">
+            <label for="nombre">Nombre</label>
+            <input id="nombre" name="nombre" value={valor('nombre', producto?.nombre)} maxlength="120" placeholder="Anillo solitario con circón" required autocomplete="off" />
+          </div>
+        </div>
+        <div class="fila">
+          <div class="campo">
+            <label for="categoria_id">Categoría</label>
+            <select id="categoria_id" name="categoria_id" required>
+              <option value="">Elige…</option>
+              {categorias
+                .filter((c) => c.activa || c.id === producto?.categoria_id)
+                .map((c) => (
+                  <option value={c.id} selected={c.id === valor('categoria_id', producto?.categoria_id)}>
+                    {c.nombre}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="stock_minimo">Stock mínimo</label>
+            <input id="stock_minimo" name="stock_minimo" inputmode="numeric" value={valor('stock_minimo', producto?.stock_minimo ?? 0)} />
+            <p class="ayuda">Avisa cuando queden menos unidades.</p>
+          </div>
+        </div>
+        <p class="ayuda">El peso no va aquí: cada pieza tiene el suyo y se anota al registrar su lote.</p>
+        <div class="campo" style="margin-top: 0.9rem">
+          <label for="nota">Nota (opcional)</label>
+          <textarea id="nota" name="nota" rows="2">{valor('nota', producto?.nota)}</textarea>
+        </div>
+        <div class="acciones">
+          <label class="check">
+            <input type="checkbox" name="activo" checked={enviado ? enviado.get('activo') === 'on' : nuevo || producto!.activo} /> Activo (se puede vender)
+          </label>
+          <button type="submit">{nuevo ? 'Crear producto' : 'Guardar cambios'}</button>
+        </div>
+      </form>
+    )
+  }
+
+  {
+    !nuevo && (
+      <section>
+        <h2>Piezas disponibles ({piezas.length})</h2>
+        {piezas.length === 0 ? (
+          <p class="tarjeta">
+            No hay piezas disponibles. <a href="/admin/inventario/lotes/nuevo">Registrar lote</a>
+          </p>
+        ) : (
+          <div class="tabla">
+            <table>
+              <thead>
+                <tr>
+                  <th class="num">Peso</th>
+                  <th class="num">Costo</th>
+                  <th class="num">Precio hoy</th>
+                  <th>Lote</th>
+                </tr>
+              </thead>
+              <tbody>
+                {piezas.map((p) => (
+                  <tr>
+                    <td class="num">{gramos(p.peso_gramos)}</td>
+                    <td class="num">{pesos(p.costo_cop)}</td>
+                    <td class="num">{pesos(p.precio_cop)}</td>
+                    <td>
+                      <a href={`/admin/inventario/lotes/${p.lote_id}`}>{fecha(p.lote_fecha)}</a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    )
+  }
+</Admin>

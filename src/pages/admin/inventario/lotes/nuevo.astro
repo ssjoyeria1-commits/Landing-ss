@@ -1,0 +1,240 @@
+---
+import Admin from '../../../../layouts/Admin.astro';
+import { hoyBogota } from '../../../../lib/formato';
+import { leerLote, mensajeError, type ProductoCatalogo, type Proveedor } from '../../../../lib/inventario';
+
+const supabase = Astro.locals.supabase;
+
+const [{ data: dataProductos }, { data: dataProveedores }] = await Promise.all([
+  supabase.from('productos_catalogo').select('id, codigo, nombre, mano_obra_gramo_cop, precio_gramo_cop').eq('activo', true).order('codigo'),
+  supabase.from('proveedores').select('id, nombre').eq('activo', true).order('nombre'),
+]);
+const productos = (dataProductos ?? []) as Pick<
+  ProductoCatalogo,
+  'id' | 'codigo' | 'nombre' | 'mano_obra_gramo_cop' | 'precio_gramo_cop'
+>[];
+const proveedores = (dataProveedores ?? []) as Pick<Proveedor, 'id' | 'nombre'>[];
+
+let error = '';
+let enviado: FormData | null = null;
+
+if (Astro.request.method === 'POST') {
+  enviado = await Astro.request.formData();
+  const leido = leerLote(enviado, new Map(productos.map((p) => [p.codigo, p.id])));
+  if ('error' in leido) {
+    error = leido.error;
+  } else {
+    const { data, error: fallo } = await supabase.rpc('registrar_lote', { p: leido.payload });
+    if (fallo) error = mensajeError(fallo.message);
+    else return Astro.redirect(`/admin/inventario/lotes/${data.lote_id}?nuevo=1`);
+  }
+}
+
+const hoy = hoyBogota();
+const valor = (campo: string, porDefecto = '') => String(enviado?.get(campo) ?? porDefecto);
+// Si el formulario volvió con error, se reconstruyen las filas escritas.
+const filasEnviadas: { producto: string; peso: string }[] = [];
+if (enviado) {
+  for (let i = 0; enviado.has(`pieza-${i}-producto`); i++) {
+    filasEnviadas.push({
+      producto: String(enviado.get(`pieza-${i}-producto`)),
+      peso: String(enviado.get(`pieza-${i}-peso`) ?? ''),
+    });
+  }
+}
+---
+
+<Admin title="Registrar lote">
+  <p><a href="/admin/inventario/lotes">← Lotes</a></p>
+  {error && <p class="aviso error">{error}</p>}
+
+  {
+    productos.length === 0 ? (
+      <p class="tarjeta">
+        Primero crea los productos (referencias) del catálogo. <a href="/admin/inventario/productos/nuevo">Crear producto</a>
+      </p>
+    ) : (
+      <form method="post" id="lote">
+        <section class="tarjeta">
+          <h2 style="margin-top: 0">Lote</h2>
+          <div class="fila">
+            <div class="campo">
+              <label for="proveedor_id">Proveedor</label>
+              <select id="proveedor_id" name="proveedor_id">
+                <option value="">Sin proveedor</option>
+                {proveedores.map((p) => (
+                  <option value={p.id} selected={valor('proveedor_id', proveedores.length === 1 ? p.id : '') === p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+              {proveedores.length === 0 && (
+                <p class="ayuda">
+                  <a href="/admin/inventario/proveedores">Crear proveedor</a>
+                </p>
+              )}
+            </div>
+            <div class="campo">
+              <label for="fecha">Fecha</label>
+              <input id="fecha" name="fecha" type="date" value={valor('fecha', hoy)} max={hoy} />
+            </div>
+            <div class="campo">
+              <label for="oro_gramo">Costo del oro por gramo (COP)</label>
+              <input id="oro_gramo" name="oro_gramo" inputmode="numeric" value={valor('oro_gramo')} placeholder="300.000" required />
+            </div>
+          </div>
+          <div class="campo">
+            <label for="nota">Nota (opcional)</label>
+            <textarea id="nota" name="nota" rows="2">{valor('nota')}</textarea>
+          </div>
+        </section>
+
+        <section class="tarjeta">
+          <h2 style="margin-top: 0">Piezas</h2>
+          <p class="ayuda" style="margin-bottom: 0.75rem">Una fila por pieza física, con su propio peso. Todas son de oro 18k.</p>
+          <div id="filas"></div>
+          <button type="button" class="enlace" id="agregar">+ Agregar pieza</button>
+
+          <details style="margin-top: 1rem" open={!!valor('pegado')}>
+            <summary>Pegar desde Excel</summary>
+            <p class="ayuda">
+              Una pieza por línea: el código y el peso, en dos columnas de Excel o separados por punto y coma.
+              Por ejemplo <code>AN-014	3,12</code>.
+            </p>
+            <textarea name="pegado" rows="6" placeholder={'AN-014\t3,12\nAN-014\t2,98\nCA-003\t5,40'}>{valor('pegado')}</textarea>
+          </details>
+        </section>
+
+        <section class="tarjeta" aria-live="polite">
+          <p style="margin: 0" id="resumen">Agrega las piezas para ver el resumen del lote.</p>
+        </section>
+
+        <p>
+          <button type="submit">Registrar lote</button>
+        </p>
+        <script type="application/json" id="filas-enviadas" set:html={JSON.stringify(filasEnviadas)} />
+      </form>
+    )
+  }
+
+  <template id="tpl-fila">
+    <div class="fila pieza">
+      <div class="campo" style="grid-column: span 2">
+        <label>Producto</label>
+        <select data-campo="producto">
+          <option value="">Elige…</option>
+          {productos.map((p) => (
+            <option value={p.id} data-mano={p.mano_obra_gramo_cop} data-precio={p.precio_gramo_cop} data-codigo={p.codigo}>
+              {p.codigo} · {p.nombre}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div class="campo">
+        <label>Peso (g)</label>
+        <input data-campo="peso" inputmode="decimal" placeholder="3,12" autocomplete="off" />
+      </div>
+      <div class="campo" style="align-self: end">
+        <button type="button" class="enlace quitar">Quitar</button>
+      </div>
+    </div>
+  </template>
+</Admin>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#lote');
+  if (form) {
+    const filas = form.querySelector<HTMLElement>('#filas')!;
+    const tpl = document.querySelector<HTMLTemplateElement>('#tpl-fila')!;
+    const oro = form.querySelector<HTMLInputElement>('#oro_gramo')!;
+    const pegado = form.querySelector<HTMLTextAreaElement>('textarea[name="pegado"]')!;
+    const resumen = form.querySelector<HTMLElement>('#resumen')!;
+    const opciones = [...tpl.content.querySelectorAll<HTMLOptionElement>('option[data-codigo]')];
+    const porCodigo = new Map(opciones.map((o) => [o.dataset.codigo!, o]));
+    const pesos = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+    const numero = (v: string) => Number(v.replace(/\./g, '').replace(',', '.'));
+    const peso = (v: string) => Number(v.replace(',', '.'));
+
+    // Los nombres se recalculan tras cada cambio: pieza-{i}-producto, pieza-{i}-peso.
+    const renombrar = () => {
+      const lista = [...filas.querySelectorAll<HTMLElement>('.pieza')];
+      lista.forEach((fila, i) => {
+        fila.querySelector<HTMLElement>('.quitar')!.hidden = lista.length === 1;
+        for (const campo of fila.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-campo]')) {
+          campo.name = `pieza-${i}-${campo.dataset.campo}`;
+        }
+      });
+    };
+
+    const agregar = (productoId = '', gramos = '') => {
+      const nodo = tpl.content.cloneNode(true) as DocumentFragment;
+      const select = nodo.querySelector('select')!;
+      if (productoId) select.value = productoId;
+      nodo.querySelector('input')!.value = gramos;
+      filas.append(nodo);
+      renombrar();
+      // La fila nueva hereda el producto de la anterior: es lo normal al anotar varias del mismo.
+      filas.lastElementChild?.querySelector<HTMLInputElement>('input')?.focus();
+    };
+
+    // Resumen en vivo: piezas, gramos, costo (peso × (oro + mano de obra)) y precio de venta del día.
+    const actualizar = () => {
+      const oroGramo = numero(oro.value);
+      const piezas: { opcion: HTMLOptionElement; gramos: number }[] = [];
+      for (const fila of filas.querySelectorAll<HTMLElement>('.pieza')) {
+        const select = fila.querySelector('select')!;
+        const g = peso(fila.querySelector('input')!.value);
+        if (select.value && g > 0) piezas.push({ opcion: select.selectedOptions[0], gramos: g });
+      }
+      for (const linea of pegado.value.split(/\r?\n/)) {
+        const partes = linea.trim().split(/[\t;]+|\s+(?=[\d.,]+\s*$)/).filter(Boolean);
+        if (partes.length < 2) continue;
+        const opcion = porCodigo.get(partes[0].trim().toUpperCase().replace(/\s+/g, '-'));
+        const g = peso(partes[partes.length - 1]);
+        if (opcion && g > 0) piezas.push({ opcion, gramos: g });
+      }
+      if (piezas.length === 0) {
+        resumen.textContent = 'Agrega las piezas para ver el resumen del lote.';
+        return;
+      }
+      const totalGramos = piezas.reduce((s, p) => s + p.gramos, 0);
+      const precio = piezas.reduce((s, p) => s + p.gramos * Number(p.opcion.dataset.precio), 0);
+      const costo = oroGramo > 0 ? piezas.reduce((s, p) => s + p.gramos * (oroGramo + Number(p.opcion.dataset.mano)), 0) : NaN;
+      const g = totalGramos.toLocaleString('es-CO', { maximumFractionDigits: 2 });
+      resumen.innerHTML = '';
+      resumen.append(
+        `${piezas.length} ${piezas.length === 1 ? 'pieza' : 'piezas'} · ${g} g · costo ${
+          Number.isNaN(costo) ? '(falta el oro por gramo)' : pesos.format(Math.round(costo))
+        } · precio de venta hoy ${pesos.format(Math.round(precio))}`,
+      );
+    };
+
+    form.querySelector('#agregar')!.addEventListener('click', () => {
+      const ultima = filas.querySelector<HTMLSelectElement>('.pieza:last-child select');
+      agregar(ultima?.value ?? '');
+    });
+    filas.addEventListener('click', (e) => {
+      const boton = (e.target as HTMLElement).closest('.quitar');
+      if (!boton) return;
+      boton.closest('.pieza')!.remove();
+      renombrar();
+      actualizar();
+    });
+    form.addEventListener('input', actualizar);
+    form.addEventListener('change', actualizar);
+
+    // Enter en el peso agrega la siguiente fila (anotar rápido con la balanza).
+    filas.addEventListener('keydown', (e) => {
+      const campo = e.target as HTMLElement;
+      if (e.key !== 'Enter' || campo.dataset.campo !== 'peso') return;
+      e.preventDefault();
+      const select = campo.closest('.pieza')!.querySelector('select')!;
+      agregar(select.value);
+    });
+
+    const previas = JSON.parse(document.querySelector('#filas-enviadas')?.textContent || '[]') as { producto: string; peso: string }[];
+    if (previas.length) for (const f of previas) agregar(f.producto, f.peso);
+    else agregar();
+    actualizar();
+  }
+</script>

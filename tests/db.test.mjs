@@ -314,7 +314,9 @@ test('el visitante anónimo no puede leer tablas ni usar funciones del panel', a
   const db = await nuevaBase();
   const r = await venta(db);
 
-  for (const tabla of ['clientes', 'ventas', 'cajas', 'piezas', 'premios', 'escaneos', 'admins', 'clientes_circulo']) {
+  const tablas = ['clientes', 'ventas', 'cajas', 'piezas', 'premios', 'escaneos', 'admins', 'clientes_circulo'];
+  const inventario = ['categorias', 'productos', 'productos_catalogo', 'proveedores', 'lotes', 'unidades', 'unidades_detalle', 'existencias', 'lotes_resumen'];
+  for (const tabla of [...tablas, ...inventario]) {
     await assert.rejects(
       como(db, 'anon', null, () => db.query(`select * from public.${tabla}`)),
       /permission denied/,
@@ -333,6 +335,10 @@ test('el visitante anónimo no puede leer tablas ni usar funciones del panel', a
     como(db, 'anon', null, () => db.query('select * from privado.circulo_conteo()')),
     /permission denied/,
   );
+  await assert.rejects(
+    como(db, 'anon', null, () => db.query('select public.registrar_lote($1)', [{}])),
+    /permission denied/,
+  );
 });
 
 test('un usuario autenticado que no es admin no ve ni registra nada', async () => {
@@ -340,17 +346,166 @@ test('un usuario autenticado que no es admin no ve ni registra nada', async () =
   await venta(db);
 
   const filas = await como(db, 'authenticated', NO_ADMIN, async () => {
-    const tablas = ['clientes', 'ventas', 'cajas', 'piezas', 'escaneos', 'admins', 'clientes_circulo'];
+    const tablas = ['clientes', 'ventas', 'cajas', 'piezas', 'escaneos', 'admins', 'clientes_circulo', 'categorias', 'productos', 'lotes', 'unidades'];
     const conteos = [];
     for (const t of tablas) conteos.push((await uno(db, `select count(*)::int as n from public.${t}`)).n);
     return conteos;
   });
-  assert.deepEqual(filas, [0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(filas, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
   await assert.rejects(
     como(db, 'authenticated', NO_ADMIN, () =>
       db.query('select public.registrar_venta($1)', [{ cajas: [{ piezas: [pieza()] }] }]),
     ),
+    /No autorizado/,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Fase 4A: catálogo
+// ---------------------------------------------------------------------------
+
+async function categoria(db, { nombre = 'Cadenas', manoObra = 40000, precio = 320000 } = {}) {
+  return como(db, 'authenticated', ADMIN, () =>
+    uno(
+      db,
+      'insert into public.categorias (nombre, mano_obra_gramo_cop, precio_gramo_cop) values ($1, $2, $3) returning id',
+      [nombre, manoObra, precio],
+    ),
+  );
+}
+
+test('catálogo: el producto trae el precio y la mano de obra por gramo de su categoría', async () => {
+  const db = await nuevaBase();
+  const c = await categoria(db, { manoObra: 40000, precio: 320000 });
+  const p = await como(db, 'authenticated', ADMIN, async () => {
+    await db.query("insert into public.productos (codigo, nombre, categoria_id) values ('CA-001', 'Cadena tejido lazo 50 cm', $1)", [c.id]);
+    await db.query('update public.categorias set activa = false where id = $1', [c.id]);
+    return uno(db, "select categoria, precio_gramo_cop, mano_obra_gramo_cop, activo from public.productos_catalogo where codigo = 'CA-001'");
+  });
+  assert.equal(p.categoria, 'Cadenas');
+  assert.equal(Number(p.precio_gramo_cop), 320000);
+  assert.equal(Number(p.mano_obra_gramo_cop), 40000);
+  assert.equal(p.activo, false, 'un producto de una categoría inactiva no se puede vender');
+});
+
+test('catálogo: nombres de categoría únicos, códigos válidos y sin borrar categorías en uso', async () => {
+  const db = await nuevaBase();
+  const c = await categoria(db);
+  await assert.rejects(categoria(db, { nombre: '  cadenas ' }), /duplicate key|unique/);
+  await como(db, 'authenticated', ADMIN, async () => {
+    await assert.rejects(
+      db.query("insert into public.productos (codigo, nombre, categoria_id) values ('ca 1', 'X', $1)", [c.id]),
+      /check constraint/,
+    );
+    await db.query("insert into public.productos (codigo, nombre, categoria_id) values ('CA-002', 'X', $1)", [c.id]);
+    await assert.rejects(db.query('delete from public.categorias where id = $1', [c.id]), /foreign key/);
+  });
+});
+
+test('catálogo: un usuario que no es admin no puede crear categorías ni productos', async () => {
+  const db = await nuevaBase();
+  await assert.rejects(
+    como(db, 'authenticated', NO_ADMIN, () =>
+      db.query("insert into public.categorias (nombre, mano_obra_gramo_cop, precio_gramo_cop) values ('Anillos', 1, 1)"),
+    ),
+    /row-level security/,
+  );
+});
+
+test('las piezas nuevas quedan en 18k', async () => {
+  const db = await nuevaBase();
+  const r = await venta(db);
+  const p = await uno(db, 'select ley from public.piezas where caja_id = $1', [r.cajas[0].id]);
+  assert.equal(p.ley, '18k');
+});
+
+// ---------------------------------------------------------------------------
+// Fase 4B: lotes y existencias
+// ---------------------------------------------------------------------------
+
+async function producto(db, categoriaId, codigo = 'AN-014', extra = {}) {
+  return como(db, 'authenticated', ADMIN, () =>
+    uno(
+      db,
+      'insert into public.productos (codigo, nombre, categoria_id, stock_minimo) values ($1, $2, $3, $4) returning id',
+      [codigo, 'Anillo solitario', categoriaId, extra.minimo ?? 0],
+    ),
+  );
+}
+
+async function lote(db, piezas, oro = 300000) {
+  return como(db, 'authenticated', ADMIN, async () =>
+    (await uno(db, 'select public.registrar_lote($1) as r', [{ oro_gramo_cop: oro, piezas }])).r,
+  );
+}
+
+test('lotes: cada pieza con su peso; costo = peso × (oro + mano de obra) y precio = peso × precio/g', async () => {
+  const db = await nuevaBase();
+  const c = await categoria(db, { nombre: 'Anillos', manoObra: 50000, precio: 420000 });
+  const p = await producto(db, c.id, 'AN-014', { minimo: 3 });
+  const r = await lote(db, [
+    { producto_id: p.id, peso_gramos: 3.12 },
+    { producto_id: p.id, peso_gramos: 2.98 },
+  ]);
+  assert.equal(r.piezas, 2);
+
+  const { piezas, existencia, resumen } = await como(db, 'authenticated', ADMIN, async () => ({
+    piezas: (await db.query('select peso_gramos, costo_cop, precio_cop from public.unidades_detalle order by peso_gramos desc')).rows,
+    existencia: await uno(db, "select * from public.existencias where codigo = 'AN-014'"),
+    resumen: await uno(db, 'select * from public.lotes_resumen where id = $1', [r.lote_id]),
+  }));
+  // 3,12 × (300.000 + 50.000) = 1.092.000; 3,12 × 420.000 = 1.310.400
+  assert.equal(Number(piezas[0].costo_cop), 1092000);
+  assert.equal(Number(piezas[0].precio_cop), 1310400);
+  assert.equal(existencia.disponibles, 2);
+  assert.equal(Number(existencia.gramos), 6.1);
+  assert.equal(existencia.bajo_minimo, true, '2 piezas con mínimo de 3');
+  assert.equal(resumen.piezas, 2);
+  assert.equal(Number(resumen.costo_cop), 1092000 + 1043000);
+});
+
+test('lotes: la mano de obra queda fija al entrar; corregir el oro del lote corrige el costo', async () => {
+  const db = await nuevaBase();
+  const c = await categoria(db, { nombre: 'Anillos', manoObra: 50000 });
+  const p = await producto(db, c.id);
+  const r = await lote(db, [{ producto_id: p.id, peso_gramos: 2 }]);
+  const costo = await como(db, 'authenticated', ADMIN, async () => {
+    await db.query('update public.categorias set mano_obra_gramo_cop = 90000 where id = $1', [c.id]);
+    await db.query('update public.lotes set oro_gramo_cop = 310000 where id = $1', [r.lote_id]);
+    return (await uno(db, 'select costo_cop from public.unidades_detalle')).costo_cop;
+  });
+  assert.equal(Number(costo), 2 * (310000 + 50000));
+});
+
+test('lotes: todo o nada, sin piezas vacías ni productos inactivos', async () => {
+  const db = await nuevaBase();
+  const c = await categoria(db);
+  const p = await producto(db, c.id);
+  await assert.rejects(lote(db, []), /al menos una pieza/);
+  await assert.rejects(lote(db, [{ producto_id: p.id, peso_gramos: 2 }, { producto_id: p.id, peso_gramos: 0 }]), /check constraint/);
+  await como(db, 'authenticated', ADMIN, () => db.query('update public.productos set activo = false where id = $1', [p.id]));
+  await assert.rejects(lote(db, [{ producto_id: p.id, peso_gramos: 2 }]), /inactivo/);
+  const n = await como(db, 'authenticated', ADMIN, () => uno(db, 'select count(*)::int as n from public.lotes'));
+  assert.equal(n.n, 0);
+});
+
+test('lotes: una pieza vendida no se puede borrar ni cambiar, tampoco borrando su lote', async () => {
+  const db = await nuevaBase();
+  const c = await categoria(db);
+  const p = await producto(db, c.id);
+  const r = await lote(db, [{ producto_id: p.id, peso_gramos: 2 }]);
+  await como(db, 'authenticated', ADMIN, async () => {
+    await db.query("update public.unidades set estado = 'vendida'");
+    await assert.rejects(db.query('update public.unidades set peso_gramos = 3'), /No se puede cambiar/);
+    await assert.rejects(db.query('delete from public.lotes where id = $1', [r.lote_id]), /No se puede borrar/);
+  });
+});
+
+test('lotes: un usuario que no es admin no puede registrar lotes', async () => {
+  const db = await nuevaBase();
+  await assert.rejects(
+    como(db, 'authenticated', NO_ADMIN, () => db.query('select public.registrar_lote($1)', [{ oro_gramo_cop: 1, piezas: [{}] }])),
     /No autorizado/,
   );
 });

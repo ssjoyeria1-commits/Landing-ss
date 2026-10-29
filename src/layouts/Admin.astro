@@ -13,6 +13,7 @@ const ruta = Astro.url.pathname;
 const enlaces = [
   { href: '/admin', texto: 'Clientes' },
   { href: '/admin/ventas/nueva', texto: 'Registrar venta' },
+  { href: '/admin/inventario', texto: 'Inventario' },
   { href: '/admin/exportar', texto: 'Exportar' },
 ];
 ---
@@ -28,7 +29,7 @@ const enlaces = [
           </a>
           <nav>
             {enlaces.map((e) => (
-              <a href={e.href} aria-current={ruta === e.href ? 'page' : undefined}>
+              <a href={e.href} aria-current={ruta === e.href || (e.href === '/admin/inventario' && ruta.startsWith('/admin/inventario/')) ? 'page' : undefined}>
                 {e.texto}
               </a>
             ))}

@@ -98,13 +98,6 @@ const hoy = hoyBogota();
     <div id="cajas"></div>
     <p><button type="button" class="secundario" id="agregar-caja">+ Agregar otra caja</button></p>
 
-    <datalist id="leyes">
-      <option value="18k"></option>
-      <option value="14k"></option>
-      <option value="10k"></option>
-      <option value="24k"></option>
-    </datalist>
-
     <p><button type="submit" id="guardar">Guardar venta y generar códigos</button></p>
   </form>
 
@@ -137,10 +130,6 @@ const hoy = hoyBogota();
       <div class="campo">
         <label>Peso (g)</label>
         <input data-campo="peso" inputmode="decimal" placeholder="5,25" autocomplete="off" />
-      </div>
-      <div class="campo">
-        <label>Ley</label>
-        <input data-campo="ley" list="leyes" maxlength="20" autocomplete="off" />
       </div>
       <div class="campo" style="align-self: end">
         <button type="button" class="enlace quitar-pieza">Quitar</button>

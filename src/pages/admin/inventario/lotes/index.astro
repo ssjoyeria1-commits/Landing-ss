@@ -1,0 +1,58 @@
+---
+import Admin from '../../../../layouts/Admin.astro';
+import { fecha, pesos } from '../../../../lib/formato';
+import { gramos, type LoteResumen } from '../../../../lib/inventario';
+
+const { data, error } = await Astro.locals.supabase
+  .from('lotes_resumen')
+  .select('*')
+  .order('fecha', { ascending: false })
+  .order('created_at', { ascending: false })
+  .limit(200);
+const lotes = (data ?? []) as LoteResumen[];
+---
+
+<Admin title="Lotes">
+  <p><a href="/admin/inventario">← Inventario</a></p>
+  <div class="acciones" style="margin-bottom: 1rem">
+    <a class="boton" href="/admin/inventario/lotes/nuevo">+ Registrar lote</a>
+  </div>
+
+  {error && <p class="aviso error">No se pudo cargar la lista: {error.message}</p>}
+  {!error && lotes.length === 0 && <p class="tarjeta">Todavía no hay lotes registrados.</p>}
+
+  {
+    lotes.length > 0 && (
+      <div class="tabla">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Proveedor</th>
+              <th class="num">Oro / g</th>
+              <th class="num">Piezas</th>
+              <th class="num">Disponibles</th>
+              <th class="num">Gramos</th>
+              <th class="num">Costo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lotes.map((l) => (
+              <tr>
+                <td>
+                  <a href={`/admin/inventario/lotes/${l.id}`}>{fecha(l.fecha)}</a>
+                </td>
+                <td>{l.proveedor ?? '—'}</td>
+                <td class="num">{pesos(l.oro_gramo_cop)}</td>
+                <td class="num">{l.piezas}</td>
+                <td class="num">{l.disponibles}</td>
+                <td class="num">{gramos(l.gramos)}</td>
+                <td class="num">{pesos(l.costo_cop)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</Admin>

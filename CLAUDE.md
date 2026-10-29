@@ -29,7 +29,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 |---|---|
 | Servidor local | `npm run dev` (o `preview_start` con `astro-dev` de `.claude/launch.json`) → http://127.0.0.1:4321 |
 | Revisar tipos | `npx astro check` (debe dar 0 errores) |
-| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 17 pruebas) |
+| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 26 pruebas) |
 | Publicar | `npm run build` y luego `npx wrangler deploy` |
 | Tipos de las variables | `npm run types` (usa `--include-runtime=false`; ver abajo) |
 | Aplicar migraciones | `npx supabase db push --linked --dry-run`, luego sin `--dry-run` y con `--yes` |
@@ -113,7 +113,25 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
       "Hola", "Te lo regala {comprador}", piezas, Círculo sin contador con WhatsApp que lleva el código
       del comprador) y páginas `/garantia` y `/datos` (muestran un aviso con WhatsApp hasta que
       `src/config/legal.ts` tenga los textos).
-- [ ] **Fase 5 (siguiente)** — límite de intentos en `/c/` (regla de Cloudflare), cabeceras de seguridad, respaldo
+- [ ] **Fases 4A–4E (inventario, antes de la fase 5).** Decisiones de los socios (28 oct 2026):
+      inventario por **referencias con cantidad**, pero **cada pieza física tiene su propio peso**
+      (se anota al registrar el lote; no hay peso de referencia); todas las piezas son de **18k** (no se
+      pregunta la ley); costo por pieza = peso × (costo del oro por gramo del **lote** + mano de obra por gramo de
+      la **categoría**); precio de venta **por gramo, por categoría**; descuento opcional en la venta;
+      un proveedor por ahora (igual se registra).
+  - [ ] 4A — catálogo: categorías (mano de obra y precio por gramo) y productos/referencias (código,
+        nombre, categoría, stock mínimo), páginas del panel. Hecha en código; migración sin aplicar.
+  - [ ] 4B — lotes y existencias: proveedores, lotes con costo del oro por gramo, y cada pieza física
+        (tabla `unidades`) con su referencia y su peso; la mano de obra se copia a la pieza al entrar.
+        Vistas `unidades_detalle`, `existencias`, `lotes_resumen`; `registrar_lote(p)` atómica.
+        Carga rápida pegando "código peso" desde Excel. Hecha en código; migración sin aplicar.
+  - [ ] 4C — precio por pieza en la venta: se elige la pieza física del inventario (trae su peso),
+        la marca `vendida` (las vendidas no se borran ni cambian), guarda precio y costo del momento; el monto total = suma − descuento (lo usa el Círculo); la venta descuenta inventario y
+        la anulación lo devuelve. Precios y costos nunca llegan a `pagina_caja`.
+  - [ ] 4D — informes cruzados: ventas y margen por producto/categoría/mes, rotación, inventario
+        valorizado, CSV para Excel.
+  - [ ] 4E — conteo físico con ajustes y motivo, historial por producto, revisión de seguridad.
+- [ ] Fase 5 — límite de intentos en `/c/` (regla de Cloudflare), cabeceras de seguridad, respaldo
       automático, tarea que evite la pausa de Supabase por inactividad, QR de respaldo para la carta,
       revisión de rendimiento.
 - [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.

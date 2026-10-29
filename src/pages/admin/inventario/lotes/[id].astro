@@ -1,0 +1,179 @@
+---
+import Admin from '../../../../layouts/Admin.astro';
+import { fecha, pesos } from '../../../../lib/formato';
+import { leerMonto } from '../../../../lib/venta';
+import { gramos, mensajeError, type LoteResumen, type Proveedor, type UnidadDetalle } from '../../../../lib/inventario';
+
+const supabase = Astro.locals.supabase;
+const id = Astro.params.id ?? '';
+let error = '';
+let ok = Astro.url.searchParams.get('nuevo') === '1' ? 'Lote registrado. Las piezas ya están disponibles.' : '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = String(form.get('accion') ?? '');
+
+  if (accion === 'guardar') {
+    const oro = leerMonto(String(form.get('oro_gramo') ?? ''));
+    if (!Number.isSafeInteger(oro) || oro <= 0) {
+      error = 'Escribe el costo del oro por gramo.';
+    } else {
+      const { error: fallo } = await supabase
+        .from('lotes')
+        .update({
+          oro_gramo_cop: oro,
+          fecha: String(form.get('fecha') ?? '') || undefined,
+          proveedor_id: String(form.get('proveedor_id') ?? '') || null,
+          nota: String(form.get('nota') ?? '').trim() || null,
+        })
+        .eq('id', id);
+      if (fallo) error = mensajeError(fallo.message);
+      else ok = 'Lote actualizado. Los costos de sus piezas se recalcularon.';
+    }
+  }
+
+  if (accion === 'quitar-pieza') {
+    const { error: fallo } = await supabase.from('unidades').delete().eq('id', String(form.get('unidad')));
+    if (fallo) error = mensajeError(fallo.message);
+    else ok = 'Pieza quitada del lote.';
+  }
+
+  if (accion === 'borrar-lote') {
+    const { error: fallo } = await supabase.from('lotes').delete().eq('id', id);
+    if (fallo) error = mensajeError(fallo.message);
+    else return Astro.redirect('/admin/inventario/lotes');
+  }
+}
+
+const [{ data: dataLote }, { data: dataPiezas }, { data: dataProveedores }] = await Promise.all([
+  supabase.from('lotes_resumen').select('*').eq('id', id).maybeSingle(),
+  supabase.from('unidades_detalle').select('*').eq('lote_id', id).order('codigo').order('peso_gramos'),
+  supabase.from('proveedores').select('id, nombre, activo').order('nombre'),
+]);
+const lote = dataLote as LoteResumen | null;
+if (!lote) return new Response(null, { status: 404 });
+const piezas = (dataPiezas ?? []) as UnidadDetalle[];
+const proveedores = (dataProveedores ?? []) as Pick<Proveedor, 'id' | 'nombre' | 'activo'>[];
+const precioTotal = piezas.filter((p) => p.estado === 'disponible').reduce((s, p) => s + Number(p.precio_cop), 0);
+const editar = Astro.url.searchParams.get('editar') === '1';
+const estados = { disponible: 'Disponible', vendida: 'Vendida', baja: 'Baja' } as const;
+---
+
+<Admin title={`Lote del ${fecha(lote.fecha)}`}>
+  <p><a href="/admin/inventario/lotes">← Lotes</a></p>
+  {error && <p class="aviso error">{error}</p>}
+  {ok && <p class="aviso ok">{ok}</p>}
+
+  {
+    editar ? (
+      <form method="post" class="tarjeta" action={`/admin/inventario/lotes/${id}`}>
+        <input type="hidden" name="accion" value="guardar" />
+        <div class="fila">
+          <div class="campo">
+            <label for="proveedor_id">Proveedor</label>
+            <select id="proveedor_id" name="proveedor_id">
+              <option value="">Sin proveedor</option>
+              {proveedores
+                .filter((p) => p.activo || p.id === lote.proveedor_id)
+                .map((p) => (
+                  <option value={p.id} selected={p.id === lote.proveedor_id}>
+                    {p.nombre}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="fecha">Fecha</label>
+            <input id="fecha" name="fecha" type="date" value={lote.fecha} />
+          </div>
+          <div class="campo">
+            <label for="oro_gramo">Costo del oro por gramo (COP)</label>
+            <input id="oro_gramo" name="oro_gramo" inputmode="numeric" value={lote.oro_gramo_cop} required />
+          </div>
+        </div>
+        <div class="campo">
+          <label for="nota">Nota</label>
+          <textarea id="nota" name="nota" rows="2">{lote.nota ?? ''}</textarea>
+        </div>
+        <div class="acciones">
+          <button type="submit">Guardar</button>
+          <a href={`/admin/inventario/lotes/${id}`}>Cancelar</a>
+        </div>
+      </form>
+    ) : (
+      <section class="tarjeta">
+        <p style="margin-top: 0">
+          <strong>Proveedor:</strong> {lote.proveedor ?? 'Sin proveedor'} · <strong>Oro:</strong> {pesos(lote.oro_gramo_cop)} por gramo
+        </p>
+        <p>
+          {lote.piezas} {lote.piezas === 1 ? 'pieza' : 'piezas'} ({lote.disponibles} disponibles) · {gramos(lote.gramos)} ·
+          costo {pesos(lote.costo_cop)} · precio de venta hoy de lo disponible {pesos(precioTotal)}
+        </p>
+        {lote.nota && <p class="ayuda">{lote.nota}</p>}
+        <a href={`/admin/inventario/lotes/${id}?editar=1`}>Editar lote</a>
+      </section>
+    )
+  }
+
+  <div class="tabla">
+    <table>
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Producto</th>
+          <th class="num">Peso</th>
+          <th class="num">Costo</th>
+          <th class="num">Precio hoy</th>
+          <th>Estado</th>
+          <th />
+        </tr>
+      </thead>
+      <tbody>
+        {piezas.map((p) => (
+          <tr>
+            <td>
+              <code>{p.codigo}</code>
+            </td>
+            <td>{p.producto}</td>
+            <td class="num">{gramos(p.peso_gramos)}</td>
+            <td class="num">{pesos(p.costo_cop)}</td>
+            <td class="num">{pesos(p.precio_cop)}</td>
+            <td>{p.estado === 'disponible' ? estados[p.estado] : <span class="etiqueta">{estados[p.estado]}</span>}</td>
+            <td>
+              {p.estado === 'disponible' && (
+                <form method="post" action={`/admin/inventario/lotes/${id}`} data-confirmar={`¿Quitar esta pieza de ${gramos(p.peso_gramos)}?`}>
+                  <input type="hidden" name="accion" value="quitar-pieza" />
+                  <input type="hidden" name="unidad" value={p.id} />
+                  <button type="submit" class="enlace">Quitar</button>
+                </form>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  {
+    lote.piezas === lote.disponibles && (
+      <form
+        method="post"
+        action={`/admin/inventario/lotes/${id}`}
+        style="margin-top: 1.5rem"
+        data-confirmar="¿Borrar este lote y todas sus piezas? Úsalo solo si se registró por error."
+      >
+        <input type="hidden" name="accion" value="borrar-lote" />
+        <button type="submit" class="secundario">Borrar lote</button>
+        <p class="ayuda">Solo si se registró por error. Un lote con piezas vendidas no se puede borrar.</p>
+      </form>
+    )
+  }
+</Admin>
+
+<script>
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-confirmar]')) {
+    form.addEventListener('submit', (e) => {
+      if (!confirm(form.dataset.confirmar)) e.preventDefault();
+    });
+  }
+</script>

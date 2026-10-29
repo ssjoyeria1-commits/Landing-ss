@@ -1,0 +1,144 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { limpiarBusqueda } from '../../../lib/clientes';
+import { pesos } from '../../../lib/formato';
+import { gramos, type Categoria, type Existencia } from '../../../lib/inventario';
+
+const supabase = Astro.locals.supabase;
+const q = limpiarBusqueda(Astro.url.searchParams.get('q') ?? '');
+const categoria = Astro.url.searchParams.get('categoria') ?? '';
+const inactivos = Astro.url.searchParams.get('inactivos') === '1';
+const bajos = Astro.url.searchParams.get('bajos') === '1';
+
+let consulta = supabase.from('existencias').select('*').order('codigo').limit(500);
+if (q) consulta = consulta.or(`codigo.ilike.*${q}*,nombre.ilike.*${q}*`);
+if (categoria) consulta = consulta.eq('categoria_id', categoria);
+if (!inactivos) consulta = consulta.eq('activo', true);
+if (bajos) consulta = consulta.eq('bajo_minimo', true);
+
+const [{ data, error }, { data: dataCategorias }] = await Promise.all([
+  consulta,
+  supabase.from('categorias').select('id, nombre').order('nombre'),
+]);
+const productos = (data ?? []) as Existencia[];
+const total = productos.reduce(
+  (t, p) => ({ piezas: t.piezas + p.disponibles, costo: t.costo + Number(p.costo_cop), valor: t.valor + Number(p.valor_cop) }),
+  { piezas: 0, costo: 0, valor: 0 },
+);
+const categorias = (dataCategorias ?? []) as Pick<Categoria, 'id' | 'nombre'>[];
+---
+
+<Admin title="Inventario">
+  <div class="acciones" style="margin-bottom: 1rem">
+    <a class="boton" href="/admin/inventario/lotes/nuevo">+ Registrar lote</a>
+    <a class="boton secundario" href="/admin/inventario/productos/nuevo">+ Nuevo producto</a>
+    <a class="boton secundario" href="/admin/inventario/lotes">Lotes</a>
+    <a class="boton secundario" href="/admin/inventario/categorias">Categorías</a>
+    <a class="boton secundario" href="/admin/inventario/proveedores">Proveedores</a>
+  </div>
+
+  <form method="get" class="acciones" style="margin-bottom: 1rem">
+    <input name="q" value={q} placeholder="Código o nombre" style="max-width: 16rem" />
+    <select name="categoria" style="max-width: 12rem" aria-label="Categoría">
+      <option value="">Todas las categorías</option>
+      {categorias.map((c) => <option value={c.id} selected={c.id === categoria}>{c.nombre}</option>)}
+    </select>
+    <label class="check" style="font-weight: 400">
+      <input type="checkbox" name="inactivos" value="1" checked={inactivos} /> Incluir inactivos
+    </label>
+    <label class="check" style="font-weight: 400">
+      <input type="checkbox" name="bajos" value="1" checked={bajos} /> Solo bajo el mínimo
+    </label>
+    <button type="submit" class="secundario">Buscar</button>
+  </form>
+
+  {error && <p class="aviso error">No se pudo cargar el inventario: {error.message}</p>}
+
+  {
+    !error && categorias.length === 0 && (
+      <p class="tarjeta">
+        Para empezar, crea las categorías (anillos, cadenas, dijes…) con su mano de obra y precio por gramo.{' '}
+        <a href="/admin/inventario/categorias">Crear categorías</a>
+      </p>
+    )
+  }
+
+  {
+    !error && categorias.length > 0 && productos.length === 0 && (
+      <p class="tarjeta">
+        {q || categoria ? 'No hay productos que coincidan.' : 'Todavía no hay productos.'}{' '}
+        <a href="/admin/inventario/productos/nuevo">Crear un producto</a>
+      </p>
+    )
+  }
+
+  {
+    productos.length > 0 && (
+      <div class="tabla">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Producto</th>
+              <th>Categoría</th>
+              <th class="num">Disponibles</th>
+              <th class="num">Gramos</th>
+              <th class="num">Costo</th>
+              <th class="num">Valor de venta hoy</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {productos.map((p) => (
+              <tr>
+                <td>
+                  <code>{p.codigo}</code>
+                </td>
+                <td>
+                  <a href={`/admin/inventario/productos/${p.id}`}>{p.nombre}</a>
+                  {!p.activo && (
+                    <>
+                      {' '}
+                      <span class="etiqueta">Inactivo</span>
+                    </>
+                  )}
+                </td>
+                <td>{p.categoria}</td>
+                <td class="num">
+                  {p.disponibles}
+                  {p.bajo_minimo && (
+                    <>
+                      {' '}
+                      <span class="etiqueta alerta">Mín. {p.stock_minimo}</span>
+                    </>
+                  )}
+                </td>
+                <td class="num">{gramos(p.gramos)}</td>
+                <td class="num">{pesos(p.costo_cop)}</td>
+                <td class="num">{pesos(p.valor_cop)}</td>
+                <td>
+                  <a href={`/admin/inventario/productos/${p.id}`}>Editar</a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th colspan="3">Total</th>
+              <th class="num">{total.piezas}</th>
+              <th />
+              <th class="num">{pesos(total.costo)}</th>
+              <th class="num">{pesos(total.valor)}</th>
+              <th />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    )
+  }
+
+  <p class="ayuda" style="margin-top: 1rem">
+    Cada pieza entra con su propio peso al registrar su lote. Costo = peso × (oro del lote + mano de obra por gramo);
+    valor de venta = peso × precio por gramo de hoy.
+  </p>
+</Admin>

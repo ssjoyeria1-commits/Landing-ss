@@ -1,0 +1,116 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { leerProveedor, mensajeError, type Proveedor } from '../../../lib/inventario';
+
+const supabase = Astro.locals.supabase;
+let error = '';
+let ok = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const leido = leerProveedor(form);
+  const id = String(form.get('id') ?? '');
+  if ('error' in leido) {
+    error = leido.error;
+  } else {
+    const { error: fallo } = id
+      ? await supabase.from('proveedores').update(leido.datos).eq('id', id)
+      : await supabase.from('proveedores').insert(leido.datos);
+    if (fallo) error = mensajeError(fallo.message);
+    else ok = id ? `Se guardó "${leido.datos.nombre}".` : `Se creó el proveedor "${leido.datos.nombre}".`;
+  }
+}
+
+const { data, error: falloLista } = await supabase
+  .from('proveedores')
+  .select('id, nombre, contacto, nota, activo')
+  .order('nombre');
+const proveedores = (data ?? []) as Proveedor[];
+const editar = Astro.url.searchParams.get('editar');
+---
+
+<Admin title="Proveedores">
+  <p><a href="/admin/inventario">← Inventario</a></p>
+
+  {error && <p class="aviso error">{error}</p>}
+  {ok && <p class="aviso ok">{ok}</p>}
+  {falloLista && <p class="aviso error">No se pudo cargar la lista: {falloLista.message}</p>}
+
+  {
+    proveedores.length > 0 && (
+      <div class="tabla">
+        <table>
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th>Contacto</th>
+              <th>Estado</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {proveedores.map((p) =>
+              editar === p.id ? (
+                <tr>
+                  <td colspan="4">
+                    <form method="post" action="/admin/inventario/proveedores">
+                      <input type="hidden" name="id" value={p.id} />
+                      <div class="fila">
+                        <div class="campo">
+                          <label for={`nombre-${p.id}`}>Nombre</label>
+                          <input id={`nombre-${p.id}`} name="nombre" value={p.nombre} maxlength="80" required />
+                        </div>
+                        <div class="campo">
+                          <label for={`contacto-${p.id}`}>Contacto</label>
+                          <input id={`contacto-${p.id}`} name="contacto" value={p.contacto ?? ''} />
+                        </div>
+                      </div>
+                      <div class="campo">
+                        <label for={`nota-${p.id}`}>Nota</label>
+                        <textarea id={`nota-${p.id}`} name="nota" rows="2">{p.nota ?? ''}</textarea>
+                      </div>
+                      <div class="acciones">
+                        <label class="check">
+                          <input type="checkbox" name="activo" checked={p.activo} /> Activo
+                        </label>
+                        <button type="submit">Guardar</button>
+                        <a href="/admin/inventario/proveedores">Cancelar</a>
+                      </div>
+                    </form>
+                  </td>
+                </tr>
+              ) : (
+                <tr>
+                  <td>{p.nombre}</td>
+                  <td>{p.contacto}</td>
+                  <td>{p.activo ? 'Activo' : <span class="etiqueta">Inactivo</span>}</td>
+                  <td>
+                    <a href={`/admin/inventario/proveedores?editar=${p.id}`}>Editar</a>
+                  </td>
+                </tr>
+              ),
+            )}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  <section class="tarjeta">
+    <h2 style="margin-top: 0">Nuevo proveedor</h2>
+    <form method="post" action="/admin/inventario/proveedores">
+      <div class="fila">
+        <div class="campo">
+          <label for="nombre">Nombre</label>
+          <input id="nombre" name="nombre" maxlength="80" required />
+        </div>
+        <div class="campo">
+          <label for="contacto">Contacto (opcional)</label>
+          <input id="contacto" name="contacto" placeholder="Teléfono, correo o dirección" />
+        </div>
+      </div>
+      <input type="hidden" name="activo" value="on" />
+      <button type="submit">Crear proveedor</button>
+    </form>
+  </section>
+</Admin>

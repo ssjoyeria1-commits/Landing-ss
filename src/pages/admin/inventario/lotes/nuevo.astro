@@ -33,12 +33,13 @@ if (Astro.request.method === 'POST') {
 const hoy = hoyBogota();
 const valor = (campo: string, porDefecto = '') => String(enviado?.get(campo) ?? porDefecto);
 // Si el formulario volvió con error, se reconstruyen las filas escritas.
-const filasEnviadas: { producto: string; peso: string }[] = [];
+const filasEnviadas: { producto: string; peso: string; cantidad: string }[] = [];
 if (enviado) {
   for (let i = 0; enviado.has(`pieza-${i}-producto`); i++) {
     filasEnviadas.push({
       producto: String(enviado.get(`pieza-${i}-producto`)),
       peso: String(enviado.get(`pieza-${i}-peso`) ?? ''),
+      cantidad: String(enviado.get(`pieza-${i}-cantidad`) ?? '1'),
     });
   }
 }
@@ -91,17 +92,20 @@ if (enviado) {
 
         <section class="tarjeta">
           <h2 style="margin-top: 0">Piezas</h2>
-          <p class="ayuda" style="margin-bottom: 0.75rem">Una fila por pieza física, con su propio peso. Todas son de oro 18k.</p>
+          <p class="ayuda" style="margin-bottom: 0.75rem">
+            Una fila por pieza, con su propio peso. Si llegaron varias iguales con el mismo peso, escribe la cantidad
+            y se registran todas de una vez. Todas son de oro 18k.
+          </p>
           <div id="filas"></div>
           <button type="button" class="enlace" id="agregar">+ Agregar pieza</button>
 
           <details style="margin-top: 1rem" open={!!valor('pegado')}>
             <summary>Pegar desde Excel</summary>
             <p class="ayuda">
-              Una pieza por línea: el código y el peso, en dos columnas de Excel o separados por punto y coma.
-              Por ejemplo <code>AN-014	3,12</code>.
+              Una fila por línea: código, peso y cantidad (opcional, 1 si no la pones), en columnas de Excel o
+              separados por punto y coma. Por ejemplo <code>AN-014	3,12	10</code> registra 10 piezas de 3,12 g.
             </p>
-            <textarea name="pegado" rows="6" placeholder={'AN-014\t3,12\nAN-014\t2,98\nCA-003\t5,40'}>{valor('pegado')}</textarea>
+            <textarea name="pegado" rows="6" placeholder={'AN-014\t3,12\t10\nAN-014\t2,98\nCA-003\t5,40\t2'}>{valor('pegado')}</textarea>
           </details>
         </section>
 
@@ -131,8 +135,12 @@ if (enviado) {
         </select>
       </div>
       <div class="campo">
-        <label>Peso (g)</label>
+        <label>Peso de cada una (g)</label>
         <input data-campo="peso" inputmode="decimal" placeholder="3,12" autocomplete="off" />
+      </div>
+      <div class="campo">
+        <label>Cantidad</label>
+        <input data-campo="cantidad" inputmode="numeric" value="1" autocomplete="off" />
       </div>
       <div class="campo" style="align-self: end">
         <button type="button" class="enlace quitar">Quitar</button>
@@ -166,47 +174,61 @@ if (enviado) {
       });
     };
 
-    const agregar = (productoId = '', gramos = '') => {
+    const agregar = (productoId = '', gramos = '', cantidad = '1') => {
       const nodo = tpl.content.cloneNode(true) as DocumentFragment;
       const select = nodo.querySelector('select')!;
       if (productoId) select.value = productoId;
-      nodo.querySelector('input')!.value = gramos;
+      nodo.querySelector<HTMLInputElement>('[data-campo="peso"]')!.value = gramos;
+      nodo.querySelector<HTMLInputElement>('[data-campo="cantidad"]')!.value = cantidad;
       filas.append(nodo);
       renombrar();
       // La fila nueva hereda el producto de la anterior: es lo normal al anotar varias del mismo.
-      filas.lastElementChild?.querySelector<HTMLInputElement>('input')?.focus();
+      filas.lastElementChild?.querySelector<HTMLInputElement>('[data-campo="peso"]')?.focus();
+    };
+
+    // Igual que partirLinea en src/lib/inventario.ts: código, peso y cantidad opcional.
+    const partir = (linea: string) => {
+      const t = linea.trim();
+      return (/[\t;]/.test(t) ? t.split(/[\t;]+/) : t.split(/\s+/)).map((x) => x.trim()).filter(Boolean);
+    };
+    const veces = (v: string | undefined) => {
+      const n = v ? Number(v) : 1;
+      return Number.isInteger(n) && n >= 1 && n <= 500 ? n : 0;
     };
 
     // Resumen en vivo: piezas, gramos, costo (peso × (oro + mano de obra)) y precio de venta del día.
     const actualizar = () => {
       const oroGramo = numero(oro.value);
-      const piezas: { opcion: HTMLOptionElement; gramos: number }[] = [];
+      const grupos: { opcion: HTMLOptionElement; gramos: number; cantidad: number }[] = [];
       for (const fila of filas.querySelectorAll<HTMLElement>('.pieza')) {
         const select = fila.querySelector('select')!;
-        const g = peso(fila.querySelector('input')!.value);
-        if (select.value && g > 0) piezas.push({ opcion: select.selectedOptions[0], gramos: g });
+        const g = peso(fila.querySelector<HTMLInputElement>('[data-campo="peso"]')!.value);
+        const n = veces(fila.querySelector<HTMLInputElement>('[data-campo="cantidad"]')!.value.trim());
+        if (select.value && g > 0 && n) grupos.push({ opcion: select.selectedOptions[0], gramos: g, cantidad: n });
       }
       for (const linea of pegado.value.split(/\r?\n/)) {
-        const partes = linea.trim().split(/[\t;]+|\s+(?=[\d.,]+\s*$)/).filter(Boolean);
+        const partes = partir(linea);
         if (partes.length < 2) continue;
-        const opcion = porCodigo.get(partes[0].trim().toUpperCase().replace(/\s+/g, '-'));
-        const g = peso(partes[partes.length - 1]);
-        if (opcion && g > 0) piezas.push({ opcion, gramos: g });
+        const opcion = porCodigo.get(partes[0].toUpperCase().replace(/\s+/g, '-'));
+        const g = peso(partes[1]);
+        const n = veces(partes[2]);
+        if (opcion && g > 0 && n) grupos.push({ opcion, gramos: g, cantidad: n });
       }
-      if (piezas.length === 0) {
+      const piezas = grupos.reduce((s, p) => s + p.cantidad, 0);
+      if (piezas === 0) {
         resumen.textContent = 'Agrega las piezas para ver el resumen del lote.';
         return;
       }
-      const totalGramos = piezas.reduce((s, p) => s + p.gramos, 0);
-      const precio = piezas.reduce((s, p) => s + p.gramos * Number(p.opcion.dataset.precio), 0);
-      const costo = oroGramo > 0 ? piezas.reduce((s, p) => s + p.gramos * (oroGramo + Number(p.opcion.dataset.mano)), 0) : NaN;
+      const totalGramos = grupos.reduce((s, p) => s + p.gramos * p.cantidad, 0);
+      const precio = grupos.reduce((s, p) => s + p.gramos * p.cantidad * Number(p.opcion.dataset.precio), 0);
+      const costo =
+        oroGramo > 0
+          ? grupos.reduce((s, p) => s + p.gramos * p.cantidad * (oroGramo + Number(p.opcion.dataset.mano)), 0)
+          : NaN;
       const g = totalGramos.toLocaleString('es-CO', { maximumFractionDigits: 2 });
-      resumen.innerHTML = '';
-      resumen.append(
-        `${piezas.length} ${piezas.length === 1 ? 'pieza' : 'piezas'} · ${g} g · costo ${
-          Number.isNaN(costo) ? '(falta el oro por gramo)' : pesos.format(Math.round(costo))
-        } · precio de venta hoy ${pesos.format(Math.round(precio))}`,
-      );
+      resumen.textContent = `${piezas} ${piezas === 1 ? 'pieza' : 'piezas'} · ${g} g · costo ${
+        Number.isNaN(costo) ? '(falta el oro por gramo)' : pesos.format(Math.round(costo))
+      } · precio de venta hoy ${pesos.format(Math.round(precio))}`;
     };
 
     form.querySelector('#agregar')!.addEventListener('click', () => {
@@ -226,14 +248,18 @@ if (enviado) {
     // Enter en el peso agrega la siguiente fila (anotar rápido con la balanza).
     filas.addEventListener('keydown', (e) => {
       const campo = e.target as HTMLElement;
-      if (e.key !== 'Enter' || campo.dataset.campo !== 'peso') return;
+      if (e.key !== 'Enter' || (campo.dataset.campo !== 'peso' && campo.dataset.campo !== 'cantidad')) return;
       e.preventDefault();
       const select = campo.closest('.pieza')!.querySelector('select')!;
       agregar(select.value);
     });
 
-    const previas = JSON.parse(document.querySelector('#filas-enviadas')?.textContent || '[]') as { producto: string; peso: string }[];
-    if (previas.length) for (const f of previas) agregar(f.producto, f.peso);
+    const previas = JSON.parse(document.querySelector('#filas-enviadas')?.textContent || '[]') as {
+      producto: string;
+      peso: string;
+      cantidad: string;
+    }[];
+    if (previas.length) for (const f of previas) agregar(f.producto, f.peso, f.cantidad);
     else agregar();
     actualizar();
   }

@@ -147,6 +147,11 @@ const enlaces = [
     grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   }
 
+  /* Que el atributo hidden gane siempre (si no, .fila y otros display lo anulan). */
+  .admin [hidden] {
+    display: none !important;
+  }
+
   .admin .check {
     display: flex;
     gap: 0.5rem;

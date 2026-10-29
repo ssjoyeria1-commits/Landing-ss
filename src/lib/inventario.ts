@@ -155,10 +155,28 @@ export interface PayloadLote {
   piezas: { producto_id: string; peso_gramos: number }[];
 }
 
+/** Máximo de piezas iguales por fila o línea pegada. */
+const MAX_CANTIDAD = 500;
+
+/**
+ * Parte una línea pegada desde Excel en código, peso y cantidad (opcional, por defecto 1).
+ * Con tabuladores o punto y coma, cada columna es un dato; si no, se separa por espacios.
+ */
+export function partirLinea(linea: string): string[] {
+  const t = linea.trim();
+  return (/[\t;]/.test(t) ? t.split(/[\t;]+/) : t.split(/\s+/)).map((x) => x.trim()).filter(Boolean);
+}
+
+function leerCantidad(valor: string | undefined): number {
+  const n = valor ? Number(valor) : 1;
+  return Number.isInteger(n) && n >= 1 && n <= MAX_CANTIDAD ? n : NaN;
+}
+
 /**
  * Arma el JSON de registrar_lote. Las piezas llegan de dos lados: las filas del formulario
- * (pieza-{i}-producto y pieza-{i}-peso) y el cuadro "pegar desde Excel", con una pieza por línea:
- * código y peso separados por tabulador, punto y coma o espacio ("AN-014 3,12").
+ * (pieza-{i}-producto, pieza-{i}-peso y pieza-{i}-cantidad) y el cuadro "pegar desde Excel", con
+ * una fila por línea: código, peso y cantidad opcional ("AN-014  3,12  10"). La cantidad repite la
+ * pieza con el mismo peso, para cuando llegan varias iguales.
  * `productos` traduce códigos a ids (solo productos activos).
  */
 export function leerLote(
@@ -169,33 +187,41 @@ export function leerLote(
   if (!Number.isSafeInteger(oro) || oro <= 0) return { error: 'Escribe el costo del oro por gramo de este lote.' };
 
   const piezas: PayloadLote['piezas'] = [];
-  const filas = new Map<string, { producto?: string; peso?: string }>();
+  const agregar = (producto_id: string, peso_gramos: number, cantidad: number) => {
+    for (let k = 0; k < cantidad; k++) piezas.push({ producto_id, peso_gramos });
+  };
+
+  const filas = new Map<string, { producto?: string; peso?: string; cantidad?: string }>();
   for (const [clave, valor] of form.entries()) {
-    const m = clave.match(/^pieza-(\d+)-(producto|peso)$/);
+    const m = clave.match(/^pieza-(\d+)-(producto|peso|cantidad)$/);
     if (m) filas.set(m[1], { ...filas.get(m[1]), [m[2]]: String(valor).trim() });
   }
   let n = 0;
-  for (const { producto, peso } of filas.values()) {
+  for (const { producto, peso, cantidad } of filas.values()) {
     n += 1;
     if (!producto && !peso) continue; // fila vacía
     const gramos = leerPeso(peso ?? '');
+    const veces = leerCantidad(cantidad);
     if (!producto) return { error: `Fila ${n}: elige el producto.` };
     if (!(gramos > 0)) return { error: `Fila ${n}: el peso no es válido (usa por ejemplo 3,12).` };
-    piezas.push({ producto_id: producto, peso_gramos: gramos });
+    if (Number.isNaN(veces)) return { error: `Fila ${n}: la cantidad debe ser un número entero de 1 a ${MAX_CANTIDAD}.` };
+    agregar(producto, gramos, veces);
   }
 
   const pegado = texto(form, 'pegado');
   const lineas = pegado ? pegado.split(/\r?\n/) : [];
   for (const [i, linea] of lineas.entries()) {
     if (!linea.trim()) continue;
-    const partes = linea.trim().split(/[\t;]+|\s+(?=[\d.,]+\s*$)/).map((x) => x.trim()).filter(Boolean);
+    const partes = partirLinea(linea);
     if (partes.length < 2) return { error: `Línea ${i + 1} pegada: falta el código o el peso ("${linea.trim()}").` };
     const codigo = normalizarCodigo(partes[0]);
     const id = productos.get(codigo);
-    const gramos = leerPeso(partes[partes.length - 1]);
+    const gramos = leerPeso(partes[1]);
+    const veces = leerCantidad(partes[2]);
     if (!id) return { error: `Línea ${i + 1} pegada: no hay un producto activo con el código ${codigo}.` };
     if (!(gramos > 0)) return { error: `Línea ${i + 1} pegada: el peso de ${codigo} no es válido.` };
-    piezas.push({ producto_id: id, peso_gramos: gramos });
+    if (Number.isNaN(veces)) return { error: `Línea ${i + 1} pegada: la cantidad de ${codigo} no es válida.` };
+    agregar(id, gramos, veces);
   }
 
   if (piezas.length === 0) return { error: 'Agrega al menos una pieza con su peso.' };

@@ -182,7 +182,7 @@ const hoy = hoyBogota();
           <input data-campo="precio" inputmode="numeric" placeholder="1.680.000" autocomplete="off" />
         </div>
       </div>
-      <p class="ayuda precio-pieza"></p>
+      <p class="precio-pieza" style="margin: 0 0 0.25rem; font-weight: 600"></p>
     </div>
   </template>
 </Admin>
@@ -265,7 +265,10 @@ const hoy = hoyBogota();
       const precio = manual
         ? monto(pieza.querySelector<HTMLInputElement>('[data-campo="precio"]')!.value)
         : (porId.get(pieza.querySelector<HTMLSelectElement>('[data-campo="unidad"]')!.value)?.precio_cop ?? 0);
-      pieza.querySelector<HTMLElement>('.precio-pieza')!.textContent = !manual && precio ? `Precio: ${pesos.format(precio)}` : '';
+      const elegida = manual ? undefined : porId.get(pieza.querySelector<HTMLSelectElement>('[data-campo="unidad"]')!.value);
+      pieza.querySelector<HTMLElement>('.precio-pieza')!.textContent = elegida
+        ? `${elegida.producto} · ${gramos(elegida.peso_gramos)} · 18k · ${pesos.format(elegida.precio_cop)}`
+        : '';
       if (precio) {
         subtotal += precio;
         n += 1;

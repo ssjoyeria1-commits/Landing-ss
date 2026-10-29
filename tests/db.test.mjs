@@ -71,11 +71,12 @@ function pieza(descripcion = 'Cadena') {
 }
 
 /** Registra una venta como admin y devuelve el JSON de registrar_venta. */
-async function venta(db, { whatsapp, nombre = 'María', monto = 700000, referidoDe, cajas, autoriza = true } = {}) {
+async function venta(db, { whatsapp, nombre = 'María', monto = 700000, referidoDe, cajas, autoriza = true, descuento } = {}) {
   const payload = {
     cliente: { whatsapp: whatsapp ?? nuevoWhatsapp(), nombre, autorizo_datos: autoriza },
     codigo_referido_de: referidoDe,
     monto_cop: monto,
+    descuento_cop: descuento,
     cajas: cajas ?? [{ es_regalo: false, piezas: [pieza()] }],
   };
   return como(db, 'authenticated', ADMIN, async () =>
@@ -315,7 +316,7 @@ test('el visitante anónimo no puede leer tablas ni usar funciones del panel', a
   const r = await venta(db);
 
   const tablas = ['clientes', 'ventas', 'cajas', 'piezas', 'premios', 'escaneos', 'admins', 'clientes_circulo'];
-  const inventario = ['categorias', 'productos', 'productos_catalogo', 'proveedores', 'lotes', 'unidades', 'unidades_detalle', 'existencias', 'lotes_resumen'];
+  const inventario = ['categorias', 'productos', 'productos_catalogo', 'proveedores', 'lotes', 'unidades', 'unidades_detalle', 'existencias', 'lotes_resumen', 'ventas_margen'];
   for (const tabla of [...tablas, ...inventario]) {
     await assert.rejects(
       como(db, 'anon', null, () => db.query(`select * from public.${tabla}`)),
@@ -508,4 +509,98 @@ test('lotes: un usuario que no es admin no puede registrar lotes', async () => {
     como(db, 'authenticated', NO_ADMIN, () => db.query('select public.registrar_lote($1)', [{ oro_gramo_cop: 1, piezas: [{}] }])),
     /No autorizado/,
   );
+});
+
+// ---------------------------------------------------------------------------
+// Fase 4C: precio por pieza en la venta, cruzado con el inventario
+// ---------------------------------------------------------------------------
+
+/** Categoría Anillos (mano de obra 50.000/g, precio 400.000/g), un producto y un lote con esas piezas. */
+async function inventario(db, pesos = [2, 1.5]) {
+  const c = await categoria(db, { nombre: 'Anillos', manoObra: 50000, precio: 400000 });
+  const p = await producto(db, c.id, 'AN-014');
+  await lote(db, pesos.map((g) => ({ producto_id: p.id, peso_gramos: g })), 300000);
+  const { rows } = await como(db, 'authenticated', ADMIN, () =>
+    db.query('select id, peso_gramos from public.unidades order by peso_gramos desc'),
+  );
+  return rows.map((r) => r.id);
+}
+
+async function estadoUnidad(db, id) {
+  return (await uno(db, 'select estado from public.unidades where id = $1', [id])).estado;
+}
+
+test('venta por pieza: monto = suma de precios − descuento; guarda precio y costo y marca vendida', async () => {
+  const db = await nuevaBase();
+  const [u2, u15] = await inventario(db);
+  const r = await venta(db, {
+    monto: 1, // se ignora: el monto sale de las piezas
+    cajas: [{ es_regalo: false, piezas: [{ unidad_id: u2 }, { unidad_id: u15 }] }],
+    descuento: 100000,
+  });
+  // 2 g y 1,5 g a 400.000/g = 1.400.000 − 100.000
+  assert.equal(Number(r.monto_cop), 1300000);
+  const piezas = (await db.query('select descripcion, peso_gramos, ley, precio_cop, costo_cop from public.piezas order by orden')).rows;
+  assert.equal(piezas[0].descripcion, 'Anillo solitario');
+  assert.equal(Number(piezas[0].precio_cop), 800000);
+  assert.equal(Number(piezas[0].costo_cop), 2 * (300000 + 50000));
+  assert.equal(piezas[0].ley, '18k');
+  assert.equal(await estadoUnidad(db, u2), 'vendida');
+  const m = await como(db, 'authenticated', ADMIN, () => uno(db, 'select * from public.ventas_margen where id = $1', [r.venta_id]));
+  assert.equal(Number(m.margen_cop), 1300000 - 700000 - 525000);
+});
+
+test('venta por pieza: la página del chip nunca muestra precios ni costos', async () => {
+  const db = await nuevaBase();
+  const [u] = await inventario(db, [2]);
+  const r = await venta(db, { cajas: [{ es_regalo: true, nombre_destinatario: 'Laura', piezas: [{ unidad_id: u }] }] });
+  const codigo = (await uno(db, 'select codigo_chip from public.cajas where id = $1', [r.cajas[0].id])).codigo_chip;
+  const texto = JSON.stringify(await pagina(db, codigo));
+  assert.doesNotMatch(texto, /precio|costo|800000|700000|unidad/);
+});
+
+test('venta por pieza: no se vende dos veces la misma pieza y un error no deja nada a medias', async () => {
+  const db = await nuevaBase();
+  const [u] = await inventario(db, [2]);
+  await assert.rejects(venta(db, { cajas: [{ piezas: [{ unidad_id: u }, { unidad_id: u }] }] }), /dos veces/);
+  await venta(db, { cajas: [{ piezas: [{ unidad_id: u }] }] });
+  await assert.rejects(venta(db, { cajas: [{ piezas: [{ unidad_id: u }] }] }), /ya no está disponible/);
+  assert.equal((await uno(db, 'select count(*)::int as n from public.ventas')).n, 1);
+});
+
+test('venta por pieza: anular devuelve la pieza al inventario y reactivar la vuelve a vender', async () => {
+  const db = await nuevaBase();
+  const [u] = await inventario(db, [2]);
+  const r = await venta(db, { cajas: [{ piezas: [{ unidad_id: u }] }] });
+  const anular = (valor, id = r.venta_id) =>
+    como(db, 'authenticated', ADMIN, () => db.query('update public.ventas set anulada = $1 where id = $2', [valor, id]));
+
+  await anular(true);
+  assert.equal(await estadoUnidad(db, u), 'disponible');
+  await anular(false);
+  assert.equal(await estadoUnidad(db, u), 'vendida');
+
+  // Si mientras estaba anulada se vendió en otra venta, ya no se puede reactivar.
+  await anular(true);
+  await venta(db, { cajas: [{ piezas: [{ unidad_id: u }] }] });
+  await assert.rejects(anular(false), /No se puede reactivar/);
+});
+
+test('venta por pieza: piezas fuera del inventario con precio, descuento válido y el Círculo usa el total', async () => {
+  const db = await nuevaBase();
+  const [u] = await inventario(db, [1.5]); // 600.000
+  const whatsapp = nuevoWhatsapp();
+  const manual = { descripcion: 'Topos', peso_gramos: 0.8, precio_cop: 250000 };
+  await assert.rejects(
+    venta(db, { whatsapp, cajas: [{ piezas: [{ unidad_id: u }, { descripcion: 'Topos', peso_gramos: 0.8 }] }] }),
+    /Todas las piezas deben tener precio/,
+  );
+  await assert.rejects(venta(db, { whatsapp, cajas: [{ piezas: [manual] }], descuento: 250000 }), /descuento/);
+
+  // 600.000 − 10.000 = 590.000: no llega al mínimo del Círculo.
+  const r = await venta(db, { whatsapp, cajas: [{ piezas: [{ unidad_id: u }] }], descuento: 10000 });
+  assert.equal((await interacciones(db, r.cliente.id)).interacciones, 0);
+  const r2 = await venta(db, { whatsapp, cajas: [{ piezas: [manual, { ...manual, precio_cop: 400000 }] }] });
+  assert.equal(Number(r2.monto_cop), 650000);
+  assert.equal((await interacciones(db, r.cliente.id)).interacciones, 1);
 });

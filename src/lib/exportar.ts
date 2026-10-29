@@ -193,11 +193,22 @@ const RESPALDO: Record<string, { columnas: string[]; orden: string }> = {
     ],
     orden: 'created_at',
   },
-  ventas: { columnas: ['id', 'cliente_id', 'fecha', 'monto_cop', 'nota', 'anulada', 'anulada_at', 'created_at'], orden: 'created_at' },
+  ventas: {
+    columnas: ['id', 'cliente_id', 'fecha', 'monto_cop', 'descuento_cop', 'nota', 'anulada', 'anulada_at', 'created_at'],
+    orden: 'created_at',
+  },
   cajas: { columnas: ['id', 'venta_id', 'referencia', 'codigo_chip', 'es_regalo', 'nombre_destinatario', 'created_at'], orden: 'created_at' },
-  piezas: { columnas: ['id', 'caja_id', 'descripcion', 'peso_gramos', 'ley', 'orden'], orden: 'id' },
+  piezas: {
+    columnas: ['id', 'caja_id', 'descripcion', 'peso_gramos', 'ley', 'orden', 'unidad_id', 'precio_cop', 'costo_cop'],
+    orden: 'id',
+  },
   premios: { columnas: ['id', 'cliente_id', 'hito', 'fecha_entrega', 'nota', 'created_at'], orden: 'created_at' },
   escaneos: { columnas: ['id', 'caja_id', 'created_at'], orden: 'id' },
+  categorias: { columnas: ['id', 'nombre', 'mano_obra_gramo_cop', 'precio_gramo_cop', 'activa', 'created_at'], orden: 'created_at' },
+  productos: { columnas: ['id', 'codigo', 'nombre', 'categoria_id', 'stock_minimo', 'activo', 'nota', 'created_at'], orden: 'created_at' },
+  proveedores: { columnas: ['id', 'nombre', 'contacto', 'nota', 'activo', 'created_at'], orden: 'created_at' },
+  lotes: { columnas: ['id', 'proveedor_id', 'fecha', 'oro_gramo_cop', 'nota', 'creado_por', 'created_at'], orden: 'created_at' },
+  unidades: { columnas: ['id', 'lote_id', 'producto_id', 'peso_gramos', 'mano_obra_gramo_cop', 'estado', 'created_at'], orden: 'created_at' },
 };
 
 for (const [tabla, { columnas, orden }] of Object.entries(RESPALDO)) {

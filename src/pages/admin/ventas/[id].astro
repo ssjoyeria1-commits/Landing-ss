@@ -29,7 +29,7 @@ if (Astro.request.method === 'POST') {
 const { data: venta } = await supabase
   .from('ventas')
   .select(
-    'id, fecha, monto_cop, nota, anulada, anulada_at, clientes(id, nombre, apellido, codigo_referido), cajas(id, codigo_chip, referencia, es_regalo, nombre_destinatario, created_at, piezas(descripcion, peso_gramos, ley, orden), escaneos(count))',
+    'id, fecha, monto_cop, descuento_cop, nota, anulada, anulada_at, clientes(id, nombre, apellido, codigo_referido), cajas(id, codigo_chip, referencia, es_regalo, nombre_destinatario, created_at, piezas(descripcion, peso_gramos, ley, orden, precio_cop, costo_cop, unidad_id), escaneos(count))',
   )
   .eq('id', id!)
   .maybeSingle();
@@ -38,6 +38,14 @@ if (!venta) return new Response('Venta no encontrada', { status: 404 });
 
 const cliente = venta.clientes as unknown as { id: string; nombre: string; apellido: string | null; codigo_referido: string };
 const cajas = [...venta.cajas].sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+// Totales por pieza: subtotal, costo (solo de las piezas del inventario) y margen.
+const todas = cajas.flatMap((c) => c.piezas);
+const conPrecio = todas.length > 0 && todas.every((p) => p.precio_cop != null);
+const subtotal = todas.reduce((s, p) => s + Number(p.precio_cop ?? 0), 0);
+const costoCompleto = todas.length > 0 && todas.every((p) => p.costo_cop != null);
+const costo = todas.reduce((s, p) => s + Number(p.costo_cop ?? 0), 0);
+const margen = venta.monto_cop - costo;
 ---
 
 <Admin title={`Venta del ${fecha(venta.fecha)}`}>
@@ -48,8 +56,20 @@ const cajas = [...venta.cajas].sort((a, b) => a.created_at.localeCompare(b.creat
     <p style="margin: 0">
       <strong>Cliente:</strong> <a href={`/admin/clientes/${cliente.id}`}>{nombreCompleto(cliente)}</a>
       (<code>{cliente.codigo_referido}</code>)<br />
-      <strong>Monto:</strong>
+      {conPrecio && (
+        <>
+          <strong>Subtotal de las piezas:</strong> {pesos(subtotal)}<br />
+          {venta.descuento_cop > 0 && (<><strong>Descuento:</strong> {pesos(venta.descuento_cop)}<br /></>)}
+        </>
+      )}
+      <strong>Total:</strong>
       {pesos(venta.monto_cop)}<br />
+      {costo > 0 && (
+        <>
+          <strong>Costo:</strong> {pesos(costo)}{!costoCompleto && ' (solo de las piezas del inventario)'} · <strong>Margen:</strong>{' '}
+          {pesos(margen)} ({Math.round((margen / venta.monto_cop) * 100)} %)<br />
+        </>
+      )}
       {venta.nota && (<><strong>Nota:</strong> {venta.nota}<br /></>)}
       {venta.anulada && <span class="etiqueta alerta">Anulada el {new Date(venta.anulada_at!).toLocaleDateString('es-CO')}</span>}
     </p>
@@ -79,6 +99,9 @@ const cajas = [...venta.cajas].sort((a, b) => a.created_at.localeCompare(b.creat
               .map((p) => (
                 <li>
                   {p.descripcion} · {Number(p.peso_gramos).toLocaleString('es-CO')} g · {p.ley}
+                  {p.precio_cop != null && <> · {pesos(p.precio_cop)}</>}
+                  {p.costo_cop != null && <span class="ayuda"> (costo {pesos(p.costo_cop)})</span>}
+                  {p.unidad_id == null && p.precio_cop != null && <span class="etiqueta">Fuera del inventario</span>}
                 </li>
               ))}
           </ul>
@@ -108,7 +131,7 @@ const cajas = [...venta.cajas].sort((a, b) => a.created_at.localeCompare(b.creat
         <>
           <input type="hidden" name="accion" value="anular" />
           <button type="submit" class="secundario">Anular venta</button>
-          <span class="ayuda">Deja de contar en el Círculo y sus chips muestran la página neutra.</span>
+          <span class="ayuda">Deja de contar en el Círculo, sus chips muestran la página neutra y sus piezas vuelven al inventario.</span>
         </>
       )
     }

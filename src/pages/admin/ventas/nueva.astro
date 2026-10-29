@@ -3,6 +3,7 @@ import Admin from '../../../layouts/Admin.astro';
 import { hoyBogota } from '../../../lib/formato';
 import { leerFormularioVenta } from '../../../lib/venta';
 import { listaPaises } from '../../../lib/whatsapp';
+import type { UnidadDetalle } from '../../../lib/inventario';
 
 let error = '';
 
@@ -24,6 +25,18 @@ if (Astro.request.method === 'POST') {
   }
   if (quiereJson) return Response.json({ ok: false, error }, { status: 422 });
 }
+
+// Piezas disponibles del inventario, para elegirlas por producto y peso.
+const { data: dataUnidades } = await Astro.locals.supabase
+  .from('unidades_detalle')
+  .select('id, producto_id, codigo, producto, peso_gramos, precio_cop')
+  .eq('estado', 'disponible')
+  .order('codigo')
+  .order('peso_gramos');
+const unidades = (dataUnidades ?? []) as Pick<
+  UnidadDetalle,
+  'id' | 'producto_id' | 'codigo' | 'producto' | 'peso_gramos' | 'precio_cop'
+>[];
 
 const paises = listaPaises();
 const hoy = hoyBogota();
@@ -81,8 +94,8 @@ const hoy = hoyBogota();
       <h2 style="margin-top: 0">Venta</h2>
       <div class="fila">
         <div class="campo">
-          <label for="monto">Monto total (COP)</label>
-          <input id="monto" name="monto" inputmode="numeric" autocomplete="off" required placeholder="850.000" />
+          <label for="descuento">Descuento (COP, opcional)</label>
+          <input id="descuento" name="descuento" inputmode="numeric" autocomplete="off" placeholder="0" />
         </div>
         <div class="campo">
           <label for="fecha">Fecha</label>
@@ -97,6 +110,12 @@ const hoy = hoyBogota();
 
     <div id="cajas"></div>
     <p><button type="button" class="secundario" id="agregar-caja">+ Agregar otra caja</button></p>
+
+    <section class="tarjeta" aria-live="polite">
+      <p style="margin: 0" id="totales">Agrega las piezas para ver el total.</p>
+      <p class="ayuda">El total de la venta es la suma de los precios de las piezas menos el descuento.</p>
+    </section>
+    <script type="application/json" id="inventario" set:html={JSON.stringify(unidades)} />
 
     <p><button type="submit" id="guardar">Guardar venta y generar códigos</button></p>
   </form>
@@ -122,18 +141,48 @@ const hoy = hoyBogota();
   </template>
 
   <template id="tpl-pieza">
-    <div class="fila pieza">
-      <div class="campo" style="grid-column: span 2">
-        <label>Pieza</label>
-        <input data-campo="descripcion" maxlength="120" placeholder="Cadena tejido lazo 50 cm" autocomplete="off" />
+    <div class="pieza" style="border-top: 1px solid var(--borde); padding-top: 0.75rem; margin-top: 0.75rem">
+      <div class="fila">
+        <div class="campo">
+          <label>Pieza</label>
+          <select data-campo="origen">
+            <option value="inventario">Del inventario</option>
+            <option value="manual">Fuera del inventario</option>
+          </select>
+        </div>
+        <div class="campo" style="align-self: end; text-align: right">
+          <button type="button" class="enlace quitar-pieza">Quitar</button>
+        </div>
       </div>
-      <div class="campo">
-        <label>Peso (g)</label>
-        <input data-campo="peso" inputmode="decimal" placeholder="5,25" autocomplete="off" />
+      <div class="fila del-inventario">
+        <div class="campo" style="grid-column: span 2">
+          <label>Producto</label>
+          <select data-producto>
+            <option value="">Elige…</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Peso de la pieza</label>
+          <select data-campo="unidad">
+            <option value="">Elige el producto</option>
+          </select>
+        </div>
       </div>
-      <div class="campo" style="align-self: end">
-        <button type="button" class="enlace quitar-pieza">Quitar</button>
+      <div class="fila manual" hidden>
+        <div class="campo" style="grid-column: span 2">
+          <label>Descripción</label>
+          <input data-campo="descripcion" maxlength="120" placeholder="Cadena tejido lazo 50 cm" autocomplete="off" />
+        </div>
+        <div class="campo">
+          <label>Peso (g)</label>
+          <input data-campo="peso" inputmode="decimal" placeholder="5,25" autocomplete="off" />
+        </div>
+        <div class="campo">
+          <label>Precio (COP)</label>
+          <input data-campo="precio" inputmode="numeric" placeholder="1.680.000" autocomplete="off" />
+        </div>
       </div>
+      <p class="ayuda precio-pieza"></p>
     </div>
   </template>
 </Admin>
@@ -156,16 +205,91 @@ const hoy = hoyBogota();
       const piezas = [...caja.querySelectorAll<HTMLElement>('.pieza')];
       piezas.forEach((pieza, j) => {
         pieza.querySelector<HTMLElement>('.quitar-pieza')!.hidden = piezas.length === 1;
-        for (const input of pieza.querySelectorAll<HTMLInputElement>('[data-campo]')) {
+        for (const input of pieza.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-campo]')) {
           input.name = `caja-${i}-pieza-${j}-${input.dataset.campo}`;
         }
       });
     });
   }
 
+  // Inventario disponible: productos con sus piezas (cada una con su peso y precio de hoy).
+  type Unidad = { id: string; producto_id: string; codigo: string; producto: string; peso_gramos: number; precio_cop: number };
+  const unidades = JSON.parse(document.querySelector('#inventario')!.textContent || '[]') as Unidad[];
+  const productos = new Map<string, { nombre: string; unidades: Unidad[] }>();
+  for (const u of unidades) {
+    if (!productos.has(u.producto_id)) productos.set(u.producto_id, { nombre: `${u.codigo} · ${u.producto}`, unidades: [] });
+    productos.get(u.producto_id)!.unidades.push(u);
+  }
+  const porId = new Map(unidades.map((u) => [u.id, u]));
+  const pesos = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+  const gramos = (g: number) => `${Number(g).toLocaleString('es-CO', { maximumFractionDigits: 2 })} g`;
+  const monto = (v: string) => Number(v.replace(/\D/g, '')) || 0;
+
+  /** Piezas ya elegidas en otras filas: no se ofrecen dos veces. */
+  function elegidas(excepto: HTMLSelectElement) {
+    return new Set(
+      [...contenedor.querySelectorAll<HTMLSelectElement>('[data-campo="unidad"]')]
+        .filter((s) => s !== excepto && s.value)
+        .map((s) => s.value),
+    );
+  }
+
+  function llenarUnidades(pieza: HTMLElement) {
+    const producto = pieza.querySelector<HTMLSelectElement>('[data-producto]')!;
+    const unidad = pieza.querySelector<HTMLSelectElement>('[data-campo="unidad"]')!;
+    const actual = unidad.value;
+    const ocupadas = elegidas(unidad);
+    unidad.replaceChildren(new Option(producto.value ? 'Elige…' : 'Elige el producto', ''));
+    for (const u of productos.get(producto.value)?.unidades ?? []) {
+      if (ocupadas.has(u.id)) continue;
+      unidad.append(new Option(`${gramos(u.peso_gramos)} · ${pesos.format(u.precio_cop)}`, u.id, false, u.id === actual));
+    }
+    // Con una sola pieza disponible, se elige sola.
+    if (!unidad.value && unidad.options.length === 2) unidad.selectedIndex = 1;
+  }
+
+  function mostrarOrigen(pieza: HTMLElement) {
+    const manual = pieza.querySelector<HTMLSelectElement>('[data-campo="origen"]')!.value === 'manual';
+    pieza.querySelector<HTMLElement>('.del-inventario')!.hidden = manual;
+    pieza.querySelector<HTMLElement>('.manual')!.hidden = !manual;
+  }
+
+  // Precio de cada pieza y total de la venta (suma − descuento), en vivo.
+  const totales = document.querySelector<HTMLElement>('#totales')!;
+  const descuento = document.querySelector<HTMLInputElement>('#descuento')!;
+  function actualizarTotales() {
+    let subtotal = 0;
+    let n = 0;
+    for (const pieza of contenedor.querySelectorAll<HTMLElement>('.pieza')) {
+      const manual = pieza.querySelector<HTMLSelectElement>('[data-campo="origen"]')!.value === 'manual';
+      const precio = manual
+        ? monto(pieza.querySelector<HTMLInputElement>('[data-campo="precio"]')!.value)
+        : (porId.get(pieza.querySelector<HTMLSelectElement>('[data-campo="unidad"]')!.value)?.precio_cop ?? 0);
+      pieza.querySelector<HTMLElement>('.precio-pieza')!.textContent = !manual && precio ? `Precio: ${pesos.format(precio)}` : '';
+      if (precio) {
+        subtotal += precio;
+        n += 1;
+      }
+    }
+    const d = monto(descuento.value);
+    const partes = [`${n} ${n === 1 ? 'pieza' : 'piezas'}`, `subtotal ${pesos.format(subtotal)}`];
+    if (d) partes.push(`descuento ${pesos.format(d)}`);
+    partes.push(`total ${pesos.format(Math.max(subtotal - d, 0))}`);
+    totales.textContent = n ? partes.join(' · ') : 'Agrega las piezas para ver el total.';
+  }
+  descuento.addEventListener('input', actualizarTotales);
+  contenedor.addEventListener('input', actualizarTotales);
+
   function agregarPieza(caja: HTMLElement) {
-    caja.querySelector('.piezas')!.append(tplPieza.content.cloneNode(true));
+    const nodo = tplPieza.content.cloneNode(true) as DocumentFragment;
+    const producto = nodo.querySelector<HTMLSelectElement>('[data-producto]')!;
+    for (const [id, p] of productos) producto.append(new Option(`${p.nombre} (${p.unidades.length})`, id));
+    // Sin inventario cargado, las piezas se escriben a mano.
+    if (productos.size === 0) nodo.querySelector<HTMLSelectElement>('[data-campo="origen"]')!.value = 'manual';
+    caja.querySelector('.piezas')!.append(nodo);
+    mostrarOrigen(caja.querySelector<HTMLElement>('.pieza:last-child')!);
     renumerar();
+    actualizarTotales();
   }
 
   function agregarCaja() {
@@ -181,6 +305,8 @@ const hoy = hoyBogota();
     if (boton.classList.contains('quitar-pieza')) boton.closest('.pieza')!.remove();
     if (boton.classList.contains('quitar-caja')) caja.remove();
     renumerar();
+    for (const pieza of contenedor.querySelectorAll<HTMLElement>('.pieza')) llenarUnidades(pieza);
+    actualizarTotales();
   });
 
   contenedor.addEventListener('change', (e) => {
@@ -188,6 +314,14 @@ const hoy = hoyBogota();
     if (input.dataset.campo === 'regalo') {
       input.closest('.caja')!.querySelector<HTMLElement>('.destinatario')!.hidden = !input.checked;
     }
+    const pieza = input.closest<HTMLElement>('.pieza');
+    if (pieza && input.dataset.campo === 'origen') mostrarOrigen(pieza);
+    if (pieza && input.hasAttribute('data-producto')) llenarUnidades(pieza);
+    // Al elegir una pieza, las otras filas dejan de ofrecerla.
+    if (input.dataset.campo === 'unidad') {
+      for (const otra of contenedor.querySelectorAll<HTMLElement>('.pieza')) if (otra !== pieza) llenarUnidades(otra);
+    }
+    actualizarTotales();
   });
 
   document.querySelector('#agregar-caja')!.addEventListener('click', agregarCaja);

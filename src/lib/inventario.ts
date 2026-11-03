@@ -23,6 +23,8 @@ export interface ProductoCatalogo {
   stock_minimo: number;
   activo: boolean;
   nota: string | null;
+  publicado: boolean;
+  descripcion_publica: string | null;
 }
 
 const texto = (form: FormData, campo: string) => String(form.get(campo) ?? '').trim();
@@ -53,6 +55,8 @@ export interface ProductoForm {
   stock_minimo: number;
   activo: boolean;
   nota: string | null;
+  publicado: boolean;
+  descripcion_publica: string | null;
 }
 
 export function leerProducto(form: FormData): { datos: ProductoForm } | { error: string } {
@@ -66,6 +70,8 @@ export function leerProducto(form: FormData): { datos: ProductoForm } | { error:
   if (!nombre) return { error: 'Escribe el nombre del producto.' };
   if (!categoria) return { error: 'Elige la categoría.' };
   if (!Number.isInteger(minimo) || minimo < 0) return { error: 'El stock mínimo debe ser un número entero.' };
+  const descripcion = texto(form, 'descripcion_publica');
+  if (descripcion.length > 400) return { error: 'La descripción para el catálogo puede tener hasta 400 caracteres.' };
   return {
     datos: {
       codigo,
@@ -74,6 +80,8 @@ export function leerProducto(form: FormData): { datos: ProductoForm } | { error:
       stock_minimo: minimo,
       activo: form.get('activo') === 'on',
       nota: texto(form, 'nota') || null,
+      publicado: form.get('publicado') === 'on',
+      descripcion_publica: descripcion || null,
     },
   };
 }

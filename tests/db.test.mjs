@@ -31,6 +31,13 @@ const ENTORNO_SUPABASE = `
   alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
   alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
   alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+  -- Lo mínimo de Supabase Storage para probar las políticas del bucket.
+  create schema storage;
+  create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+  create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets (id), name text);
+  alter table storage.objects enable row level security;
+  grant usage on schema storage to anon, authenticated;
+  grant all on storage.objects to anon, authenticated;
 `;
 
 async function nuevaBase() {
@@ -693,4 +700,67 @@ test('ajustes: solo los admins ajustan, y el historial no se puede editar ni bor
     await assert.rejects(db.query("update public.ajustes set motivo = 'x'"), /permission denied/);
     await assert.rejects(db.query('delete from public.ajustes'), /permission denied/);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Fase C1: catálogo público
+// ---------------------------------------------------------------------------
+
+async function catalogo(db) {
+  return como(db, 'anon', null, async () => (await uno(db, 'select public.catalogo_publico() as c')).c);
+}
+
+test('catálogo público: solo productos publicados, con foto y con piezas; un precio por peso, sin cantidades ni costos', async () => {
+  const db = await nuevaBase();
+  const [u2a, u2b, u15] = await inventario(db, [2, 2, 1.5]);
+  const p = await como(db, 'authenticated', ADMIN, () => uno(db, "select id from public.productos where codigo = 'AN-014'"));
+  assert.deepEqual(await catalogo(db), [], 'sin publicar no aparece');
+
+  await como(db, 'authenticated', ADMIN, () =>
+    db.query("update public.productos set publicado = true, descripcion_publica = 'Oro amarillo' where id = $1", [p.id]),
+  );
+  assert.deepEqual(await catalogo(db), [], 'sin foto no aparece');
+
+  const f = await como(db, 'authenticated', ADMIN, () =>
+    uno(db, 'insert into public.fotos_producto (producto_id) values ($1) returning id', [p.id]),
+  );
+  const [item] = await catalogo(db);
+  assert.equal(item.codigo, 'AN-014');
+  assert.equal(item.descripcion, 'Oro amarillo');
+  assert.deepEqual(item.fotos, [`${p.id}/${f.id}`]);
+  // Dos piezas de 2 g se muestran una sola vez; 400.000/g.
+  assert.deepEqual(
+    item.opciones.map((o) => [Number(o.peso_gramos), Number(o.precio_cop)]),
+    [[1.5, 600000], [2, 800000]],
+  );
+  assert.deepEqual(Object.keys(item).sort(), ['categoria', 'codigo', 'descripcion', 'fotos', 'nombre', 'opciones']);
+  assert.doesNotMatch(JSON.stringify(item), /costo|disponibles|lote|proveedor/);
+
+  // Vender y dar de baja va quitando pesos; sin piezas, el producto desaparece.
+  await venta(db, { cajas: [{ piezas: [{ unidad_id: u15 }, { unidad_id: u2a }] }] });
+  assert.deepEqual((await catalogo(db))[0].opciones.map((o) => Number(o.peso_gramos)), [2]);
+  await rpc(db, 'ajustar_inventario', { tipo: 'baja', unidades: [u2b], motivo: 'Daño' });
+  assert.deepEqual(await catalogo(db), []);
+});
+
+test('catálogo público: el visitante no lee tablas, hasta 5 fotos y solo los admins suben al bucket', async () => {
+  const db = await nuevaBase();
+  await inventario(db, [2]);
+  const p = await como(db, 'authenticated', ADMIN, () => uno(db, "select id from public.productos where codigo = 'AN-014'"));
+  await como(db, 'anon', null, async () => {
+    await assert.rejects(db.query('select * from public.fotos_producto'), /permission denied/);
+    await assert.rejects(db.query('select * from public.productos'), /permission denied/);
+  });
+  await como(db, 'authenticated', ADMIN, async () => {
+    for (let i = 0; i < 5; i++) await db.query('insert into public.fotos_producto (producto_id, orden) values ($1, $2)', [p.id, i]);
+    await assert.rejects(db.query('insert into public.fotos_producto (producto_id) values ($1)', [p.id]), /hasta 5 fotos/);
+  });
+
+  const subir = (rol, usuario) =>
+    como(db, rol, usuario, () => db.query("insert into storage.objects (bucket_id, name) values ('catalogo', 'x/y.webp')"));
+  await assert.rejects(subir('anon', null), /row-level security/);
+  await assert.rejects(subir('authenticated', NO_ADMIN), /row-level security/);
+  await subir('authenticated', ADMIN);
+  const vistos = await como(db, 'authenticated', NO_ADMIN, () => uno(db, 'select count(*)::int as n from storage.objects'));
+  assert.equal(vistos.n, 0, 'un usuario que no es admin no lista el bucket');
 });

@@ -56,6 +56,14 @@ const piezas = (dataPiezas ?? []) as UnidadDetalle[];
 const proveedores = (dataProveedores ?? []) as Pick<Proveedor, 'id' | 'nombre' | 'activo'>[];
 const precioTotal = piezas.filter((p) => p.estado === 'disponible').reduce((s, p) => s + Number(p.precio_cop), 0);
 const editar = Astro.url.searchParams.get('editar') === '1';
+
+// Referencias de este lote que todavía no tienen foto para el catálogo.
+const productosLote = [...new Map(piezas.map((p) => [p.producto_id, { id: p.producto_id, codigo: p.codigo }])).values()];
+const { data: dataConFoto } = productosLote.length
+  ? await supabase.from('fotos_producto').select('producto_id').in('producto_id', productosLote.map((p) => p.id))
+  : { data: [] };
+const conFoto = new Set((dataConFoto ?? []).map((f) => f.producto_id as string));
+const sinFoto = productosLote.filter((p) => !conFoto.has(p.id));
 const estados = { disponible: 'Disponible', vendida: 'Vendida', baja: 'Baja' } as const;
 ---
 
@@ -63,6 +71,20 @@ const estados = { disponible: 'Disponible', vendida: 'Vendida', baja: 'Baja' } a
   <p><a href="/admin/inventario/lotes">← Lotes</a></p>
   {error && <p class="aviso error">{error}</p>}
   {ok && <p class="aviso ok">{ok}</p>}
+  {
+    sinFoto.length > 0 && (
+      <p class="aviso" style="background: #fff1d6; color: #7a4b00">
+        {sinFoto.length === 1 ? 'Esta referencia aún no tiene foto' : 'Estas referencias aún no tienen foto'} para el catálogo:{' '}
+        {sinFoto.map((p, i) => (
+          <>
+            {i > 0 && ', '}
+            <a href={`/admin/inventario/productos/${p.id}#fotos`}>{p.codigo}</a>
+          </>
+        ))}
+        .
+      </p>
+    )
+  }
 
   {
     editar ? (

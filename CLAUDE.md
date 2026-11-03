@@ -29,7 +29,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 |---|---|
 | Servidor local | `npm run dev` (o `preview_start` con `astro-dev` de `.claude/launch.json`) → http://127.0.0.1:4321 |
 | Revisar tipos | `npx astro check` (debe dar 0 errores) |
-| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 36 pruebas) |
+| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 38 pruebas) |
 | Publicar | `npm run build` y luego `npx wrangler deploy` |
 | Tipos de las variables | `npm run types` (usa `--include-runtime=false`; ver abajo) |
 | Aplicar migraciones | `npx supabase db push --linked --dry-run`, luego sin `--dry-run` y con `--yes` |
@@ -138,7 +138,16 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
         (`ajustar_inventario`), tablas `conteos` y `ajustes` de solo lectura para el panel, historial en
         la ficha del producto. Aplicada y publicada. Revisión de seguridad (29 oct): anon solo ejecuta
         `pagina_caja` y no lee tablas; las funciones del panel verifican `es_admin()`.
-- [ ] **Fase 5 (siguiente)** — activar en Supabase Auth la protección contra contraseñas filtradas; límite de intentos en `/c/` (regla de Cloudflare), cabeceras de seguridad, respaldo
+- [ ] **Catálogo web (antes de la fase 5).** Decisiones (3 nov 2026): fotos por producto (hasta 5,
+      se esperan ~3), cada peso disponible con su precio y **nunca cantidades**, al principio solo con
+      el enlace (`noindex`), botón "Me interesa" por WhatsApp (falta el número).
+  - [x] C1 — `productos.publicado` y `descripcion_publica`, tabla `fotos_producto`, bucket público
+        `catalogo` (solo admins suben; nadie lista), función `catalogo_publico()` para anon. Aplicada.
+  - [x] C2 — panel: fotos en la ficha del producto (se achican en el navegador a WebP 1200/480 px y
+        se suben por el Worker, `src/lib/catalogo.ts`), interruptor y descripción, aviso de
+        referencias sin foto en el lote. Sin publicar en el Worker todavía.
+  - [ ] C3 — página `/catalogo` (estilo Oscura, `noindex`, caché corta).
+- [ ] **Fase 5** — activar en Supabase Auth la protección contra contraseñas filtradas; límite de intentos en `/c/` (regla de Cloudflare), cabeceras de seguridad, respaldo
       automático, tarea que evite la pausa de Supabase por inactividad, QR de respaldo para la carta,
       revisión de rendimiento.
 - [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.

@@ -1,0 +1,62 @@
+---
+// SOLO DESARROLLO: la sección de fotos de la ficha del producto, sin base de datos ni Storage.
+// Las fotos subidas se guardan en memoria del servidor local (se pierden al reiniciarlo).
+// El botón "Simular error" hace que las subidas respondan con error; ?publicado=1 muestra el aviso de "sin foto".
+// En producción responde 404.
+import Admin from '../../layouts/Admin.astro';
+import FotosProducto from '../../components/admin/FotosProducto.astro';
+import { MAX_FOTOS } from '../../lib/catalogo';
+
+if (import.meta.env.PROD) return new Response(null, { status: 404 });
+
+type Foto = { id: string; grande: string; mini: string; bytes: [number, number]; tipo: string };
+const g = globalThis as unknown as { __fotosPrueba?: Foto[]; __fallaPrueba?: boolean };
+const fotos = (g.__fotosPrueba ??= []);
+
+const aDataUrl = async (f: File) => `data:${f.type};base64,${Buffer.from(await f.arrayBuffer()).toString('base64')}`;
+
+let error = '';
+let aviso = Astro.url.searchParams.get('aviso') ?? '';
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = String(form.get('accion') ?? '');
+  const id = String(form.get('foto') ?? '');
+  const i = fotos.findIndex((f) => f.id === id);
+  if (accion === 'foto-subir') {
+    const grande = form.get('grande');
+    const mini = form.get('mini');
+    const ok = (f: unknown): f is File => f instanceof File && f.size > 0 && f.size <= 600 * 1024 && ['image/webp', 'image/jpeg'].includes(f.type);
+    if (g.__fallaPrueba) error = 'Error de prueba: no se pudo subir la foto.';
+    else if (!ok(grande) || !ok(mini)) error = 'La foto no llegó bien. Vuelve a elegirla.';
+    else if (fotos.length >= MAX_FOTOS) error = `Un producto puede tener hasta ${MAX_FOTOS} fotos.`;
+    else {
+      fotos.push({ id: crypto.randomUUID(), grande: await aDataUrl(grande), mini: await aDataUrl(mini), bytes: [grande.size, mini.size], tipo: grande.type });
+      return Astro.redirect(`/pruebas/fotos?aviso=${encodeURIComponent('Foto agregada.')}`);
+    }
+  } else if (accion === 'foto-borrar' && i >= 0) {
+    fotos.splice(i, 1);
+    return Astro.redirect(`/pruebas/fotos?aviso=${encodeURIComponent('Foto borrada.')}#fotos`);
+  } else if ((accion === 'foto-antes' || accion === 'foto-despues') && i >= 0) {
+    const j = i + (accion === 'foto-antes' ? -1 : 1);
+    if (j >= 0 && j < fotos.length) [fotos[i], fotos[j]] = [fotos[j], fotos[i]];
+    return Astro.redirect('/pruebas/fotos#fotos');
+  } else if (accion === 'falla') {
+    g.__fallaPrueba = !g.__fallaPrueba;
+  } else if (accion === 'vaciar') {
+    fotos.length = 0;
+  }
+}
+---
+
+<Admin title="Prueba: fotos del producto">
+  {error && <p class="aviso error">{error}</p>}
+  {aviso && <p class="aviso ok">{aviso}</p>}
+  <FotosProducto nombre="Anillo solitario" publicado={Astro.url.searchParams.get('publicado') === '1'} fotos={fotos} />
+  <p class="ayuda" id="medidas">
+    {fotos.map((f, i) => `Foto ${i + 1}: ${f.tipo}, grande ${Math.round(f.bytes[0] / 1024)} KB, mini ${Math.round(f.bytes[1] / 1024)} KB`).join(' · ')}
+  </p>
+  <form method="post" class="acciones">
+    <button type="submit" name="accion" value="vaciar" class="secundario">Vaciar (prueba)</button>
+    <button type="submit" name="accion" value="falla" class="secundario">{g.__fallaPrueba ? "Quitar error simulado" : "Simular error"}</button>
+  </form>
+</Admin>

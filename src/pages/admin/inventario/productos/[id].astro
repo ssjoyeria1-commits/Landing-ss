@@ -13,7 +13,8 @@ import {
   type UnidadDetalle,
 } from '../../../../lib/inventario';
 import type { PiezaVendida } from '../../../../lib/informes';
-import { borrarFoto, MAX_FOTOS, moverFoto, subirFoto, urlFoto, type FotoProducto } from '../../../../lib/catalogo';
+import { borrarFoto, moverFoto, subirFoto, urlFoto, type FotoProducto } from '../../../../lib/catalogo';
+import FotosProducto from '../../../../components/admin/FotosProducto.astro';
 
 const supabase = Astro.locals.supabase;
 const id = Astro.params.id ?? '';
@@ -35,9 +36,16 @@ if (Astro.request.method === 'POST') {
         : accion === 'foto-borrar'
           ? await borrarFoto(supabase, id, foto)
           : await moverFoto(supabase, id, foto, accion === 'foto-antes' ? -1 : 1);
+    // Tras cada cambio se redirige: recargar la página no repite la acción. Subir no lleva #fotos
+    // porque el navegador vuelve a pedir esa dirección y un cambio de solo #… no recargaría.
+    const mensajes: Record<string, string> = { 'foto-subir': 'Foto agregada.', 'foto-borrar': 'Foto borrada.' };
     if (fallo) error = fallo;
-    else if (accion === 'foto-subir') return Astro.redirect(`/admin/inventario/productos/${id}?aviso=${encodeURIComponent('Foto agregada.')}`);
-    else if (accion === 'foto-borrar') aviso = 'Foto borrada.';
+    else {
+      const texto = mensajes[accion];
+      return Astro.redirect(
+        `/admin/inventario/productos/${id}${texto ? `?aviso=${encodeURIComponent(texto)}` : ''}${accion === 'foto-subir' ? '' : '#fotos'}`,
+      );
+    }
   } else if (accion === 'baja' || accion === 'reintegro') {
     // Bajas y reintegros de piezas sueltas, con motivo (quedan en el historial).
     const unidades = form.getAll('unidades').map(String).filter(Boolean);
@@ -209,41 +217,11 @@ const valor = (campo: string, original: string | number | null | undefined) =>
   {
     !nuevo && (
       <>
-      <section id="fotos">
-        <h2>Fotos para el catálogo ({fotos.length} de {MAX_FOTOS})</h2>
-        {producto!.publicado && fotos.length === 0 && (
-          <p class="aviso" style="background: #fff1d6; color: #7a4b00">Está marcado para el catálogo, pero no aparece hasta que tenga al menos una foto.</p>
-        )}
-        {fotos.length > 0 && (
-          <ul class="fotos">
-            {fotos.map((f, i) => (
-              <li>
-                <a href={urlFoto(`${f.producto_id}/${f.id}`)} target="_blank" rel="noopener">
-                  <img src={urlFoto(`${f.producto_id}/${f.id}`, 'mini')} alt={`Foto ${i + 1} de ${producto!.nombre}`} width="160" height="160" loading="lazy" />
-                </a>
-                {i === 0 && <span class="etiqueta">Principal</span>}
-                <form method="post" class="acciones">
-                  <input type="hidden" name="foto" value={f.id} />
-                  <button type="submit" name="accion" value="foto-antes" class="secundario" disabled={i === 0} aria-label="Mover antes">←</button>
-                  <button type="submit" name="accion" value="foto-despues" class="secundario" disabled={i === fotos.length - 1} aria-label="Mover después">→</button>
-                  <button type="submit" name="accion" value="foto-borrar" class="enlace borrar-foto">Borrar</button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-        {fotos.length < MAX_FOTOS && (
-          <div class="tarjeta" id="subir-fotos" data-libres={MAX_FOTOS - fotos.length}>
-            <label for="archivo-foto">Agregar fotos</label>
-            <input id="archivo-foto" type="file" accept="image/*" multiple />
-            <p class="ayuda">
-              Puedes elegir varias a la vez (quedan {MAX_FOTOS - fotos.length}). Se achican antes de subirse, así que sirven las del
-              celular tal cual. La primera es la que se ve en la cuadrícula del catálogo.
-            </p>
-            <p id="estado-fotos" class="ayuda" aria-live="polite" />
-          </div>
-        )}
-      </section>
+      <FotosProducto
+        nombre={producto!.nombre}
+        publicado={producto!.publicado}
+        fotos={fotos.map((f) => ({ id: f.id, grande: urlFoto(`${f.producto_id}/${f.id}`), mini: urlFoto(`${f.producto_id}/${f.id}`, 'mini') }))}
+      />
 
       <section>
         <div class="acciones" style="justify-content: space-between; margin-top: 2rem">
@@ -385,110 +363,9 @@ const valor = (campo: string, original: string | number | null | undefined) =>
     font-weight: 700;
     padding: 0 0.25rem;
   }
-  .fotos {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 1rem;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-    gap: 0.75rem;
-  }
-  .fotos li {
-    position: relative;
-  }
-  .fotos img {
-    display: block;
-    width: 100%;
-    height: auto;
-    aspect-ratio: 1;
-    object-fit: cover;
-    border-radius: 6px;
-    background: #f3ece8;
-  }
-  .fotos .etiqueta {
-    position: absolute;
-    top: 0.4rem;
-    left: 0.4rem;
-  }
-  .fotos form {
-    margin-top: 0.4rem;
-  }
-  .fotos button.secundario {
-    padding: 0.25rem 0.6rem;
-  }
 </style>
 
 <script>
-  // Achica cada foto en el navegador (grande de 1200 px y mini de 480 px por el lado mayor, en WebP,
-  // o JPEG si el navegador no sabe hacer WebP) y las sube una por una.
-  const caja = document.querySelector<HTMLElement>('#subir-fotos');
-  if (caja) {
-    const entrada = caja.querySelector<HTMLInputElement>('#archivo-foto')!;
-    const estado = caja.querySelector<HTMLElement>('#estado-fotos')!;
-    const libres = Number(caja.dataset.libres);
-
-    const achicar = async (imagen: ImageBitmap, lado: number, calidad: number) => {
-      const escala = Math.min(1, lado / Math.max(imagen.width, imagen.height));
-      const lienzo = document.createElement('canvas');
-      lienzo.width = Math.round(imagen.width * escala);
-      lienzo.height = Math.round(imagen.height * escala);
-      const ctx = lienzo.getContext('2d')!;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
-      const comoTipo = (tipo: string) => new Promise<Blob | null>((listo) => lienzo.toBlob(listo, tipo, calidad));
-      let blob = await comoTipo('image/webp');
-      if (!blob || blob.type !== 'image/webp') blob = await comoTipo('image/jpeg');
-      if (!blob) throw new Error('No se pudo procesar la foto.');
-      return blob;
-    };
-
-    entrada.addEventListener('change', async () => {
-      const archivos = [...(entrada.files ?? [])];
-      if (archivos.length === 0) return;
-      if (archivos.length > libres) {
-        estado.textContent = `Elige hasta ${libres} ${libres === 1 ? 'foto' : 'fotos'}.`;
-        entrada.value = '';
-        return;
-      }
-      entrada.disabled = true;
-      let destino = location.href;
-      try {
-        for (const [i, archivo] of archivos.entries()) {
-          estado.textContent = `Subiendo foto ${i + 1} de ${archivos.length}…`;
-          const imagen = await createImageBitmap(archivo, { imageOrientation: 'from-image' });
-          const [grande, mini] = await Promise.all([achicar(imagen, 1200, 0.82), achicar(imagen, 480, 0.78)]);
-          imagen.close();
-          const datos = new FormData();
-          datos.set('accion', 'foto-subir');
-          datos.set('grande', grande, 'grande');
-          datos.set('mini', mini, 'mini');
-          const respuesta = await fetch(location.pathname, { method: 'POST', body: datos });
-          if (!respuesta.redirected) {
-            // Sin redirección, la página volvió con el mensaje de error.
-            const pagina = new DOMParser().parseFromString(await respuesta.text(), 'text/html');
-            estado.textContent = pagina.querySelector('.aviso.error')?.textContent ?? 'No se pudo subir la foto.';
-            if (i > 0) estado.textContent += ` Se subieron ${i} antes del error; recarga la página para verlas.`;
-            entrada.disabled = false;
-            entrada.value = '';
-            return;
-          }
-          destino = respuesta.url;
-        }
-        location.assign(destino);
-      } catch {
-        estado.textContent = 'No se pudo leer una de las fotos. Prueba con otra (JPG o PNG).';
-        entrada.disabled = false;
-        entrada.value = '';
-      }
-    });
-  }
-
-  for (const boton of document.querySelectorAll<HTMLButtonElement>('.borrar-foto')) {
-    boton.addEventListener('click', (e) => {
-      if (!confirm('¿Borrar esta foto?')) e.preventDefault();
-    });
-  }
-
   document.querySelector<HTMLFormElement>('#bajas')?.addEventListener('submit', (e) => {
     const form = e.currentTarget as HTMLFormElement;
     const n = form.querySelectorAll('input[name="unidades"]:checked').length;

@@ -1,0 +1,189 @@
+---
+// Fotos del catálogo en la ficha del producto: miniaturas con orden y borrar, y el selector que
+// achica las fotos en el navegador antes de subirlas. Envía por POST a la página actual las acciones
+// foto-subir (campos grande y mini), foto-antes, foto-despues y foto-borrar (campo foto).
+import { MAX_FOTOS } from '../../lib/catalogo';
+
+interface Props {
+  nombre: string;
+  publicado: boolean;
+  fotos: { id: string; grande: string; mini: string }[];
+}
+
+const { nombre, publicado, fotos } = Astro.props;
+const libres = MAX_FOTOS - fotos.length;
+---
+
+<section id="fotos">
+  <h2>Fotos para el catálogo ({fotos.length} de {MAX_FOTOS})</h2>
+  {
+    publicado && fotos.length === 0 && (
+      <p class="aviso" style="background: #fff1d6; color: #7a4b00">
+        Está marcado para el catálogo, pero no aparece hasta que tenga al menos una foto.
+      </p>
+    )
+  }
+  {
+    fotos.length > 0 && (
+      <ul class="fotos">
+        {fotos.map((f, i) => (
+          <li>
+            <a href={f.grande} target="_blank" rel="noopener">
+              <img src={f.mini} alt={`Foto ${i + 1} de ${nombre}`} width="160" height="160" loading="lazy" />
+            </a>
+            {i === 0 && <span class="etiqueta">Principal</span>}
+            <form method="post" class="acciones">
+              <input type="hidden" name="foto" value={f.id} />
+              <button type="submit" name="accion" value="foto-antes" class="secundario" disabled={i === 0} aria-label="Mover antes">
+                ←
+              </button>
+              <button type="submit" name="accion" value="foto-despues" class="secundario" disabled={i === fotos.length - 1} aria-label="Mover después">
+                →
+              </button>
+              <button type="submit" name="accion" value="foto-borrar" class="enlace borrar-foto">
+                Borrar
+              </button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  {
+    libres > 0 && (
+      <div class="tarjeta" id="subir-fotos" data-libres={libres}>
+        <label for="archivo-foto">Agregar fotos</label>
+        <input id="archivo-foto" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple />
+        <p class="ayuda">
+          Puedes elegir varias a la vez (quedan {libres}). Se achican antes de subirse, así que sirven las del celular tal cual.
+          La primera es la que se ve en la cuadrícula del catálogo.
+        </p>
+        <p id="estado-fotos" class="ayuda" aria-live="polite" />
+      </div>
+    )
+  }
+</section>
+
+<style>
+  .fotos {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: 0.75rem;
+  }
+  .fotos li {
+    position: relative;
+  }
+  .fotos img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 6px;
+    background: #f3ece8;
+  }
+  .fotos .etiqueta {
+    position: absolute;
+    top: 0.4rem;
+    left: 0.4rem;
+  }
+  .fotos form {
+    margin-top: 0.4rem;
+    gap: 0.25rem;
+    flex-wrap: nowrap;
+  }
+  .falla {
+    color: #8a1024;
+    font-weight: 600;
+  }
+  /* Del tamaño de un dedo en el celular. */
+  .fotos button.secundario {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0 0.6rem;
+  }
+  .fotos button.enlace {
+    min-height: 2.75rem;
+    padding: 0 0.4rem;
+  }
+</style>
+
+<script>
+  // Achica cada foto en el navegador (grande de 1200 px y mini de 480 px por el lado mayor, en WebP,
+  // o JPEG si el navegador no sabe hacer WebP) y las sube una por una.
+  const caja = document.querySelector<HTMLElement>('#subir-fotos');
+  if (caja) {
+    const entrada = caja.querySelector<HTMLInputElement>('#archivo-foto')!;
+    const estado = caja.querySelector<HTMLElement>('#estado-fotos')!;
+    const libres = Number(caja.dataset.libres);
+
+    const achicar = async (imagen: ImageBitmap, lado: number, calidad: number) => {
+      const escala = Math.min(1, lado / Math.max(imagen.width, imagen.height));
+      const lienzo = document.createElement('canvas');
+      lienzo.width = Math.round(imagen.width * escala);
+      lienzo.height = Math.round(imagen.height * escala);
+      const ctx = lienzo.getContext('2d')!;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
+      const comoTipo = (tipo: string) => new Promise<Blob | null>((listo) => lienzo.toBlob(listo, tipo, calidad));
+      let blob = await comoTipo('image/webp');
+      if (!blob || blob.type !== 'image/webp') blob = await comoTipo('image/jpeg');
+      if (!blob) throw new Error('No se pudo procesar la foto.');
+      return blob;
+    };
+
+    entrada.addEventListener('change', async () => {
+      const archivos = [...(entrada.files ?? [])];
+      if (archivos.length === 0) return;
+      estado.classList.remove('falla');
+      if (archivos.length > libres) {
+        estado.textContent = `Elige hasta ${libres} ${libres === 1 ? 'foto' : 'fotos'}.`;
+        estado.classList.add('falla');
+        entrada.value = '';
+        return;
+      }
+      entrada.disabled = true;
+      let destino = location.href;
+      let subidas = 0;
+      try {
+        for (const archivo of archivos) {
+          estado.textContent = `Subiendo foto ${subidas + 1} de ${archivos.length}…`;
+          const imagen = await createImageBitmap(archivo, { imageOrientation: 'from-image' });
+          const [grande, mini] = await Promise.all([achicar(imagen, 1200, 0.82), achicar(imagen, 480, 0.78)]);
+          imagen.close();
+          const datos = new FormData();
+          datos.set('accion', 'foto-subir');
+          datos.set('grande', grande, 'grande');
+          datos.set('mini', mini, 'mini');
+          const respuesta = await fetch(location.pathname, { method: 'POST', body: datos });
+          if (!respuesta.redirected) {
+            // Sin redirección, la página volvió con el mensaje de error.
+            const pagina = new DOMParser().parseFromString(await respuesta.text(), 'text/html');
+            throw new Error(pagina.querySelector('.aviso.error')?.textContent?.trim() || 'No se pudo subir la foto.');
+          }
+          destino = respuesta.url;
+          subidas += 1;
+        }
+        location.assign(destino);
+      } catch (e) {
+        const motivo =
+          e instanceof Error && e.message && !/decode|source image|InvalidState/i.test(e.message)
+            ? e.message
+            : 'No se pudo leer una de las fotos. Usa JPG o PNG (en computador, las HEIC del iPhone no siempre se pueden abrir).';
+        estado.classList.add('falla');
+        estado.textContent = subidas ? `${motivo} Se subieron ${subidas} antes del error: recarga la página para verlas.` : motivo;
+        entrada.disabled = false;
+        entrada.value = '';
+      }
+    });
+  }
+
+  for (const boton of document.querySelectorAll<HTMLButtonElement>('.borrar-foto')) {
+    boton.addEventListener('click', (e) => {
+      if (!confirm('¿Borrar esta foto?')) e.preventDefault();
+    });
+  }
+</script>

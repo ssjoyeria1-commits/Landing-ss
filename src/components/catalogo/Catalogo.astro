@@ -52,7 +52,7 @@ const porCategoria = categorias.map((nombre) => ({
 {
   porCategoria.map((c, ic) => (
     <section class="categoria" id={c.ancla} aria-labelledby={`t-${c.ancla}`}>
-      {ic > 0 && <div class="divisor-rombos aparece" aria-hidden="true" />}
+      <div class="divisor-rombos aparece" aria-hidden="true" />
       <h2 id={`t-${c.ancla}`} class="aparece">
         {c.nombre}
       </h2>
@@ -164,7 +164,8 @@ const porCategoria = categorias.map((nombre) => ({
     scroll-margin-top: 1.5rem;
   }
 
-  /* División entre categorías: el filete con los tres rombos de las tarjetas de la página del chip
+  /* División antes de cada categoría (también la primera, para que su título no se confunda con
+     los botones de arriba): el filete con los tres rombos de las tarjetas de la página del chip
      (dibujo en Publica.astro). La sección guarda su ancla arriba de la división. */
   .divisor-rombos {
     max-width: 34rem;
@@ -176,9 +177,9 @@ const porCategoria = categorias.map((nombre) => ({
     transition-delay: calc(var(--orden, 0) * 90ms);
   }
 
-  /* Título de cada categoría: píldora como los botones de arriba, pero más grande y en un rojo
-     vino menos intenso; en la letra del texto (no la de las piezas) para que marque el cambio de
-     categoría sin confundirse con los nombres. */
+  /* Título de cada categoría: píldora roja como los botones de arriba, pero más grande; en la letra
+     del texto (no la de las piezas) para que marque el cambio de categoría sin confundirse con los
+     nombres. */
   .categoria h2 {
     display: table;
     margin: 0 auto 1.75rem;
@@ -190,9 +191,8 @@ const porCategoria = categorias.map((nombre) => ({
     letter-spacing: 0.04em;
     line-height: 1.3;
     text-align: center;
-    color: var(--tinta);
-    background: #7d1822;
-    box-shadow: inset 0 0 0 1px rgb(242 236 228 / 0.12);
+    color: #fff;
+    background: var(--rojo);
   }
 
   /* Dos por fila en el celular, tres en tableta y de ancho fijo en computador. Las filas se

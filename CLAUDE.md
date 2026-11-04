@@ -97,6 +97,13 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 - Operaciones interactivas (login de wrangler/supabase, `git push` con credenciales) van en la terminal
   del panel (`run_in_terminal`), no en el shell en segundo plano.
 - A veces falla la red (DNS) en un comando: reintentar antes de investigar.
+- **Safari 26 en iPhone** no dibuja capas fijas (el degradado del fondo) bajo la franja de la hora
+  ni bajo su barra de abajo: ahí muestra el contenido y el color de base de la página. Por eso la
+  base de `Publica.astro` es `#3d0710` (el vino en que termina el degradado) y `.tinte-arriba`, una
+  banda negra fija de 8 px que Safari lee para pintar de negro la franja de la hora. Para que la lea
+  tiene que estar encima del contenido y sin `pointer-events: none`. Probado en iPhone (4 nov 2026).
+- El servidor local a veces no alcanza Supabase ("internal error" en `catalogo_publico`): es la red
+  del simulador local; la página publicada funciona. Para revisar diseño usar `/pruebas/catalogo`.
 
 ## Datos de prueba en producción
 

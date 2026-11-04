@@ -1,6 +1,6 @@
 // Fotos del catálogo en Supabase Storage (bucket público "catalogo").
-// Cada foto tiene dos archivos: {producto_id}/{id}.webp (grande) y {producto_id}/{id}-mini.webp
-// (cuadrícula). El panel las achica en el navegador antes de subirlas; nunca cambian (una foto nueva
+// Cada foto tiene dos archivos: {producto_id}/{id}.webp (grande, 1440 px en el lado corto) y
+// {producto_id}/{id}-mini.webp (cuadrícula, 600 px en el lado corto). El panel las achica en el navegador antes de subirlas; nunca cambian (una foto nueva
 // es un id nuevo), por eso se guardan con caché de un año.
 import { createClient } from '@supabase/supabase-js';
 import { env } from 'cloudflare:workers';
@@ -8,7 +8,10 @@ import type { Supabase } from './supabase';
 
 export const BUCKET = 'catalogo';
 export const MAX_FOTOS = 5;
-const MAX_BYTES = 600 * 1024;
+/** Límite por archivo (igual al del bucket, migración 20261103130000). */
+export const MAX_BYTES = 1024 * 1024;
+/** Lado corto de cada tamaño: es el ancho que se anuncia en srcset (las fotos llenan un marco vertical). */
+export const ANCHO = { grande: 1440, mini: 600 } as const;
 const TIPOS = ['image/webp', 'image/jpeg'];
 
 export interface FotoProducto {

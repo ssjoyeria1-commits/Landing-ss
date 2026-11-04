@@ -2,7 +2,7 @@
 // Fotos del catálogo en la ficha del producto: miniaturas con orden y borrar, y el selector que
 // achica las fotos en el navegador antes de subirlas. Envía por POST a la página actual las acciones
 // foto-subir (campos grande y mini), foto-antes, foto-despues y foto-borrar (campo foto).
-import { MAX_FOTOS } from '../../lib/catalogo';
+import { MAX_BYTES, MAX_FOTOS } from '../../lib/catalogo';
 
 interface Props {
   nombre: string;
@@ -51,7 +51,7 @@ const libres = MAX_FOTOS - fotos.length;
   }
   {
     libres > 0 && (
-      <div class="tarjeta" id="subir-fotos" data-libres={libres}>
+      <div class="tarjeta" id="subir-fotos" data-libres={libres} data-max-bytes={MAX_BYTES}>
         <label for="archivo-foto">Agregar fotos</label>
         <input id="archivo-foto" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple />
         <p class="ayuda">
@@ -112,28 +112,58 @@ const libres = MAX_FOTOS - fotos.length;
 </style>
 
 <script>
-  // Achica cada foto en el navegador (grande de 1200 px y mini de 480 px por el lado mayor, en WebP,
-  // o JPEG si el navegador no sabe hacer WebP) y las sube una por una.
+  // Achica cada foto en el navegador y las sube una por una. Grande: 1440 px en el lado corto (llena
+  // el marco de la ficha en un celular de pantalla densa); mini: 600 px (cuadrícula). WebP, o JPEG si
+  // el navegador no sabe hacer WebP (Safari).
   const caja = document.querySelector<HTMLElement>('#subir-fotos');
   if (caja) {
     const entrada = caja.querySelector<HTMLInputElement>('#archivo-foto')!;
     const estado = caja.querySelector<HTMLElement>('#estado-fotos')!;
     const libres = Number(caja.dataset.libres);
+    const maxBytes = Number(caja.dataset.maxBytes);
 
-    const achicar = async (imagen: ImageBitmap, lado: number, calidad: number) => {
-      const escala = Math.min(1, lado / Math.max(imagen.width, imagen.height));
-      const lienzo = document.createElement('canvas');
-      lienzo.width = Math.round(imagen.width * escala);
-      lienzo.height = Math.round(imagen.height * escala);
-      const ctx = lienzo.getContext('2d')!;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
-      const comoTipo = (tipo: string) => new Promise<Blob | null>((listo) => lienzo.toBlob(listo, tipo, calidad));
-      let blob = await comoTipo('image/webp');
-      if (!blob || blob.type !== 'image/webp') blob = await comoTipo('image/jpeg');
-      if (!blob) throw new Error('No se pudo procesar la foto.');
-      return blob;
+    const lienzoDe = (w: number, h: number) => {
+      const l = document.createElement('canvas');
+      l.width = w;
+      l.height = h;
+      return l;
     };
+
+    /** Reduce a la mitad varias veces y termina en la medida exacta: más nítido que de un solo paso. */
+    const reducir = (imagen: ImageBitmap, corto: number, largoMax: number) => {
+      const escala = Math.min(1, corto / Math.min(imagen.width, imagen.height), largoMax / Math.max(imagen.width, imagen.height));
+      const w = Math.round(imagen.width * escala);
+      const h = Math.round(imagen.height * escala);
+      let fuente: CanvasImageSource = imagen;
+      let [fw, fh] = [imagen.width, imagen.height];
+      while (fw / 2 >= w * 1.5) {
+        const paso = lienzoDe(Math.round(fw / 2), Math.round(fh / 2));
+        const c = paso.getContext('2d')!;
+        c.imageSmoothingQuality = 'high';
+        c.drawImage(fuente, 0, 0, paso.width, paso.height);
+        [fuente, fw, fh] = [paso, paso.width, paso.height];
+      }
+      const final = lienzoDe(w, h);
+      const ctx = final.getContext('2d')!;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(fuente, 0, 0, w, h);
+      return final;
+    };
+
+    /** Comprime con la mejor calidad que quepa en el límite del bucket. */
+    const comprimir = async (lienzo: HTMLCanvasElement, calidades: number[]) => {
+      const comoTipo = (tipo: string, q: number) => new Promise<Blob | null>((listo) => lienzo.toBlob(listo, tipo, q));
+      const prueba = await comoTipo('image/webp', calidades[0]);
+      const tipo = prueba?.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+      for (const q of calidades) {
+        const blob = q === calidades[0] && tipo === 'image/webp' ? prueba : await comoTipo(tipo, q);
+        if (blob && blob.size <= maxBytes) return blob;
+      }
+      throw new Error('La foto quedó demasiado pesada. Prueba con otra.');
+    };
+
+    const achicar = (imagen: ImageBitmap, corto: number, largoMax: number, calidades: number[]) =>
+      comprimir(reducir(imagen, corto, largoMax), calidades);
 
     entrada.addEventListener('change', async () => {
       const archivos = [...(entrada.files ?? [])];
@@ -152,7 +182,8 @@ const libres = MAX_FOTOS - fotos.length;
         for (const archivo of archivos) {
           estado.textContent = `Subiendo foto ${subidas + 1} de ${archivos.length}…`;
           const imagen = await createImageBitmap(archivo, { imageOrientation: 'from-image' });
-          const [grande, mini] = await Promise.all([achicar(imagen, 1200, 0.82), achicar(imagen, 480, 0.78)]);
+          const grande = await achicar(imagen, 1440, 2560, [0.9, 0.86, 0.82, 0.76, 0.7]);
+          const mini = await achicar(imagen, 600, 1080, [0.86, 0.8, 0.72]);
           imagen.close();
           const datos = new FormData();
           datos.set('accion', 'foto-subir');

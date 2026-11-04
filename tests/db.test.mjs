@@ -763,4 +763,8 @@ test('catálogo público: el visitante no lee tablas, hasta 5 fotos y solo los a
   await subir('authenticated', ADMIN);
   const vistos = await como(db, 'authenticated', NO_ADMIN, () => uno(db, 'select count(*)::int as n from storage.objects'));
   assert.equal(vistos.n, 0, 'un usuario que no es admin no lista el bucket');
+  const bucket = await uno(db, "select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'catalogo'");
+  assert.equal(bucket.public, true);
+  assert.equal(Number(bucket.file_size_limit), 1024 * 1024, 'fotos de hasta 1 MB');
+  assert.deepEqual(bucket.allowed_mime_types, ['image/webp', 'image/jpeg']);
 });

@@ -146,8 +146,9 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
       el enlace (`noindex`), botón "Me interesa" por WhatsApp (falta el número).
   - [x] C1 — `productos.publicado` y `descripcion_publica`, tabla `fotos_producto`, bucket público
         `catalogo` (solo admins suben; nadie lista), función `catalogo_publico()` para anon. Aplicada.
-  - [x] C2 — panel: fotos en la ficha del producto (se achican en el navegador a WebP 1200/480 px y
-        se suben por el Worker, `src/lib/catalogo.ts`), interruptor y descripción, aviso de
+  - [x] C2 — panel: fotos en la ficha del producto (se achican en el navegador a WebP o JPEG y
+        se suben por el Worker, `src/lib/catalogo.ts`; desde el 3 nov: 1440/600 px en el lado corto,
+        reducción por pasos, hasta 1 MB), interruptor y descripción, aviso de
         referencias sin foto en el lote. Aplicada y publicada.
   - [x] C3 — `/catalogo` (cuadrícula por categoría) y `/catalogo/[codigo]` (fotos que se deslizan,
         con flechas en computador; cada peso con su precio; "Me interesa" por WhatsApp con el peso

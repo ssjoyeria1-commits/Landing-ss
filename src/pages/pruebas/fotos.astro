@@ -5,7 +5,7 @@
 // En producción responde 404.
 import Admin from '../../layouts/Admin.astro';
 import FotosProducto from '../../components/admin/FotosProducto.astro';
-import { MAX_FOTOS } from '../../lib/catalogo';
+import { MAX_BYTES, MAX_FOTOS } from '../../lib/catalogo';
 
 if (import.meta.env.PROD) return new Response(null, { status: 404 });
 
@@ -25,7 +25,7 @@ if (Astro.request.method === 'POST') {
   if (accion === 'foto-subir') {
     const grande = form.get('grande');
     const mini = form.get('mini');
-    const ok = (f: unknown): f is File => f instanceof File && f.size > 0 && f.size <= 600 * 1024 && ['image/webp', 'image/jpeg'].includes(f.type);
+    const ok = (f: unknown): f is File => f instanceof File && f.size > 0 && f.size <= MAX_BYTES && ['image/webp', 'image/jpeg'].includes(f.type);
     if (g.__fallaPrueba) error = 'Error de prueba: no se pudo subir la foto.';
     else if (!ok(grande) || !ok(mini)) error = 'La foto no llegó bien. Vuelve a elegirla.';
     else if (fotos.length >= MAX_FOTOS) error = `Un producto puede tener hasta ${MAX_FOTOS} fotos.`;

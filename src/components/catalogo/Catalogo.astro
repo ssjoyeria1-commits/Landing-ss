@@ -3,7 +3,7 @@
 // principal, el nombre y cada peso disponible con su precio (nunca cuántas piezas hay), y abre la
 // ficha de la pieza. Lo usan /catalogo y /pruebas/catalogo.
 import { peso } from '../../lib/caja';
-import { anclaCategoria, type ProductoPublico } from '../../lib/catalogo';
+import { ANCHO, anclaCategoria, type ProductoPublico } from '../../lib/catalogo';
 import { pesos } from '../../lib/formato';
 
 interface Props {
@@ -60,7 +60,7 @@ const porCategoria = categorias.map((nombre) => ({
               <span class="foto">
                 <img
                   src={p.fotos[0].mini}
-                  srcset={`${p.fotos[0].mini} 480w, ${p.fotos[0].grande} 1200w`}
+                  srcset={`${p.fotos[0].mini} ${ANCHO.mini}w, ${p.fotos[0].grande} ${ANCHO.grande}w`}
                   sizes="(min-width: 68rem) 16rem, (min-width: 40rem) 30vw, 46vw"
                   alt={p.nombre}
                   width="480"

@@ -4,7 +4,7 @@
 // inexistente) muestra que ya no está disponible. Lo usan /catalogo/[codigo] y /pruebas/catalogo.
 import BotonWhatsApp from '../caja/BotonWhatsApp.astro';
 import { peso } from '../../lib/caja';
-import type { ProductoPublico } from '../../lib/catalogo';
+import { ANCHO, type ProductoPublico } from '../../lib/catalogo';
 import { pesos } from '../../lib/formato';
 import { enlaceWhatsApp, whatsappPendiente } from '../../lib/whatsapp';
 import { MENSAJES } from '../../config/mensajes';
@@ -48,7 +48,7 @@ const una = p?.opciones.length === 1;
             <li>
               <img
                 src={f.grande}
-                srcset={`${f.mini} 480w, ${f.grande} 1200w`}
+                srcset={`${f.mini} ${ANCHO.mini}w, ${f.grande} ${ANCHO.grande}w`}
                 sizes="(min-width: 60rem) 30rem, 100vw"
                 alt={p.fotos.length > 1 ? `${p.nombre}, foto ${i + 1} de ${p.fotos.length}` : p.nombre}
                 width="1200"

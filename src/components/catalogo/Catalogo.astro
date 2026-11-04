@@ -25,12 +25,12 @@ const porCategoria = categorias.map((nombre) => ({
 }));
 ---
 
+<!-- El título "Catálogo" está en la portada (Publica con rotulo); al deslizar aparecen el subtítulo y las categorías. -->
 <header class="encabezado">
-  <h1>Catálogo</h1>
-  <p>Piezas en oro de 18k disponibles hoy. Cada pieza tiene su propio peso, y el precio depende de él.</p>
+  <p class="aparece">Piezas en oro de 18k disponibles hoy. Cada pieza tiene su propio peso, y el precio depende de él.</p>
   {
     categorias.length > 1 && (
-      <nav class="categorias" aria-label="Categorías">
+      <nav class="categorias aparece" aria-label="Categorías">
         {porCategoria.map((c) => (
           <a href={`#${c.ancla}`}>{c.nombre}</a>
         ))}
@@ -91,7 +91,12 @@ const porCategoria = categorias.map((nombre) => ({
   .encabezado {
     text-align: center;
     max-width: 34rem;
-    margin: 0 auto 2.5rem;
+    margin: 1rem auto 3rem;
+  }
+
+  /* Las categorías entran un poco después del subtítulo. */
+  :global(.entrada) .categorias.aparece {
+    transition-delay: 150ms;
   }
 
   .encabezado p {

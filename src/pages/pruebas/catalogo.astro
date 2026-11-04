@@ -59,7 +59,7 @@ const volver = `/pruebas/catalogo?datos=${datos}`;
 const producto = ficha ? (productos.find((p) => p.codigo === ficha) ?? null) : null;
 ---
 
-<Publica title="Catálogo · SS Joyería" noindex portada={false} amplio>
+<Publica title="Catálogo · SS Joyería" noindex amplio portada={!ficha} rotulo={ficha ? undefined : "Catálogo"}>
   {
     ficha ? (
       <Ficha producto={producto} temporal={datos === 'temporal'} volver={volver} numero={Astro.url.searchParams.has('whatsapp') ? '+573001234567' : undefined} />

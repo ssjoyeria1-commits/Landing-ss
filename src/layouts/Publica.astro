@@ -13,9 +13,11 @@ interface Props {
   portada?: boolean;
   /** Contenido más ancho en pantallas grandes (catálogo). Las páginas del chip van en una columna. */
   amplio?: boolean;
+  /** Palabra en rojo bajo el logo de la portada (el catálogo); es el título principal de la página. */
+  rotulo?: string;
 }
 
-const { title = 'SS Joyería', noindex = false, portada = true, amplio = false } = Astro.props;
+const { title = 'SS Joyería', noindex = false, portada = true, amplio = false, rotulo } = Astro.props;
 // `swap`: el texto se ve de inmediato con la serif del sistema y cambia cuando llega la fuente.
 const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuente}') format('woff2');font-weight:500 700;font-display:swap}`;
 ---
@@ -36,7 +38,14 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
       {
         portada ? (
           <div class="portada">
-            <Logo alto="min(36svh, 17rem)" animado />
+            {rotulo ? (
+              <div class="portada-marca">
+                <Logo alto="min(30svh, 14rem)" animado />
+                <h1 class="rotulo">{rotulo}</h1>
+              </div>
+            ) : (
+              <Logo alto="min(36svh, 17rem)" animado />
+            )}
             <span class="desliza" aria-hidden="true" />
           </div>
         ) : (
@@ -67,7 +76,7 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
         },
         { threshold: 0.12 },
       );
-      for (const el of document.querySelectorAll('.publica main .seccion, .publica main .titulo-fuera')) observador.observe(el);
+      for (const el of document.querySelectorAll('.publica main :is(.seccion, .titulo-fuera, .aparece)')) observador.observe(el);
     }
   </script>
 </Base>
@@ -149,6 +158,36 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     place-items: center;
     min-height: 100vh;
     min-height: 100svh;
+  }
+
+  /* Portada con rótulo (catálogo): la palabra en rojo, en la letra de la marca, bajo el logo. Sube
+     cuando el logo ya terminó de armarse. */
+  .publica .portada-marca {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .publica .portada .rotulo {
+    margin: 2rem 0 0;
+    font-size: clamp(3.25rem, 15vw, 5rem);
+    line-height: 1;
+    color: var(--rojo);
+    animation: publica-rotulo 1000ms cubic-bezier(0.16, 1, 0.3, 1) 1700ms backwards;
+  }
+
+  @keyframes publica-rotulo {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+      letter-spacing: 0.08em;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .publica .portada .rotulo {
+      animation: publica-aparecer 200ms ease-out backwards;
+    }
   }
 
   .publica .logo-compacto {
@@ -263,7 +302,7 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
   }
 
   /* Entrada al hacer scroll: suben 2 rem y aparecen. Solo con la clase `entrada` (ver <head>). */
-  .entrada .publica main :is(.seccion, .titulo-fuera) {
+  .entrada .publica main :is(.seccion, .titulo-fuera, .aparece) {
     opacity: 0;
     transform: translateY(2rem);
     transition:
@@ -275,7 +314,7 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     transition-delay: 120ms;
   }
 
-  .entrada .publica main :is(.seccion, .titulo-fuera).visible {
+  .entrada .publica main :is(.seccion, .titulo-fuera, .aparece).visible {
     opacity: 1;
     transform: none;
   }

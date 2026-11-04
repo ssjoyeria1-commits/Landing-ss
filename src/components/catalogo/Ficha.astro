@@ -4,7 +4,7 @@
 // inexistente) muestra que ya no está disponible. Lo usan /catalogo/[codigo] y /pruebas/catalogo.
 import BotonWhatsApp from '../caja/BotonWhatsApp.astro';
 import { peso } from '../../lib/caja';
-import { ANCHO, type ProductoPublico } from '../../lib/catalogo';
+import { ANCHO, anclaCategoria, type ProductoPublico } from '../../lib/catalogo';
 import { pesos } from '../../lib/formato';
 import { enlaceWhatsApp, whatsappPendiente } from '../../lib/whatsapp';
 import { MENSAJES } from '../../config/mensajes';
@@ -22,10 +22,12 @@ interface Props {
 const { producto, temporal = false, volver = '/catalogo', numero = SITIO.whatsappNegocio } = Astro.props;
 const conWhatsapp = !whatsappPendiente(numero);
 const p = producto;
+// Volver lleva directo a la categoría de la pieza: la portada del catálogo queda arriba, sin repetir la entrada.
+const volverA = p ? `${volver}#${anclaCategoria(p.categoria)}` : volver;
 const una = p?.opciones.length === 1;
 ---
 
-<p class="volver"><a href={volver}>← Catálogo</a></p>
+<p class="volver"><a href={volverA}>← Catálogo</a></p>
 
 {
   !p ? (

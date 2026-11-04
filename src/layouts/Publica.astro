@@ -55,8 +55,8 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
         )
       }
     </header>
+    {Astro.slots.has('saludo') && <div class="saludo"><slot name="saludo" /></div>}
     <div class="con-monograma">
-      {Astro.slots.has('saludo') && <div class="saludo"><slot name="saludo" /></div>}
       <main>
         <slot />
       </main>
@@ -82,12 +82,24 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
 </Base>
 
 <style is:global>
-  /* Dirección "Oscura": un solo fondo negro y cada cosa iluminada como en vitrina.
-     El rojo queda para la acción principal y los rombos ganados del Círculo. */
+  /* Dirección "Oscura": cada cosa iluminada como en vitrina. El rojo queda para la acción
+     principal y los rombos ganados del Círculo. */
   .fondo-publico {
     background: var(--negro);
     color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Fondo: degradado fijo de negro arriba a vino abajo, como una luz roja que sube desde el borde
+     de la pantalla. Es una capa fija (y no background-attachment: fixed, que iOS no respeta), así
+     que no se mueve al deslizar. */
+  .fondo-publico::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(180deg, #000 0%, #000 35%, #1c0306 65%, #3d0710 100%);
   }
 
   .publica {
@@ -110,7 +122,6 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     padding: 0 1rem;
     overflow-x: clip;
     color: var(--tinta);
-    background: var(--negro);
     line-height: 1.6;
   }
 
@@ -124,8 +135,9 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     max-width: 68rem;
   }
 
-  /* Fondo fijo con el monograma detrás de las secciones. El saludo y la franja de las piezas lo
-     tapan con su propio fondo, así que se empieza a ver después de la franja. La capa es
+  /* Fondo fijo con el monograma detrás de las secciones, sobre el degradado. El saludo va fuera de
+     este bloque y la franja de las piezas lo tapa con su propio fondo, así que se empieza a ver
+     después de la franja. La capa es
      fija y el recorte de este bloque la deja ver solo en su alto. El recorte se abre a los lados
      para no cortar la franja de las piezas, que llega a los bordes. Funciona también en iOS, donde
      background-attachment: fixed no. */
@@ -227,17 +239,17 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     font-family: var(--display);
   }
 
-  /* El saludo va sobre negro liso de borde a borde (tapa el monograma) y llega pegado a la franja
-     de las piezas. */
+  /* El saludo va sobre el degradado, sin monograma detrás, y llega pegado a la franja de las
+     piezas. */
   .publica .saludo {
+    width: 100%;
     max-width: 30rem;
     margin: 0 auto;
     padding: 1.5rem 0 3rem;
     text-align: center;
-    border-image: conic-gradient(var(--negro) 0 0) fill 0 // 0 100vw;
   }
 
-  .publica .saludo + main > .seccion.destacada:first-child {
+  .publica .saludo + .con-monograma > main > .seccion.destacada:first-child {
     margin-top: 0;
   }
 

@@ -63,12 +63,11 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     </div>
     <Pie />
   </div>
-  {/* Safari en iPhone pinta sus barras con el color de un elemento fijo pegado al borde de la
-      pantalla (si no hay, con el fondo de la página). Estas dos bandas le dan el negro de arriba y
-      el vino de abajo del degradado; en pantalla no se notan porque son de ese mismo color. Solo se
-      muestran en iPhone/iPad. */}
-  <div class="tinte-barra arriba" aria-hidden="true"></div>
-  <div class="tinte-barra abajo" aria-hidden="true"></div>
+  {/* Safari en iPhone pinta su barra de abajo con el color de un elemento fijo pegado a ese borde
+      (si no hay, con el fondo negro de la página, que es el que queremos arriba). Esta banda le da
+      el vino en que termina el degradado; en pantalla no se nota porque es de ese mismo color. Solo
+      se muestra en iPhone/iPad. */}
+  <div class="tinte-barra" aria-hidden="true"></div>
   <script is:inline>
     // Cada tarjeta (y cada título de fuera) sube y aparece la primera vez que entra en pantalla.
     if (document.documentElement.classList.contains('entrada')) {
@@ -98,43 +97,35 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Fondo: degradado fijo de negro arriba a vino abajo, como una luz roja que sube desde el borde
-     de la pantalla. Es una capa fija (y no background-attachment: fixed, que iOS no respeta), así
-     que no se mueve al deslizar. El degradado mide el alto de la pantalla y termina en
-     --fondo-final; la capa sigue 200 px más abajo en ese mismo color, para cubrir lo que Safari en
-     iPhone muestra debajo de su barra flotante (ahí no llega la pantalla que mide el navegador).
-     Fuera de Safari esa parte queda bajo el borde y no se ve. */
-  /* Safari toma el color de la primera cosa que "toca" en el borde, como un toque: por eso las
-     bandas van encima del contenido (z-index) y reciben toques (sin pointer-events: none, que hace
-     que Safari las salte), y miden 12 px (con 4 px no siempre las lee). Como son del mismo color
-     que el degradado en ese borde, no se notan. */
+  /* Banda para la barra de abajo de Safari: Safari toma el color de lo primero que "toca" en el
+     borde, como un toque. Por eso va encima del contenido (z-index), recibe toques (con
+     pointer-events: none Safari la salta) y mide 12 px (con 4 px no siempre la lee). Es del mismo
+     vino en que termina el degradado, así que no se nota. */
   .tinte-barra {
     display: none;
     position: fixed;
     left: 0;
     right: 0;
+    bottom: 0;
+    background: #3d0710;
     height: 12px;
     z-index: 50;
   }
 
-  /* Solo en iPhone/iPad (-webkit-touch-callout solo existe ahí): en otros navegadores no hacen falta
-     y la banda de abajo taparía el borde de las fotos al pasar. */
+  /* Solo en iPhone/iPad (-webkit-touch-callout solo existe ahí): en otros navegadores no hace falta
+     y taparía el borde de las fotos al pasar. */
   @supports (-webkit-touch-callout: none) {
     .tinte-barra {
       display: block;
     }
   }
 
-  .tinte-barra.arriba {
-    top: 0;
-    background: #000;
-  }
-
-  .tinte-barra.abajo {
-    bottom: 0;
-    background: #3d0710;
-  }
-
+  /* Fondo: degradado fijo de negro arriba a vino abajo, como una luz roja que sube desde el borde
+     de la pantalla. Es una capa fija (y no background-attachment: fixed, que iOS no respeta), así
+     que no se mueve al deslizar. El degradado mide el alto de la pantalla y termina en
+     --fondo-final; la capa sigue 200 px más abajo en ese mismo color, para cubrir lo que Safari en
+     iPhone muestra debajo de su barra flotante (ahí no llega la pantalla que mide el navegador).
+     Fuera de Safari esa parte queda bajo el borde y no se ve. */
   .fondo-publico::before {
     --fondo-final: #3d0710;
     content: '';

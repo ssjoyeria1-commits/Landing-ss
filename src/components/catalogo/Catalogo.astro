@@ -99,24 +99,40 @@ const porCategoria = categorias.map((nombre) => ({
     color: var(--gris);
   }
 
-  /* Categorías: fichas con filete marfil que llevan a su sección. Se envuelven en el celular. */
+  /* Categorías: píldoras rojas ajustadas al texto que llevan a su sección. Se envuelven en el
+     celular. */
   .categorias {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.6rem 0.5rem;
     margin-top: 1.5rem;
   }
 
   .categorias a {
+    position: relative;
     display: inline-flex;
     align-items: center;
-    min-height: 2.75rem;
-    padding: 0 1rem;
+    padding: 0.3rem 0.85rem;
+    border-radius: 999px;
     text-decoration: none;
-    font-size: 0.95rem;
-    background: var(--superficie);
-    box-shadow: var(--filete);
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #fff;
+    background: var(--rojo);
+    transition: transform 160ms var(--ease-out);
+  }
+
+  /* Área táctil de 44 px de alto aunque la píldora se vea más baja. */
+  .categorias a::before {
+    content: '';
+    position: absolute;
+    inset: -0.45rem -0.15rem;
+  }
+
+  .categorias a:active {
+    transform: scale(0.96);
   }
 
   .vacio {

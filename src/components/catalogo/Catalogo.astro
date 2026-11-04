@@ -135,6 +135,14 @@ const porCategoria = categorias.map((nombre) => ({
     transform: scale(0.96);
   }
 
+  /* Los botones de categoría llevan a su sección deslizándose, no de un salto (solo en esta
+     página y si el visitante no pidió menos movimiento). */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html:has(.categorias)) {
+      scroll-behavior: smooth;
+    }
+  }
+
   .vacio {
     text-align: center;
     color: var(--gris);

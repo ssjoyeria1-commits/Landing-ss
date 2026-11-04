@@ -63,6 +63,11 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     </div>
     <Pie />
   </div>
+  {/* Safari en iPhone pinta sus barras con el color de un elemento fijo pegado al borde de la
+      pantalla (si no hay, con el fondo de la página). Estas dos bandas le dan el negro de arriba y
+      el vino de abajo del degradado; en pantalla no se notan porque son de ese mismo color. */}
+  <div class="tinte-barra arriba" aria-hidden="true"></div>
+  <div class="tinte-barra abajo" aria-hidden="true"></div>
   <script is:inline>
     // Cada tarjeta (y cada título de fuera) sube y aparece la primera vez que entra en pantalla.
     if (document.documentElement.classList.contains('entrada')) {
@@ -98,6 +103,25 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
      --fondo-final; la capa sigue 200 px más abajo en ese mismo color, para cubrir lo que Safari en
      iPhone muestra debajo de su barra flotante (ahí no llega la pantalla que mide el navegador).
      Fuera de Safari esa parte queda bajo el borde y no se ve. */
+  .tinte-barra {
+    position: fixed;
+    left: 0;
+    right: 0;
+    height: 8px;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .tinte-barra.arriba {
+    top: 0;
+    background: #000;
+  }
+
+  .tinte-barra.abajo {
+    bottom: 0;
+    background: #3d0710;
+  }
+
   .fondo-publico::before {
     --fondo-final: #3d0710;
     content: '';

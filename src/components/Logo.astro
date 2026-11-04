@@ -10,9 +10,14 @@ interface Props {
   class?: string;
   /** Entrada al cargar: los rombos aparecen uno a uno de arriba abajo y luego el texto. */
   animado?: boolean;
+  /** Luz dorada que cruza el logo de izquierda a derecha (3 s y 1 s de pausa), después de la entrada. */
+  brillo?: boolean;
 }
 
-const { variante = 'completo', alto = '4rem', class: clase, animado = false } = Astro.props;
+const { variante = 'completo', alto = '4rem', class: clase, animado = false, brillo = false } = Astro.props;
+// La luz empieza cuando el logo ya se armó (último rombo y texto terminan a los ~2,1 s).
+const INICIO_BRILLO = '2.3s';
+const idBrillo = `brillo-logo-${Math.random().toString(36).slice(2, 8)}`;
 
 const R = 106.5; // semidiagonal exterior de cada rombo
 const r = 63.5; // semidiagonal interior (grosor del trazo: 43 px en vertical)
@@ -32,9 +37,35 @@ const rombo = ([x, y]: number[]) =>
 const rombos = centros.map(rombo);
 ---
 
-<div class:list={['logo', variante, clase, { animado }]} style={`--alto: ${alto}`}>
+<div class:list={['logo', variante, clase, { animado, brillo }]} style={`--alto: ${alto}; --brillo-inicio: ${INICIO_BRILLO}`}>
   <svg viewBox="0 0 464 721" role="img" aria-label="SS Joyería" fill="currentColor" fill-rule="evenodd">
-    {rombos.map((d, i) => <path d={d} style={`--i: ${i}`} />)}
+    {
+      brillo && (
+        <defs>
+          {/* Degradado tres veces más ancho que el símbolo con la luz en el centro; se desplaza de
+              izquierda a derecha como el fondo de .luz-dorada (SMIL: CSS no mueve degradados de SVG). */}
+          <linearGradient id={idBrillo} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1392" y2="120">
+            <stop offset="0.4" stop-color="#d0041a" />
+            <stop offset="0.46" stop-color="#d9b45a" />
+            <stop offset="0.5" stop-color="#fff1c2" />
+            <stop offset="0.54" stop-color="#d9b45a" />
+            <stop offset="0.6" stop-color="#d0041a" />
+            <animateTransform
+              attributeName="gradientTransform"
+              type="translate"
+              values="-928 0; 0 0; 0 0"
+              keyTimes="0; 0.75; 1"
+              calcMode="spline"
+              keySplines="0.42 0 0.58 1; 0 0 1 1"
+              dur="4s"
+              begin={INICIO_BRILLO}
+              repeatCount="indefinite"
+            />
+          </linearGradient>
+        </defs>
+      )
+    }
+    {rombos.map((d, i) => <path d={d} style={brillo ? `--i: ${i}; fill: url(#${idBrillo})` : `--i: ${i}`} />)}
   </svg>
   {
     variante === 'completo' && (
@@ -120,6 +151,52 @@ const rombos = centros.map(rombo);
     .animado path,
     .animado .texto {
       animation: aparecer 200ms ease-out backwards;
+    }
+  }
+
+  /* Luz dorada sobre el texto, al mismo ritmo que la del símbolo: cruza en 3 s y descansa 1 s. */
+  @supports ((background-clip: text) or (-webkit-background-clip: text)) {
+    .brillo .ss,
+    .brillo .joyeria {
+      color: transparent;
+      background: linear-gradient(
+          100deg,
+          var(--rojo) 0%,
+          var(--rojo) 40%,
+          #d9b45a 46%,
+          #fff1c2 50%,
+          #d9b45a 54%,
+          var(--rojo) 60%,
+          var(--rojo) 100%
+        )
+        100% 0 / 300% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: logo-brillo 4s ease-in-out var(--brillo-inicio) infinite backwards;
+    }
+  }
+
+  @keyframes logo-brillo {
+    0% {
+      background-position: 100% 0;
+    }
+    75%,
+    100% {
+      background-position: 0% 0;
+    }
+  }
+
+  /* Sin luz con movimiento reducido (el CSS gana sobre el relleno del degradado). */
+  @media (prefers-reduced-motion: reduce) {
+    .brillo path {
+      fill: currentColor !important;
+    }
+
+    .brillo .ss,
+    .brillo .joyeria {
+      animation: none;
+      color: var(--rojo);
+      background: none;
     }
   }
 </style>

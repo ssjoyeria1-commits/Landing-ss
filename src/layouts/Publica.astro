@@ -426,8 +426,10 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
   }
 
   /* Encabezado de cada tarjeta: filete marfil de lado a lado, interrumpido en el centro por tres
-     rombos del imagotipo (el del medio rojo, los de los lados en gris). */
-  .publica .seccion::before {
+     rombos del imagotipo (el del medio rojo, los de los lados en gris). El catálogo usa el mismo
+     dibujo como división entre categorías (.divisor-rombos). */
+  .publica .seccion::before,
+  .publica .divisor-rombos {
     --linea: linear-gradient(rgb(242 236 228 / 0.3), rgb(242 236 228 / 0.3));
     content: '';
     display: block;

@@ -52,10 +52,13 @@ const porCategoria = categorias.map((nombre) => ({
 {
   porCategoria.map((c, ic) => (
     <section class="categoria" id={c.ancla} aria-labelledby={`t-${c.ancla}`}>
-      <h2 id={`t-${c.ancla}`}>{c.nombre}</h2>
+      {ic > 0 && <div class="divisor-rombos aparece" aria-hidden="true" />}
+      <h2 id={`t-${c.ancla}`} class="aparece">
+        {c.nombre}
+      </h2>
       <ul class="rejilla">
         {c.productos.map((p, ip) => (
-          <li>
+          <li class="aparece" style={`--orden: ${ip % 4}`}>
             <a class="tarjeta" href={enlace(p.codigo)}>
               <span class="foto">
                 <img
@@ -159,6 +162,18 @@ const porCategoria = categorias.map((nombre) => ({
   .categoria {
     margin: 0 0 3.5rem;
     scroll-margin-top: 1.5rem;
+  }
+
+  /* División entre categorías: el filete con los tres rombos de las tarjetas de la página del chip
+     (dibujo en Publica.astro). La sección guarda su ancla arriba de la división. */
+  .divisor-rombos {
+    max-width: 34rem;
+    margin: 0 auto 3rem;
+  }
+
+  /* Al deslizar, las piezas de una fila entran una tras otra (90 ms entre cada una). */
+  :global(.entrada) .rejilla > li.aparece {
+    transition-delay: calc(var(--orden, 0) * 90ms);
   }
 
   /* Título de cada categoría: píldora como los botones de arriba, pero más grande y en un rojo

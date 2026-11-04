@@ -65,7 +65,8 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
   </div>
   {/* Safari en iPhone pinta sus barras con el color de un elemento fijo pegado al borde de la
       pantalla (si no hay, con el fondo de la página). Estas dos bandas le dan el negro de arriba y
-      el vino de abajo del degradado; en pantalla no se notan porque son de ese mismo color. */}
+      el vino de abajo del degradado; en pantalla no se notan porque son de ese mismo color. Solo se
+      muestran en iPhone/iPad. */}
   <div class="tinte-barra arriba" aria-hidden="true"></div>
   <div class="tinte-barra abajo" aria-hidden="true"></div>
   <script is:inline>
@@ -103,13 +104,25 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
      --fondo-final; la capa sigue 200 px más abajo en ese mismo color, para cubrir lo que Safari en
      iPhone muestra debajo de su barra flotante (ahí no llega la pantalla que mide el navegador).
      Fuera de Safari esa parte queda bajo el borde y no se ve. */
+  /* Safari toma el color de la primera cosa que "toca" en el borde, como un toque: por eso las
+     bandas van encima del contenido (z-index) y reciben toques (sin pointer-events: none, que hace
+     que Safari las salte), y miden 12 px (con 4 px no siempre las lee). Como son del mismo color
+     que el degradado en ese borde, no se notan. */
   .tinte-barra {
+    display: none;
     position: fixed;
     left: 0;
     right: 0;
-    height: 8px;
-    z-index: -1;
-    pointer-events: none;
+    height: 12px;
+    z-index: 50;
+  }
+
+  /* Solo en iPhone/iPad (-webkit-touch-callout solo existe ahí): en otros navegadores no hacen falta
+     y la banda de abajo taparía el borde de las fotos al pasar. */
+  @supports (-webkit-touch-callout: none) {
+    .tinte-barra {
+      display: block;
+    }
   }
 
   .tinte-barra.arriba {

@@ -94,19 +94,24 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
 
   /* Fondo: degradado fijo de negro arriba a vino abajo, como una luz roja que sube desde el borde
      de la pantalla. Es una capa fija (y no background-attachment: fixed, que iOS no respeta), así
-     que no se mueve al deslizar. Mide la pantalla grande (lvh, con las barras del navegador
-     escondidas) para llegar también debajo de la barra de Safari. */
+     que no se mueve al deslizar. El degradado mide el alto de la pantalla y termina en
+     --fondo-final; la capa sigue 200 px más abajo en ese mismo color, para cubrir lo que Safari en
+     iPhone muestra debajo de su barra flotante (ahí no llega la pantalla que mide el navegador).
+     Fuera de Safari esa parte queda bajo el borde y no se ve. */
   .fondo-publico::before {
+    --fondo-final: #3d0710;
     content: '';
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    height: 100vh;
-    height: 100lvh;
+    height: calc(100vh + 200px);
+    height: calc(100lvh + 200px);
     z-index: -1;
     pointer-events: none;
-    background: linear-gradient(180deg, #000 0%, #000 35%, #1c0306 65%, #3d0710 100%);
+    background: linear-gradient(180deg, #000 0%, #000 35%, #1c0306 65%, var(--fondo-final) 100%) 0 0 / 100% 100vh no-repeat
+      var(--fondo-final);
+    background-size: 100% 100lvh;
   }
 
   .publica {

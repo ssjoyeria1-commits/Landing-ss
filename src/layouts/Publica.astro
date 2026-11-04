@@ -63,10 +63,6 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     </div>
     <Pie />
   </div>
-  {/* Safari en iPhone pinta la franja de la hora con el color de un elemento fijo pegado arriba (si
-      no hay, con el color de base, que aquí es vino). Esta banda negra le da el negro del degradado
-      en ese borde; no se nota porque el degradado también es negro arriba. Solo en iPhone/iPad. */}
-  <div class="tinte-arriba" aria-hidden="true"></div>
   <script is:inline>
     // Cada tarjeta (y cada título de fuera) sube y aparece la primera vez que entra en pantalla.
     if (document.documentElement.classList.contains('entrada')) {
@@ -89,32 +85,11 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
   /* Dirección "Oscura": cada cosa iluminada como en vitrina. El rojo queda para la acción
      principal y los rombos ganados del Círculo. */
   /* El color de base es el vino en que termina el degradado: Safari en iPhone no dibuja la capa fija
-     del degradado detrás de su barra de abajo, solo el contenido y este color, así que ahí empalma.
-     La franja de la hora la deja negra .tinte-arriba. */
+     del degradado detrás de su barra de abajo, solo el contenido y este color, así que ahí empalma. */
   .fondo-publico {
     background: #3d0710;
     color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
-  }
-
-  /* Banda para la franja de la hora: Safari toma el color de lo primero que "toca" en el borde, como
-     un toque. Por eso va encima del contenido (z-index), recibe toques (con pointer-events: none
-     Safari la salta) y mide 8 px. Solo en iPhone/iPad (-webkit-touch-callout solo existe ahí). */
-  .tinte-arriba {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 8px;
-    z-index: 50;
-    background: #000;
-  }
-
-  @supports (-webkit-touch-callout: none) {
-    .tinte-arriba {
-      display: block;
-    }
   }
 
   /* Fondo: degradado fijo de negro arriba a vino abajo, como una luz roja que sube desde el borde

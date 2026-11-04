@@ -1,0 +1,27 @@
+---
+import Publica from '../../layouts/Publica.astro';
+import Ficha from '../../components/catalogo/Ficha.astro';
+import { obtenerCatalogo, type ProductoPublico } from '../../lib/catalogo';
+
+// Igual que /catalogo: fuera de buscadores y con caché de un minuto.
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+Astro.response.headers.set('Cache-Control', 'public, max-age=60');
+
+const codigo = (Astro.params.codigo ?? '').toUpperCase();
+let producto: ProductoPublico | null = null;
+let temporal = false;
+try {
+  producto = (await obtenerCatalogo()).find((p) => p.codigo === codigo) ?? null;
+} catch (e) {
+  console.error('catalogo_publico', e);
+  temporal = true;
+}
+if (!producto) {
+  Astro.response.status = temporal ? 503 : 404;
+  Astro.response.headers.set('Cache-Control', 'no-store');
+}
+---
+
+<Publica title={producto ? `${producto.nombre} · SS Joyería` : 'Catálogo · SS Joyería'} noindex portada={false} amplio>
+  <Ficha producto={producto} temporal={temporal} />
+</Publica>

@@ -2,6 +2,7 @@
 // Cada foto tiene dos archivos: {producto_id}/{id}.webp (grande) y {producto_id}/{id}-mini.webp
 // (cuadrícula). El panel las achica en el navegador antes de subirlas; nunca cambian (una foto nueva
 // es un id nuevo), por eso se guardan con caché de un año.
+import { createClient } from '@supabase/supabase-js';
 import { env } from 'cloudflare:workers';
 import type { Supabase } from './supabase';
 
@@ -80,4 +81,47 @@ export async function moverFoto(supabase: Supabase, productoId: string, fotoId: 
   [ids[i], ids[j]] = [ids[j], ids[i]];
   const cambios = await Promise.all(ids.map((id, orden) => supabase.from('fotos_producto').update({ orden }).eq('id', id)));
   return cambios.find((c) => c.error)?.error?.message ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo público (/catalogo): lo que devuelve public.catalogo_publico()
+// ---------------------------------------------------------------------------
+
+/** Un peso disponible de un producto con su precio. Nunca dice cuántas piezas hay de ese peso. */
+export interface OpcionPublica {
+  peso_gramos: number;
+  precio_cop: number;
+}
+
+export interface ProductoPublico {
+  codigo: string;
+  nombre: string;
+  descripcion: string | null;
+  categoria: string;
+  fotos: { grande: string; mini: string }[];
+  opciones: OpcionPublica[];
+}
+
+/** Productos publicados, con foto y con piezas disponibles, ya con las direcciones de sus fotos. */
+export async function obtenerCatalogo(): Promise<ProductoPublico[]> {
+  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await supabase.rpc('catalogo_publico');
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as (Omit<ProductoPublico, 'fotos'> & { fotos: string[] })[]).map((p) => ({
+    ...p,
+    fotos: p.fotos.map((ruta) => ({ grande: urlFoto(ruta), mini: urlFoto(ruta, 'mini') })),
+    opciones: p.opciones.map((o) => ({ peso_gramos: Number(o.peso_gramos), precio_cop: Number(o.precio_cop) })),
+  }));
+}
+
+/** Ancla de una categoría en la página del catálogo ("Anillos de compromiso" → "anillos-de-compromiso"). */
+export function anclaCategoria(nombre: string): string {
+  return nombre
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }

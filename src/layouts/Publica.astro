@@ -11,9 +11,11 @@ interface Props {
   noindex?: boolean;
   /** Logo a pantalla completa como primer impacto (página del chip). Las páginas de texto lo llevan compacto. */
   portada?: boolean;
+  /** Contenido más ancho en pantallas grandes (catálogo). Las páginas del chip van en una columna. */
+  amplio?: boolean;
 }
 
-const { title = 'SS Joyería', noindex = false, portada = true } = Astro.props;
+const { title = 'SS Joyería', noindex = false, portada = true, amplio = false } = Astro.props;
 // `swap`: el texto se ve de inmediato con la serif del sistema y cambia cuando llega la fuente.
 const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuente}') format('woff2');font-weight:500 700;font-display:swap}`;
 ---
@@ -29,7 +31,7 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
         document.documentElement.classList.add('entrada');
     </script>
   </Fragment>
-  <div class="publica">
+  <div class:list={["publica", { amplio }]}>
     <header class="cabecera">
       {
         portada ? (
@@ -104,6 +106,10 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     width: 100%;
     max-width: 30rem;
     padding: 0;
+  }
+
+  .publica.amplio main {
+    max-width: 68rem;
   }
 
   /* Fondo fijo con el monograma detrás de las secciones. El saludo y la franja de las piezas lo

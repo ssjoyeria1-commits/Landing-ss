@@ -1,0 +1,394 @@
+---
+// Ficha de una pieza del catálogo: sus fotos (se deslizan de lado), cada peso disponible con su
+// precio y el botón de WhatsApp con la pieza y el peso elegido. Sin el producto (vendido, oculto o
+// inexistente) muestra que ya no está disponible. Lo usan /catalogo/[codigo] y /pruebas/catalogo.
+import BotonWhatsApp from '../caja/BotonWhatsApp.astro';
+import { peso } from '../../lib/caja';
+import type { ProductoPublico } from '../../lib/catalogo';
+import { pesos } from '../../lib/formato';
+import { enlaceWhatsApp, whatsappPendiente } from '../../lib/whatsapp';
+import { MENSAJES } from '../../config/mensajes';
+import { SITIO } from '../../config/sitio';
+
+interface Props {
+  producto: ProductoPublico | null;
+  temporal?: boolean;
+  /** Dirección del catálogo (las pruebas usan otra). */
+  volver?: string;
+  /** Línea de WhatsApp (las pruebas pasan una de ejemplo mientras la real está pendiente). */
+  numero?: string;
+}
+
+const { producto, temporal = false, volver = '/catalogo', numero = SITIO.whatsappNegocio } = Astro.props;
+const conWhatsapp = !whatsappPendiente(numero);
+const p = producto;
+const una = p?.opciones.length === 1;
+---
+
+<p class="volver"><a href={volver}>← Catálogo</a></p>
+
+{
+  !p ? (
+    <section class="seccion">
+      <h1>{temporal ? 'Un momento' : 'Esta pieza ya no está disponible'}</h1>
+      <p>
+        {temporal
+          ? 'No pudimos cargar la pieza en este momento. Intenta de nuevo en unos minutos.'
+          : 'Puede que se haya vendido. Mira las demás piezas del catálogo.'}
+      </p>
+      <a class="boton" href={volver}>
+        Ver el catálogo
+      </a>
+    </section>
+  ) : (
+    <article class="ficha">
+      <div class="galeria">
+        <ul class="fotos" aria-label={`Fotos de ${p.nombre}`} tabindex="0">
+          {p.fotos.map((f, i) => (
+            <li>
+              <img
+                src={f.grande}
+                srcset={`${f.mini} 480w, ${f.grande} 1200w`}
+                sizes="(min-width: 60rem) 30rem, 100vw"
+                alt={p.fotos.length > 1 ? `${p.nombre}, foto ${i + 1} de ${p.fotos.length}` : p.nombre}
+                width="1200"
+                height="1500"
+                loading={i === 0 ? 'eager' : 'lazy'}
+                fetchpriority={i === 0 ? 'high' : undefined}
+                decoding="async"
+              />
+            </li>
+          ))}
+        </ul>
+        {p.fotos.length > 1 && (
+          <>
+            {/* Flechas para el computador (con mouse no se puede deslizar); en el celular se desliza. */}
+            <button type="button" class="flecha antes" aria-label="Foto anterior" disabled>
+              <span aria-hidden="true" />
+            </button>
+            <button type="button" class="flecha despues" aria-label="Foto siguiente">
+              <span aria-hidden="true" />
+            </button>
+            <div class="puntos">
+              {p.fotos.map((_, i) => (
+                <button type="button" class:list={{ activo: i === 0 }} aria-label={`Ver la foto ${i + 1}`} aria-current={i === 0 ? 'true' : undefined}>
+                  <span aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div class="datos">
+        <p class="categoria">{p.categoria} · Oro 18k</p>
+        <h1 class:list={{ larga: p.nombre.length > 40 }}>{p.nombre}</h1>
+        {p.descripcion && <p class="descripcion">{p.descripcion}</p>}
+
+        <fieldset class="pesos">
+          <legend>{una ? 'Peso disponible' : 'Pesos disponibles'}</legend>
+          {p.opciones.map((o, i) => (
+            <label>
+              <input
+                type="radio"
+                name="peso"
+                value={peso(o.peso_gramos)}
+                checked={i === 0}
+                hidden={una}
+                data-whatsapp={!conWhatsapp ? undefined : enlaceWhatsApp(numero, MENSAJES.interesCatalogo(p.nombre, p.codigo, peso(o.peso_gramos)))}
+              />
+              <span class="peso">{peso(o.peso_gramos)}</span>
+              <span class="precio">{pesos(o.precio_cop)}</span>
+            </label>
+          ))}
+        </fieldset>
+        <p class="sutil">Cada pieza tiene su propio peso, y el precio depende de él.</p>
+
+        {conWhatsapp && (
+          <div class="interes">
+            <BotonWhatsApp
+              href={enlaceWhatsApp(numero, MENSAJES.interesCatalogo(p.nombre, p.codigo, peso(p.opciones[0].peso_gramos)))}
+              texto="Me interesa"
+              color="rojo"
+            />
+          </div>
+        )}
+        <p class="codigo sutil">Referencia {p.codigo}</p>
+      </div>
+    </article>
+  )
+}
+
+<style>
+  .volver {
+    margin: 0 0 1.25rem;
+  }
+
+  .volver a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    color: var(--gris);
+  }
+
+  .ficha {
+    display: grid;
+    gap: 1.75rem;
+  }
+
+  /* En computador: fotos a la izquierda y datos a la derecha. */
+  @media (min-width: 60rem) {
+    .ficha {
+      grid-template-columns: minmax(0, 30rem) minmax(0, 1fr);
+      gap: 3rem;
+      align-items: start;
+    }
+  }
+
+  /* Fotos que se deslizan de lado y se detienen en cada una. */
+  .galeria {
+    position: relative;
+  }
+
+  .fotos {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    border-radius: 12px;
+    background: var(--franja);
+  }
+
+  /* Filete rojo encima de las fotos, del alto de la foto (los rombos van debajo). */
+  .galeria::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    aspect-ratio: 4 / 5;
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px rgb(208 4 26 / 0.45);
+    pointer-events: none;
+  }
+
+  .fotos::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fotos li {
+    flex: 0 0 100%;
+    scroll-snap-align: center;
+  }
+
+  .fotos img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+  }
+
+  .puntos {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.4rem;
+  }
+
+  /* Rombos como los del imagotipo: el de la foto que se ve, en rojo. Cada uno lleva a su foto y
+     tiene área de dedo de 44 px. */
+  .puntos button {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2.75rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
+
+  .puntos button span {
+    width: 0.5rem;
+    height: 0.5rem;
+    transform: rotate(45deg);
+    box-shadow: inset 0 0 0 1px var(--gris);
+    transition: background-color 200ms ease;
+  }
+
+  .puntos button.activo span {
+    background: var(--rojo);
+    box-shadow: none;
+  }
+
+  /* Flechas sobre la foto, a media altura; solo donde hay mouse. */
+  .flecha {
+    display: none;
+    position: absolute;
+    top: calc((100% - 3.15rem) / 2);
+    translate: 0 -50%;
+    z-index: 1;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    place-items: center;
+    background: rgb(0 0 0 / 0.55);
+    box-shadow: var(--filete);
+    transition: opacity 200ms ease;
+  }
+
+  .flecha.antes {
+    left: 0.75rem;
+  }
+
+  .flecha.despues {
+    right: 0.75rem;
+  }
+
+  .flecha span {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-top: 1.5px solid var(--tinta);
+    border-right: 1.5px solid var(--tinta);
+    transform: rotate(45deg);
+    margin-right: 0.2rem;
+  }
+
+  .flecha.antes span {
+    transform: rotate(-135deg);
+    margin: 0 0 0 0.2rem;
+  }
+
+  .flecha:disabled {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .flecha {
+      display: grid;
+    }
+  }
+
+  /* Los nombres de más de 40 caracteres bajan un paso, como en la página del chip. */
+  h1.larga {
+    font-size: 2rem;
+  }
+
+  .categoria {
+    margin: 0 0 0.4rem;
+    color: var(--gris);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .descripcion {
+    margin: 0 0 1.5rem;
+    color: #cfc7bf;
+  }
+
+  .pesos {
+    margin: 1.5rem 0 0.75rem;
+    padding: 0;
+    border: 0;
+  }
+
+  .pesos legend {
+    padding: 0;
+    margin-bottom: 0.6rem;
+    font-family: var(--display);
+    font-size: 1.45rem;
+    font-weight: 600;
+  }
+
+  /* Cada peso es una fila de 52 px con filete marfil; la elegida se marca en rojo. */
+  .pesos label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3.25rem;
+    padding: 0 1rem;
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    background: var(--superficie);
+    box-shadow: var(--filete);
+  }
+
+  .pesos label + label {
+    margin-top: 0.5rem;
+  }
+
+  .pesos label:has(:checked):has(input:not([hidden])) {
+    box-shadow: inset 0 0 0 2px var(--rojo);
+  }
+
+  .pesos input {
+    accent-color: var(--rojo);
+    width: 1.1rem;
+    height: 1.1rem;
+    margin: 0;
+  }
+
+  /* Números de altura pareja (Cormorant trae por defecto los de estilo antiguo). */
+  .pesos .precio {
+    margin-left: auto;
+    font-family: var(--display);
+    font-size: 1.35rem;
+    font-weight: 600;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .codigo {
+    margin-top: 1.25rem;
+  }
+</style>
+
+<script>
+  // Galería: los rombos siguen a la foto que se ve; los rombos y las flechas llevan a otra foto.
+  for (const galeria of document.querySelectorAll<HTMLElement>('.galeria')) {
+    const lista = galeria.querySelector<HTMLElement>('.fotos')!;
+    const puntos = [...galeria.querySelectorAll<HTMLButtonElement>('.puntos button')];
+    if (puntos.length < 2) continue;
+    const antes = galeria.querySelector<HTMLButtonElement>('.flecha.antes')!;
+    const despues = galeria.querySelector<HTMLButtonElement>('.flecha.despues')!;
+    const suave = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
+    const actual = () => Math.round(lista.scrollLeft / lista.clientWidth);
+    const ir = (i: number) => lista.scrollTo({ left: i * lista.clientWidth, behavior: suave });
+
+    lista.addEventListener(
+      'scroll',
+      () => {
+        const i = actual();
+        puntos.forEach((p, j) => {
+          p.classList.toggle('activo', j === i);
+          if (j === i) p.setAttribute('aria-current', 'true');
+          else p.removeAttribute('aria-current');
+        });
+        antes.disabled = i === 0;
+        despues.disabled = i === puntos.length - 1;
+      },
+      { passive: true },
+    );
+    puntos.forEach((p, i) => p.addEventListener('click', () => ir(i)));
+    antes.addEventListener('click', () => ir(actual() - 1));
+    despues.addEventListener('click', () => ir(actual() + 1));
+  }
+
+  // El mensaje de WhatsApp lleva el peso elegido (cada opción trae su enlace armado en el servidor).
+  const boton = document.querySelector<HTMLAnchorElement>('.interes a');
+  if (boton) {
+    for (const radio of document.querySelectorAll<HTMLInputElement>('.pesos input')) {
+      radio.addEventListener('change', () => {
+        if (radio.dataset.whatsapp) boton.href = radio.dataset.whatsapp;
+      });
+    }
+  }
+</script>

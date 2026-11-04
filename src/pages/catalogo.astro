@@ -1,0 +1,25 @@
+---
+import Publica from '../layouts/Publica.astro';
+import Catalogo from '../components/catalogo/Catalogo.astro';
+import { obtenerCatalogo, type ProductoPublico } from '../lib/catalogo';
+
+// Por ahora solo para quien tenga el enlace: fuera de buscadores. No tiene datos personales, así que
+// se puede guardar un minuto (una venta tarda como mucho eso en reflejarse).
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+Astro.response.headers.set('Cache-Control', 'public, max-age=60');
+
+let productos: ProductoPublico[] = [];
+let temporal = false;
+try {
+  productos = await obtenerCatalogo();
+} catch (e) {
+  console.error('catalogo_publico', e);
+  temporal = true;
+  Astro.response.status = 503;
+  Astro.response.headers.set('Cache-Control', 'no-store');
+}
+---
+
+<Publica title="Catálogo · SS Joyería" noindex portada={false} amplio>
+  <Catalogo productos={productos} temporal={temporal} />
+</Publica>

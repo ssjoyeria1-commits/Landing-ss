@@ -5,6 +5,13 @@ import {
   type CountryCode,
 } from 'libphonenumber-js/min';
 
+import { SITIO } from '../config/sitio';
+
+/** Mientras no esté el número real de atención (solo ceros), el catálogo no muestra el botón. */
+export function whatsappPendiente(numero: string = SITIO.whatsappNegocio): boolean {
+  return /^\+?570+$/.test(numero);
+}
+
 /** Enlace wa.me con mensaje prellenado. `numero` en formato internacional (+57...). */
 export function enlaceWhatsApp(numero: string, texto: string): string {
   return `https://wa.me/${numero.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`;

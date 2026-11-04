@@ -1,0 +1,250 @@
+---
+// Cuerpo de /catalogo: piezas por categoría en una cuadrícula de vitrina. Cada tarjeta lleva la foto
+// principal, el nombre y cada peso disponible con su precio (nunca cuántas piezas hay), y abre la
+// ficha de la pieza. Lo usan /catalogo y /pruebas/catalogo.
+import { peso } from '../../lib/caja';
+import { anclaCategoria, type ProductoPublico } from '../../lib/catalogo';
+import { pesos } from '../../lib/formato';
+
+interface Props {
+  productos: ProductoPublico[];
+  /** Sin productos por un fallo temporal (no porque no haya). */
+  temporal?: boolean;
+  /** Base del enlace de cada ficha (las pruebas usan otra). */
+  enlace?: (codigo: string) => string;
+}
+
+const { productos, temporal = false, enlace = (c: string) => `/catalogo/${encodeURIComponent(c)}` } = Astro.props;
+const VISIBLES = 3;
+
+const categorias = [...new Set(productos.map((p) => p.categoria))];
+const porCategoria = categorias.map((nombre) => ({
+  nombre,
+  ancla: anclaCategoria(nombre),
+  productos: productos.filter((p) => p.categoria === nombre),
+}));
+---
+
+<header class="encabezado">
+  <h1>Catálogo</h1>
+  <p>Piezas en oro de 18k disponibles hoy. Cada pieza tiene su propio peso, y el precio depende de él.</p>
+  {
+    categorias.length > 1 && (
+      <nav class="categorias" aria-label="Categorías">
+        {porCategoria.map((c) => (
+          <a href={`#${c.ancla}`}>{c.nombre}</a>
+        ))}
+      </nav>
+    )
+  }
+</header>
+
+{
+  productos.length === 0 && (
+    <p class="vacio">
+      {temporal
+        ? 'No pudimos cargar el catálogo en este momento. Intenta de nuevo en unos minutos.'
+        : 'Pronto verás aquí las piezas disponibles.'}
+    </p>
+  )
+}
+
+{
+  porCategoria.map((c, ic) => (
+    <section class="categoria" id={c.ancla} aria-labelledby={`t-${c.ancla}`}>
+      <h2 id={`t-${c.ancla}`}>{c.nombre}</h2>
+      <ul class="rejilla">
+        {c.productos.map((p, ip) => (
+          <li>
+            <a class="tarjeta" href={enlace(p.codigo)}>
+              <span class="foto">
+                <img
+                  src={p.fotos[0].mini}
+                  srcset={`${p.fotos[0].mini} 480w, ${p.fotos[0].grande} 1200w`}
+                  sizes="(min-width: 68rem) 16rem, (min-width: 40rem) 30vw, 46vw"
+                  alt={p.nombre}
+                  width="480"
+                  height="600"
+                  loading={ic === 0 && ip < 4 ? 'eager' : 'lazy'}
+                  decoding="async"
+                />
+              </span>
+              <span class="nombre">{p.nombre}</span>
+              <span class="precios">
+                {p.opciones.slice(0, VISIBLES).map((o) => (
+                  <span class="opcion">
+                    <span class="peso">{peso(o.peso_gramos)}</span>
+                    <span class="precio">{pesos(o.precio_cop)}</span>
+                  </span>
+                ))}
+                {p.opciones.length > VISIBLES && <span class="mas">Ver más pesos</span>}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))
+}
+
+<style>
+  .encabezado {
+    text-align: center;
+    max-width: 34rem;
+    margin: 0 auto 2.5rem;
+  }
+
+  .encabezado p {
+    margin: 0;
+    color: var(--gris);
+  }
+
+  /* Categorías: fichas con filete marfil que llevan a su sección. Se envuelven en el celular. */
+  .categorias {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .categorias a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    text-decoration: none;
+    font-size: 0.95rem;
+    background: var(--superficie);
+    box-shadow: var(--filete);
+  }
+
+  .vacio {
+    text-align: center;
+    color: var(--gris);
+    font-family: var(--display);
+    font-size: 1.45rem;
+    margin: 3rem 0;
+  }
+
+  .categoria {
+    margin: 0 0 3.5rem;
+    scroll-margin-top: 1.5rem;
+  }
+
+  .categoria h2 {
+    text-align: center;
+    font-size: 2.2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Dos columnas en el celular, tres en tableta y cuatro en computador. */
+  .rejilla {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.75rem 0.75rem;
+  }
+
+  @media (min-width: 40rem) {
+    .rejilla {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 2.25rem 1.25rem;
+    }
+  }
+
+  /* En computador, columnas de ancho fijo y centradas: una categoría con pocas piezas no queda
+     cargada a la izquierda. */
+  @media (min-width: 60rem) {
+    .rejilla {
+      grid-template-columns: repeat(auto-fit, 15.5rem);
+      justify-content: center;
+    }
+  }
+
+  .tarjeta {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    text-decoration: none;
+    color: var(--tinta);
+  }
+
+  /* La foto en marco vino con filete rojo, como las tarjetas de la página del chip. */
+  .foto {
+    position: relative;
+    display: block;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border-radius: 10px;
+    background: var(--franja);
+  }
+
+  /* El filete va encima de la foto (si no, la foto lo tapa). */
+  .foto::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px rgb(208 4 26 / 0.45);
+    pointer-events: none;
+  }
+
+  .foto img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 600ms var(--ease-out);
+  }
+
+  @media (hover: hover) {
+    .tarjeta:hover .foto img {
+      transform: scale(1.04);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .foto img {
+      transition: none;
+    }
+  }
+
+  .nombre {
+    margin-top: 0.8rem;
+    font-family: var(--display);
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .precios {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-top: 0.45rem;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .opcion {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0 0.5rem;
+  }
+
+  .peso {
+    color: var(--gris);
+  }
+
+  .mas {
+    color: var(--gris);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+</style>

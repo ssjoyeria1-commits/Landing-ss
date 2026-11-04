@@ -48,6 +48,8 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 - `src/lib/` — `supabase.ts` (cliente con sesión en cookies httpOnly), `caja.ts` (página pública),
   `venta.ts` (formulario de venta), `exportar.ts` + `csv.ts` (informes), `whatsapp.ts`, `formato.ts`.
 - `src/middleware.ts` — protege `/admin/*`: exige sesión y estar en la tabla `admins`.
+- `src/pages/catalogo.astro` y `catalogo/[codigo].astro` — catálogo público (lee `catalogo_publico()`,
+  fotos del bucket `catalogo`, `src/lib/catalogo.ts`).
 - `src/pages/c/[codigo].astro` — página del chip; su cuerpo (propia, regalo o neutra) está en
   `src/components/caja/PaginaCaja.astro`. `/garantia` y `/datos` leen `src/config/legal.ts`.
   `src/pages/admin/` — panel.
@@ -75,7 +77,8 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   Cada sección es una tarjeta vino oscuro (`--franja`) con tres rombos del imagotipo arriba. Rojo solo
   para el botón principal y los rombos ganados del Círculo. Botones oscuros con filete marfil.
 - Datos de prueba de la página del chip sin base de datos: `/pruebas/casos?datos=demo|peor|cero|diez|regalo|regalo-sin-nombre|neutra|temporal`
-  (solo en desarrollo; en producción da 404). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`.
+  (solo en desarrollo; en producción da 404). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
+  (`&ficha=CODIGO` para la ficha, `&whatsapp=1` para ver el botón con un número de ejemplo).
 - Nombres con mayúscula inicial (`capitalizar()` al guardar y al mostrar).
 - CSV "informes" para Excel en español: separador `;` y decimales con coma. Los de "respaldo técnico"
   usan formato estándar con coma.
@@ -145,8 +148,11 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
         `catalogo` (solo admins suben; nadie lista), función `catalogo_publico()` para anon. Aplicada.
   - [x] C2 — panel: fotos en la ficha del producto (se achican en el navegador a WebP 1200/480 px y
         se suben por el Worker, `src/lib/catalogo.ts`), interruptor y descripción, aviso de
-        referencias sin foto en el lote. Sin publicar en el Worker todavía.
-  - [ ] C3 — página `/catalogo` (estilo Oscura, `noindex`, caché corta).
+        referencias sin foto en el lote. Aplicada y publicada.
+  - [x] C3 — `/catalogo` (cuadrícula por categoría) y `/catalogo/[codigo]` (fotos que se deslizan,
+        con flechas en computador; cada peso con su precio; "Me interesa" por WhatsApp con el peso
+        elegido, oculto mientras `whatsappNegocio` sea el de ceros). `noindex`, caché de 60 s.
+        Componentes en `src/components/catalogo/`. Sin publicar en el Worker todavía.
 - [ ] **Fase 5** — activar en Supabase Auth la protección contra contraseñas filtradas; límite de intentos en `/c/` (regla de Cloudflare), cabeceras de seguridad, respaldo
       automático, tarea que evite la pausa de Supabase por inactividad, QR de respaldo para la carta,
       revisión de rendimiento.

@@ -397,6 +397,45 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     }
   }
 
+  /* Nombres de las piezas del catálogo (.luz-dorada): la misma luz dorada, que cruza de izquierda
+     a derecha en 3 s y descansa 1 s (3/4 del ciclo = 75 %). */
+  @supports ((background-clip: text) or (-webkit-background-clip: text)) {
+    .publica .luz-dorada {
+      color: transparent;
+      background: linear-gradient(
+          100deg,
+          var(--tinta) 0%,
+          var(--tinta) 40%,
+          #d9b45a 46%,
+          #fff1c2 50%,
+          #d9b45a 54%,
+          var(--tinta) 60%,
+          var(--tinta) 100%
+        )
+        0 0 / 300% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: publica-luz-dorada 4s ease-in-out infinite;
+    }
+  }
+
+  @keyframes publica-luz-dorada {
+    0% {
+      background-position: 100% 0;
+    }
+    75%,
+    100% {
+      background-position: 0% 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .publica .luz-dorada {
+      animation: none;
+      background-position: 0% 0;
+    }
+  }
+
   /* Las descripciones largas (más de 40 caracteres) bajan un paso para no ocupar media pantalla. */
   .publica .seccion.destacada .descripcion.larga {
     font-size: 1.6rem;

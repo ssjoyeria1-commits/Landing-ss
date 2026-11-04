@@ -84,7 +84,7 @@ const una = p?.opciones.length === 1;
 
       <div class="datos">
         <p class="categoria">{p.categoria} · Oro 18k</p>
-        <h1 class:list={{ larga: p.nombre.length > 40 }}>{p.nombre}</h1>
+        <h1 class:list={["luz-dorada", { larga: p.nombre.length > 40 }]}>{p.nombre}</h1>
         {p.descripcion && <p class="descripcion">{p.descripcion}</p>}
 
         <fieldset class="pesos">

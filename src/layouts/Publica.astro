@@ -84,19 +84,26 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
 <style is:global>
   /* Dirección "Oscura": cada cosa iluminada como en vitrina. El rojo queda para la acción
      principal y los rombos ganados del Círculo. */
+  /* El color de base es el vino del final del degradado (no negro): Safari en iPhone deja ver el
+     fondo de la página bajo su barra flotante de abajo, y así esa franja empalma con el degradado. */
   .fondo-publico {
-    background: var(--negro);
+    background: #3d0710;
     color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
   }
 
   /* Fondo: degradado fijo de negro arriba a vino abajo, como una luz roja que sube desde el borde
      de la pantalla. Es una capa fija (y no background-attachment: fixed, que iOS no respeta), así
-     que no se mueve al deslizar. */
+     que no se mueve al deslizar. Mide la pantalla grande (lvh, con las barras del navegador
+     escondidas) para llegar también debajo de la barra de Safari. */
   .fondo-publico::before {
     content: '';
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100vh;
+    height: 100lvh;
     z-index: -1;
     pointer-events: none;
     background: linear-gradient(180deg, #000 0%, #000 35%, #1c0306 65%, #3d0710 100%);

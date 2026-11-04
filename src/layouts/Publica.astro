@@ -84,10 +84,10 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
 <style is:global>
   /* Dirección "Oscura": cada cosa iluminada como en vitrina. El rojo queda para la acción
      principal y los rombos ganados del Círculo. */
-  /* El color de base es el vino del final del degradado (no negro): Safari en iPhone deja ver el
-     fondo de la página bajo su barra flotante de abajo, y así esa franja empalma con el degradado. */
+  /* El color de base es negro: Safari en iPhone tiñe con él la franja de la hora y la batería
+     (con vino, esa franja quedaba roja). */
   .fondo-publico {
-    background: #3d0710;
+    background: var(--negro);
     color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
   }

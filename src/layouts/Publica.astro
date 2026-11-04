@@ -90,8 +90,9 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     --franja: #1f0507;
     /* Filete marfil: da forma a botones y tarjetas oscuras sobre el negro. */
     --filete: inset 0 0 0 1px rgb(242 236 228 / 0.35);
-    /* Halo marfil grueso y difuminado alrededor de las fotos del catálogo: las despega del negro. */
-    --halo-foto: 0 0 0 1px rgb(242 236 228 / 0.22), 0 0 1.75rem 0.35rem rgb(242 236 228 / 0.3);
+    /* Halo negro grueso y difuminado alrededor de las fotos del catálogo: tapa el monograma del
+       fondo alrededor de la foto, que queda como una tarjeta sobre un claro negro. */
+    --halo-foto: 0 0 0 1px #000, 0 0 2rem 0.75rem #000;
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     min-height: 100vh;
     min-height: 100dvh;

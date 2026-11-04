@@ -161,19 +161,8 @@ const una = p?.opciones.length === 1;
     scrollbar-width: none;
     border-radius: 12px;
     background: var(--franja);
-  }
-
-  /* Filete rojo encima de las fotos, del alto de la foto (los rombos van debajo). */
-  .galeria::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    aspect-ratio: 4 / 5;
-    border-radius: 12px;
-    box-shadow: inset 0 0 0 1px rgb(208 4 26 / 0.45);
-    pointer-events: none;
+    /* El mismo halo marfil que las fotos de la cuadrícula (va por fuera, la foto no lo tapa). */
+    box-shadow: var(--halo-foto);
   }
 
   .fotos::-webkit-scrollbar {

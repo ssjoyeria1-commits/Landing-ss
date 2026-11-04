@@ -138,29 +138,35 @@ const porCategoria = categorias.map((nombre) => ({
     margin-bottom: 1.5rem;
   }
 
-  /* Dos columnas en el celular, tres en tableta y cuatro en computador. */
+  /* Dos por fila en el celular, tres en tableta y de ancho fijo en computador. Las filas se
+     centran: una pieza sola (o la última de una fila incompleta) no queda cargada a un lado. */
   .rejilla {
+    --columnas: 2;
+    --hueco: 1.25rem;
     list-style: none;
     margin: 0;
     padding: 0;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.75rem 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2rem var(--hueco);
+  }
+
+  .rejilla > li {
+    width: calc((100% - (var(--columnas) - 1) * var(--hueco)) / var(--columnas));
   }
 
   @media (min-width: 40rem) {
     .rejilla {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 2.25rem 1.25rem;
+      --columnas: 3;
+      --hueco: 1.75rem;
+      row-gap: 2.5rem;
     }
   }
 
-  /* En computador, columnas de ancho fijo y centradas: una categoría con pocas piezas no queda
-     cargada a la izquierda. */
   @media (min-width: 60rem) {
-    .rejilla {
-      grid-template-columns: repeat(auto-fit, 15.5rem);
-      justify-content: center;
+    .rejilla > li {
+      width: 15.5rem;
     }
   }
 
@@ -172,24 +178,14 @@ const porCategoria = categorias.map((nombre) => ({
     color: var(--tinta);
   }
 
-  /* La foto en marco vino con filete rojo, como las tarjetas de la página del chip. */
+  /* La foto como tarjeta: un halo marfil grueso y difuminado la despega del fondo negro. */
   .foto {
-    position: relative;
     display: block;
     aspect-ratio: 4 / 5;
     overflow: hidden;
     border-radius: 10px;
     background: var(--franja);
-  }
-
-  /* El filete va encima de la foto (si no, la foto lo tapa). */
-  .foto::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    box-shadow: inset 0 0 0 1px rgb(208 4 26 / 0.45);
-    pointer-events: none;
+    box-shadow: var(--halo-foto);
   }
 
   .foto img {

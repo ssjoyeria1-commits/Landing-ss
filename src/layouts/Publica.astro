@@ -13,7 +13,7 @@ interface Props {
   portada?: boolean;
   /** Contenido más ancho en pantallas grandes (catálogo). Las páginas del chip van en una columna. */
   amplio?: boolean;
-  /** Palabra en rojo bajo el logo de la portada (el catálogo); es el título principal de la página. */
+  /** Palabra en rojo sobre el logo de la portada (el catálogo); es el título principal de la página. */
   rotulo?: string;
 }
 
@@ -40,8 +40,8 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
           <div class="portada">
             {rotulo ? (
               <div class="portada-marca">
-                <Logo alto="min(30svh, 14rem)" animado />
                 <h1 class="rotulo">{rotulo}</h1>
+                <Logo alto="min(30svh, 14rem)" animado />
               </div>
             ) : (
               <Logo alto="min(36svh, 17rem)" animado />
@@ -160,8 +160,8 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     min-height: 100svh;
   }
 
-  /* Portada con rótulo (catálogo): la palabra en rojo, en la letra de la marca, bajo el logo. Sube
-     cuando el logo ya terminó de armarse. */
+  /* Portada con rótulo (catálogo): la palabra en rojo, en la letra de la marca, encima del logo
+     (así no se confunde con la página del chip). Baja a su sitio mientras los rombos se engastan. */
   .publica .portada-marca {
     display: flex;
     flex-direction: column;
@@ -169,17 +169,17 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
   }
 
   .publica .portada .rotulo {
-    margin: 2rem 0 0;
+    margin: 0 0 2.25rem;
     font-size: clamp(3.25rem, 15vw, 5rem);
     line-height: 1;
     color: var(--rojo);
-    animation: publica-rotulo 1000ms cubic-bezier(0.16, 1, 0.3, 1) 1700ms backwards;
+    animation: publica-rotulo 1000ms cubic-bezier(0.16, 1, 0.3, 1) 200ms backwards;
   }
 
   @keyframes publica-rotulo {
     from {
       opacity: 0;
-      transform: translateY(0.75rem);
+      transform: translateY(-0.75rem);
       letter-spacing: 0.08em;
     }
   }

@@ -1,9 +1,17 @@
+import type { APIContext, MiddlewareNext } from 'astro';
 import { defineMiddleware } from 'astro:middleware';
 import { crearSupabase } from './lib/supabase';
+import { conCabeceras } from './lib/seguridad';
 
 const PUBLICAS_ADMIN = new Set(['/admin/login']);
 
-export const onRequest = defineMiddleware(async (context, next) => {
+// Toda respuesta del Worker sale con las cabeceras de seguridad (src/lib/seguridad.ts).
+export const onRequest = defineMiddleware(async (context, next) =>
+  conCabeceras(await atender(context, next), import.meta.env.PROD),
+);
+
+/** Protege /admin/*: exige sesión y estar en la tabla admins. El resto pasa directo. */
+async function atender(context: APIContext, next: MiddlewareNext): Promise<Response> {
   const { pathname } = context.url;
   const esAdmin = pathname === '/admin' || pathname.startsWith('/admin/');
   if (!esAdmin) return next();
@@ -29,4 +37,4 @@ export const onRequest = defineMiddleware(async (context, next) => {
   respuesta.headers.set('Cache-Control', 'private, no-store');
   respuesta.headers.set('X-Robots-Tag', 'noindex, nofollow');
   return respuesta;
-});
+}

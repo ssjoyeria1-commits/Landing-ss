@@ -63,11 +63,10 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     </div>
     <Pie />
   </div>
-  {/* Safari en iPhone vuelve sólida su barra de abajo cuando ve un color dominante en ese borde (y
-      si no encuentra nada, usa el negro del fondo). Esta franja vacía y transparente queda pegada al
-      borde: Safari la lee, no ve color y deja la barra translúcida, con el degradado detrás. Va al
-      final de la página y solo en iPhone/iPad. */}
-  <div class="vidrio-safari" aria-hidden="true"></div>
+  {/* Safari en iPhone pinta la franja de la hora con el color de un elemento fijo pegado arriba (si
+      no hay, con el color de base, que aquí es vino). Esta banda negra le da el negro del degradado
+      en ese borde; no se nota porque el degradado también es negro arriba. Solo en iPhone/iPad. */}
+  <div class="tinte-arriba" aria-hidden="true"></div>
   <script is:inline>
     // Cada tarjeta (y cada título de fuera) sube y aparece la primera vez que entra en pantalla.
     if (document.documentElement.classList.contains('entrada')) {
@@ -89,30 +88,31 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
 <style is:global>
   /* Dirección "Oscura": cada cosa iluminada como en vitrina. El rojo queda para la acción
      principal y los rombos ganados del Círculo. */
-  /* El color de base es negro: Safari en iPhone tiñe con él la franja de la hora y la batería
-     (con vino, esa franja quedaba roja). */
+  /* El color de base es el vino en que termina el degradado: Safari en iPhone no dibuja la capa fija
+     del degradado detrás de su barra de abajo, solo el contenido y este color, así que ahí empalma.
+     La franja de la hora la deja negra .tinte-arriba. */
   .fondo-publico {
-    background: var(--negro);
+    background: #3d0710;
     color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Franja transparente para la barra de Safari: pegada 2 px bajo el borde, de 6 px y encima del
-     contenido, para que sea lo primero que Safari lee ahí (receta de fantinel.dev). No tiene color,
-     así que no se ve. Solo en iPhone/iPad (-webkit-touch-callout solo existe ahí). */
-  .vidrio-safari {
+  /* Banda para la franja de la hora: Safari toma el color de lo primero que "toca" en el borde, como
+     un toque. Por eso va encima del contenido (z-index), recibe toques (con pointer-events: none
+     Safari la salta) y mide 8 px. Solo en iPhone/iPad (-webkit-touch-callout solo existe ahí). */
+  .tinte-arriba {
     display: none;
-    position: sticky;
+    position: fixed;
+    top: 0;
     left: 0;
-    bottom: -2px;
-    width: 100%;
-    height: 6px;
-    background-color: transparent;
-    z-index: 999;
+    right: 0;
+    height: 8px;
+    z-index: 50;
+    background: #000;
   }
 
   @supports (-webkit-touch-callout: none) {
-    .vidrio-safari {
+    .tinte-arriba {
       display: block;
     }
   }

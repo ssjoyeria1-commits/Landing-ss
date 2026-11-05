@@ -1,0 +1,118 @@
+---
+// Hoja para imprimir los QR de respaldo: una ficha recortable por caja, con la referencia. La usan
+// /admin/ventas/[id]/qr y /pruebas/qr. Al imprimir solo salen las fichas.
+import { qrSvg } from '../../lib/qr';
+
+interface Props {
+  cajas: { referencia: string; url: string }[];
+}
+
+const { cajas } = Astro.props;
+---
+
+<div class="no-imprimir">
+  <p class="ayuda">
+    Un QR por caja, con la misma dirección del sticker. Imprímelo a tamaño real (100 %, sin "ajustar a la página") y
+    recórtalo por la línea punteada. Revisa con un celular que abra la página antes de ponerlo en la carta.
+  </p>
+  <div class="acciones" style="margin: 1rem 0 1.5rem">
+    <button type="button" id="imprimir">Imprimir</button>
+  </div>
+</div>
+
+<div class="hoja">
+  {
+    cajas.map((c) => (
+      <figure class="ficha-qr">
+        <div class="qr" set:html={qrSvg(c.url)} />
+        <figcaption>
+          <span class="titulo">¿Tu celular no lee el chip?</span>
+          <span>Escanea este código</span>
+          <span class="ref">{c.referencia}</span>
+        </figcaption>
+      </figure>
+    ))
+  }
+</div>
+
+<style>
+  .hoja {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6mm;
+  }
+
+  /* Cada ficha mide 5,5 × 7 cm con el QR de 3 cm: cabe en una tarjeta de presentación. */
+  .ficha-qr {
+    width: 55mm;
+    height: 70mm;
+    margin: 0;
+    padding: 6mm 4mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4mm;
+    border: 1px dashed #b9b1ab;
+    background: #fff;
+    color: #000;
+    break-inside: avoid;
+  }
+
+  .qr {
+    width: 30mm;
+    height: 30mm;
+  }
+
+  .qr :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  figcaption {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5mm;
+    font-family: var(--serif);
+    font-size: 9pt;
+    line-height: 1.25;
+    text-align: center;
+  }
+
+  .titulo {
+    font-weight: 700;
+  }
+
+  .ref {
+    margin-top: 1.5mm;
+    font-family: ui-monospace, monospace;
+    font-size: 8pt;
+    letter-spacing: 0.05em;
+  }
+
+  /* Al imprimir solo salen las fichas: sin encabezado, título ni botones del panel. */
+  @media print {
+    :global(.admin header),
+    :global(.admin h1),
+    :global(.no-imprimir) {
+      display: none !important;
+    }
+
+    :global(body),
+    :global(.admin main) {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+    }
+
+    @page {
+      margin: 10mm;
+    }
+  }
+</style>
+
+<script>
+  document.querySelector('#imprimir')?.addEventListener('click', () => window.print());
+</script>

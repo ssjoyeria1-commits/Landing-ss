@@ -78,7 +78,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   Cada sección es una tarjeta vino oscuro (`--franja`) con tres rombos del imagotipo arriba. Rojo solo
   para el botón principal y los rombos ganados del Círculo. Botones oscuros con filete marfil.
 - Datos de prueba de la página del chip sin base de datos: `/pruebas/casos?datos=demo|peor|cero|diez|regalo|regalo-sin-nombre|neutra|temporal`
-  (solo en desarrollo; en producción da 404). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
+  (solo en desarrollo; en producción da 404). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. QR de respaldo: `/pruebas/qr`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
   (`&ficha=CODIGO` para la ficha, `&whatsapp=1` para ver el botón con un número de ejemplo).
 - Nombres con mayúscula inicial (`capitalizar()` al guardar y al mostrar).
 - CSV "informes" para Excel en español: separador `;` y decimales con coma. Los de "respaldo técnico"
@@ -175,7 +175,9 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   - [ ] 5C — tarea diaria `.github/workflows/mantener-activo.yml` que evita la pausa de Supabase
         (hecha). Respaldo diario cifrado: **esperar a que el repositorio sea privado** (en uno público
         cualquiera puede descargar los archivos de una tarea).
-  - [ ] 5D — QR de respaldo para la carta, en el panel.
+  - [x] 5D — QR de respaldo para la carta: en el detalle de la venta y en `/admin/ventas/[id]/qr`
+        (hoja imprimible, fichas de 5,5 × 7 cm con QR de 3 cm; `src/lib/qr.ts` con `uqr`,
+        `src/components/admin/HojaQR.astro`). Misma URL del sticker (`ssjoyeria.com`).
   - [ ] 5E — revisión de rendimiento.
   - Pendiente de los socios: activar en Supabase → Authentication → Passwords mínimo 12 caracteres
     con letras, números y símbolos.

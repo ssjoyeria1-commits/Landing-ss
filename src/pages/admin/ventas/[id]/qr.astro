@@ -1,0 +1,27 @@
+---
+// Hoja para imprimir los QR de respaldo de las cajas de una venta (ver HojaQR).
+import Admin from '../../../../layouts/Admin.astro';
+import HojaQR from '../../../../components/admin/HojaQR.astro';
+import { SITIO } from '../../../../config/sitio';
+
+const { id } = Astro.params;
+const { data: venta } = await Astro.locals.supabase
+  .from('ventas')
+  .select('id, anulada, cajas(codigo_chip, referencia, created_at)')
+  .eq('id', id!)
+  .maybeSingle();
+
+if (!venta) return new Response('Venta no encontrada', { status: 404 });
+
+const cajas = [...venta.cajas]
+  .sort((a, b) => a.created_at.localeCompare(b.created_at))
+  .map((c) => ({ referencia: c.referencia, url: `${SITIO.urlChips}${c.codigo_chip}` }));
+---
+
+<Admin title="QR de respaldo">
+  <div class="no-imprimir">
+    <p><a href={`/admin/ventas/${venta.id}`}>← Venta</a></p>
+    {venta.anulada && <p class="aviso error">Esta venta está anulada: sus QR abren la página neutra.</p>}
+  </div>
+  <HojaQR cajas={cajas} />
+</Admin>

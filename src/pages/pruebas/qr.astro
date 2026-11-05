@@ -1,0 +1,19 @@
+---
+// SOLO DESARROLLO: la hoja de QR de respaldo con cajas de ejemplo (sin sesión ni base de datos).
+// En producción responde 404.
+import Admin from '../../layouts/Admin.astro';
+import HojaQR from '../../components/admin/HojaQR.astro';
+import { SITIO } from '../../config/sitio';
+
+if (import.meta.env.PROD) return new Response(null, { status: 404 });
+
+const cajas = [
+  { referencia: 'SS-4GKKS', url: `${SITIO.urlChips}pc2pv27v4i` },
+  { referencia: 'SS-ALVVY', url: `${SITIO.urlChips}pyrms42zsx` },
+  { referencia: 'SS-7XYW4', url: `${SITIO.urlChips}fe86g6apwr` },
+];
+---
+
+<Admin title="Prueba: QR de respaldo">
+  <HojaQR cajas={cajas} />
+</Admin>

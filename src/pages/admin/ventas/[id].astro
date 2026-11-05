@@ -3,6 +3,7 @@ import Admin from '../../../layouts/Admin.astro';
 import { SITIO } from '../../../config/sitio';
 import { nombreCompleto } from '../../../lib/clientes';
 import { fecha, pesos } from '../../../lib/formato';
+import { qrSvg } from '../../../lib/qr';
 
 const { id } = Astro.params;
 const supabase = Astro.locals.supabase;
@@ -93,6 +94,12 @@ const margen = venta.monto_cop - costo;
             <button type="button" class="secundario copiar" data-texto={url}>Copiar</button>
             <a href={`/c/${caja.codigo_chip}`} target="_blank" rel="noopener">Probar en este sitio</a>
           </div>
+          <div class="acciones" style="margin-top: 0.75rem">
+            <div class="qr-caja" set:html={qrSvg(url)} />
+            <a class="boton secundario" href={`/admin/ventas/${venta.id}/qr`}>
+              Imprimir QR de respaldo
+            </a>
+          </div>
 
           <ul>
             {[...caja.piezas]
@@ -138,6 +145,19 @@ const margen = venta.monto_cop - costo;
     }
   </form>
 </Admin>
+
+<style>
+  .qr-caja {
+    width: 7.5rem;
+    height: 7.5rem;
+  }
+
+  .qr-caja :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+</style>
 
 <script>
   for (const boton of document.querySelectorAll<HTMLButtonElement>('.copiar')) {

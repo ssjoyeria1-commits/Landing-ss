@@ -12,7 +12,8 @@ dos socios. Todo en **español de Colombia**, mobile-first, carga rápida en 4G.
 
 - **Astro 7** con render en servidor + adaptador `@astrojs/cloudflare` → **Cloudflare Workers** (no Pages).
 - **Supabase** (Postgres + Auth), proyecto `dtwlwoyvpcpbaswbkanx`, región São Paulo. Cuenta de Cloudflare
-  y de GitHub del negocio: `ssjoyeria1@gmail.com` / `ssjoyeria1-commits`.
+  y de GitHub del negocio (usuario de GitHub `ssjoyeria1-commits`; el correo lo tienen los socios). El
+  repositorio es **público** por ahora: no escribir correos, teléfonos ni datos de clientes en él.
 - Publicado (temporal): https://ss-joyeria-landing.ss-joyeria-landing.workers.dev
 - Repositorio: https://github.com/ssjoyeria1-commits/Landing-ss (rama `main`).
 - Dominio definitivo `ssjoyeria.com`: **aún sin comprar**. Las URLs de los chips ya usan ese dominio
@@ -109,7 +110,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 
 - Venta de prueba de un socio con la caja `pc2pv27v4i` (referencia `SS-4GKKS`), compra propia de
   1.250.000. Cada visita a `/c/pc2pv27v4i` suma un escaneo. Anular o borrar antes del lanzamiento.
-- Admins: `simongonzalezyusti@gmail.com` y `segonas66@gmail.com`. No iniciar sesión con sus contraseñas;
+- Admins: los dos socios (tabla `admins` de Supabase). No iniciar sesión con sus contraseñas;
   las pruebas con sesión las hacen ellos.
 
 ## Estado (26 de octubre de 2026)
@@ -148,7 +149,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
         (`ajustar_inventario`), tablas `conteos` y `ajustes` de solo lectura para el panel, historial en
         la ficha del producto. Aplicada y publicada. Revisión de seguridad (29 oct): anon solo ejecuta
         `pagina_caja` y no lee tablas; las funciones del panel verifican `es_admin()`.
-- [ ] **Catálogo web (antes de la fase 5).** Decisiones (3 nov 2026): fotos por producto (hasta 5,
+- [x] **Catálogo web (antes de la fase 5).** Decisiones (3 nov 2026): fotos por producto (hasta 5,
       se esperan ~3), cada peso disponible con su precio y **nunca cantidades**, al principio solo con
       el enlace (`noindex`), botón "Me interesa" por WhatsApp (falta el número).
   - [x] C1 — `productos.publicado` y `descripcion_publica`, tabla `fotos_producto`, bucket público
@@ -160,10 +161,24 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   - [x] C3 — `/catalogo` (cuadrícula por categoría) y `/catalogo/[codigo]` (fotos que se deslizan,
         con flechas en computador; cada peso con su precio; "Me interesa" por WhatsApp con el peso
         elegido, oculto mientras `whatsappNegocio` sea el de ceros). `noindex`, caché de 60 s.
-        Componentes en `src/components/catalogo/`. Sin publicar en el Worker todavía.
-- [ ] **Fase 5** — activar en Supabase Auth la protección contra contraseñas filtradas; límite de intentos en `/c/` (regla de Cloudflare), cabeceras de seguridad, respaldo
-      automático, tarea que evite la pausa de Supabase por inactividad, QR de respaldo para la carta,
-      revisión de rendimiento.
+        Componentes en `src/components/catalogo/`. Portada con "Catálogo" sobre el logo animado
+        (con luz dorada) y fondo en degradado negro → vino en las páginas públicas. Publicado.
+- [ ] **Fase 5 (seguridad, respaldos, rendimiento).** Decisiones (5 nov 2026): repositorio a privado
+      (pendiente: la cuenta de GitHub tiene un problema de verificación), reglas fuertes de contraseña
+      en lugar de la protección contra contraseñas filtradas (esa es solo del plan Pro), respaldo
+      diario cifrado en GitHub cuando el repositorio sea privado.
+  - [x] 5A — cabeceras de seguridad (`src/lib/seguridad.ts` para el Worker y `public/_headers` para
+        los estáticos: mantener iguales). CSP solo en producción. Publicada.
+  - [x] 5B — límite de intentos por IP con un contador exacto (Durable Object `ContadorIntentos`,
+        `src/lib/contador.ts`, entrada propia `src/worker.ts`): `/c/` 30 por minuto, login 5 por minuto.
+        El binding `ratelimits` de Cloudflare se probó y no frenaba en producción. Publicada.
+  - [ ] 5C — tarea diaria `.github/workflows/mantener-activo.yml` que evita la pausa de Supabase
+        (hecha). Respaldo diario cifrado: **esperar a que el repositorio sea privado** (en uno público
+        cualquiera puede descargar los archivos de una tarea).
+  - [ ] 5D — QR de respaldo para la carta, en el panel.
+  - [ ] 5E — revisión de rendimiento.
+  - Pendiente de los socios: activar en Supabase → Authentication → Passwords mínimo 12 caracteres
+    con letras, números y símbolos.
 - [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.
 
 ## Pendiente de los socios

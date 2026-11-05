@@ -1,0 +1,29 @@
+# Evita que Supabase pause el proyecto por inactividad (el plan gratis lo pausa tras 7 días sin
+# uso): una vez al día hace la misma consulta que cualquier visitante del catálogo. No usa claves
+# secretas: la clave publicable ya es pública (wrangler.jsonc) y solo permite lo que dejan las RLS.
+# GitHub apaga las tareas programadas si el repositorio pasa 60 días sin cambios: en ese caso hay
+# que volver a activarla en la pestaña Actions.
+name: Mantener Supabase activo
+
+on:
+  schedule:
+    - cron: '17 11 * * *' # todos los días, 6:17 a. m. en Colombia
+  workflow_dispatch: # botón "Run workflow" para probarla a mano
+
+permissions: {}
+
+jobs:
+  consultar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consultar el catálogo público
+        env:
+          SUPABASE_URL: https://dtwlwoyvpcpbaswbkanx.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_o0AFzSGPL8dxtmIqEfO7jA_WhyScc1o
+        run: |
+          curl --fail --silent --show-error --retry 3 --retry-delay 20 \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/catalogo_publico" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}' -o /dev/null -w 'Supabase respondió %{http_code}\n'

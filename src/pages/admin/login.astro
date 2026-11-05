@@ -1,5 +1,6 @@
 ---
 import Admin from '../../layouts/Admin.astro';
+import { dentroDelLimite } from '../../lib/limite';
 
 if (Astro.locals.usuario) return Astro.redirect('/admin');
 
@@ -11,19 +12,29 @@ if (Astro.request.method === 'POST') {
   email = String(form.get('email') ?? '').trim();
   const password = String(form.get('password') ?? '');
 
-  const { data, error: fallo } = await Astro.locals.supabase.auth.signInWithPassword({ email, password });
-  if (fallo || !data.user) {
-    error = 'Correo o contraseña incorrectos.';
+  // Más de 5 intentos por minuto desde la misma IP: ni se pregunta a Supabase.
+  if (!(await dentroDelLimite('LIMITE_LOGIN', Astro.request))) {
+    Astro.response.status = 429;
+    Astro.response.headers.set('Retry-After', '60');
+    error = 'Demasiados intentos. Espera un minuto y vuelve a intentarlo.';
   } else {
-    const { data: admin } = await Astro.locals.supabase
-      .from('admins')
-      .select('user_id')
-      .eq('user_id', data.user.id)
-      .maybeSingle();
-    if (admin) return Astro.redirect('/admin');
-    await Astro.locals.supabase.auth.signOut();
-    error = 'Este usuario no tiene acceso al panel.';
+    error = await ingresar(email, password);
+    if (!error) return Astro.redirect('/admin');
   }
+}
+
+/** Inicia sesión; devuelve el mensaje de error o '' si el usuario es admin. */
+async function ingresar(email: string, password: string): Promise<string> {
+  const { data, error: fallo } = await Astro.locals.supabase.auth.signInWithPassword({ email, password });
+  if (fallo || !data.user) return 'Correo o contraseña incorrectos.';
+  const { data: admin } = await Astro.locals.supabase
+    .from('admins')
+    .select('user_id')
+    .eq('user_id', data.user.id)
+    .maybeSingle();
+  if (admin) return '';
+  await Astro.locals.supabase.auth.signOut();
+  return 'Este usuario no tiene acceso al panel.';
 }
 ---
 

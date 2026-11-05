@@ -1,6 +1,7 @@
 ---
 import PaginaCaja from '../../components/caja/PaginaCaja.astro';
 import { obtenerCaja, type CajaPublica } from '../../lib/caja';
+import { dentroDelLimite } from '../../lib/limite';
 
 // Página privada de cada caja: fuera de buscadores, sin caché (el contador cambia y cada visita
 // cuenta como escaneo) y sin enviar la URL con el código a los sitios que se abran desde aquí.
@@ -10,14 +11,22 @@ Astro.response.headers.set('Referrer-Policy', 'no-referrer');
 
 let caja: CajaPublica | null = null;
 let temporal = false;
-try {
-  caja = await obtenerCaja(Astro.params.codigo ?? '');
-} catch (e) {
-  console.error('pagina_caja', e);
+// Si la misma IP pasa de 30 páginas por minuto, no se consulta la base (ni se suma el escaneo):
+// se muestra "vuelve a intentarlo".
+const limitado = !(await dentroDelLimite('LIMITE_CHIP', Astro.request));
+if (limitado) {
   temporal = true;
+  Astro.response.headers.set('Retry-After', '60');
+} else {
+  try {
+    caja = await obtenerCaja(Astro.params.codigo ?? '');
+  } catch (e) {
+    console.error('pagina_caja', e);
+    temporal = true;
+  }
 }
 
-if (!caja) Astro.response.status = temporal ? 503 : 404;
+if (!caja) Astro.response.status = limitado ? 429 : temporal ? 503 : 404;
 ---
 
 <PaginaCaja caja={caja} temporal={temporal} />

@@ -13,7 +13,7 @@ let caja: CajaPublica | null = null;
 let temporal = false;
 // Si la misma IP pasa de 30 páginas por minuto, no se consulta la base (ni se suma el escaneo):
 // se muestra "vuelve a intentarlo".
-const limitado = !(await dentroDelLimite('LIMITE_CHIP', Astro.request));
+const limitado = !(await dentroDelLimite('chip', Astro.request));
 if (limitado) {
   temporal = true;
   Astro.response.headers.set('Retry-After', '60');

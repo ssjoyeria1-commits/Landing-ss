@@ -4,12 +4,14 @@
   "compatibility_date": "2026-10-20",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
-  // Límite de intentos por IP (src/lib/limite.ts). Cada contador es por ubicación de Cloudflare y
-  // aproximado: frena abusos, no es un conteo exacto. El periodo solo puede ser 10 o 60 segundos.
-  "ratelimits": [
-    { "name": "LIMITE_CHIP", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
-    { "name": "LIMITE_LOGIN", "namespace_id": "1002", "simple": { "limit": 5, "period": 60 } }
-  ],
+  // Entrada propia: la de Astro más el contador de intentos (src/worker.ts).
+  "main": "./src/worker.ts",
+  // Límite de intentos por IP (src/lib/limite.ts): un Durable Object por visitante, con
+  // almacenamiento SQLite (el que permite el plan gratis).
+  "durable_objects": {
+    "bindings": [{ "name": "CONTADOR", "class_name": "ContadorIntentos" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ContadorIntentos"] }],
   // No son secretos: la clave publicable solo permite lo que dejan las políticas RLS.
   "vars": {
     "SUPABASE_URL": "https://dtwlwoyvpcpbaswbkanx.supabase.co",

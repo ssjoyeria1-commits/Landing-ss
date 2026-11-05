@@ -13,7 +13,7 @@ if (Astro.request.method === 'POST') {
   const password = String(form.get('password') ?? '');
 
   // Más de 5 intentos por minuto desde la misma IP: ni se pregunta a Supabase.
-  if (!(await dentroDelLimite('LIMITE_LOGIN', Astro.request))) {
+  if (!(await dentroDelLimite('login', Astro.request))) {
     Astro.response.status = 429;
     Astro.response.headers.set('Retry-After', '60');
     error = 'Demasiados intentos. Espera un minuto y vuelve a intentarlo.';

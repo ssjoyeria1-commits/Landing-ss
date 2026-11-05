@@ -1,7 +1,7 @@
 ---
 import Publica from '../../layouts/Publica.astro';
 import Ficha from '../../components/catalogo/Ficha.astro';
-import { obtenerCatalogo, type ProductoPublico } from '../../lib/catalogo';
+import { obtenerCatalogo, origenFotos, type ProductoPublico } from '../../lib/catalogo';
 
 // Igual que /catalogo: fuera de buscadores y con caché de un minuto.
 Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
@@ -22,6 +22,6 @@ if (!producto) {
 }
 ---
 
-<Publica title={producto ? `${producto.nombre} · SS Joyería` : 'Catálogo · SS Joyería'} noindex portada={false} amplio>
+<Publica title={producto ? `${producto.nombre} · SS Joyería` : 'Catálogo · SS Joyería'} noindex portada={false} amplio preconectar={origenFotos()}>
   <Ficha producto={producto} temporal={temporal} />
 </Publica>

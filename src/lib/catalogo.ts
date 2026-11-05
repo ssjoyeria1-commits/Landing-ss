@@ -22,6 +22,9 @@ export interface FotoProducto {
 
 const archivo = (ruta: string, tamano: 'grande' | 'mini') => `${ruta}${tamano === 'mini' ? '-mini' : ''}.webp`;
 
+/** Origen de las fotos (Supabase Storage), para abrir la conexión antes de pedirlas. */
+export const origenFotos = (): string => env.SUPABASE_URL;
+
 /** Dirección pública de una foto; `ruta` es "{producto_id}/{id}". */
 export function urlFoto(ruta: string, tamano: 'grande' | 'mini' = 'grande'): string {
   return `${env.SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${archivo(ruta, tamano)}`;

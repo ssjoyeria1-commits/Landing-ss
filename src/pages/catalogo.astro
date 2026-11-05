@@ -1,7 +1,7 @@
 ---
 import Publica from '../layouts/Publica.astro';
 import Catalogo from '../components/catalogo/Catalogo.astro';
-import { obtenerCatalogo, type ProductoPublico } from '../lib/catalogo';
+import { obtenerCatalogo, origenFotos, type ProductoPublico } from '../lib/catalogo';
 
 // Por ahora solo para quien tenga el enlace: fuera de buscadores. No tiene datos personales, así que
 // se puede guardar un minuto (una venta tarda como mucho eso en reflejarse).
@@ -20,6 +20,6 @@ try {
 }
 ---
 
-<Publica title="Catálogo · SS Joyería" noindex amplio rotulo="Catálogo">
+<Publica title="Catálogo · SS Joyería" noindex amplio rotulo="Catálogo" preconectar={origenFotos()}>
   <Catalogo productos={productos} temporal={temporal} />
 </Publica>

@@ -15,9 +15,11 @@ interface Props {
   amplio?: boolean;
   /** Palabra en rojo sobre el logo de la portada (el catálogo); es el título principal de la página. */
   rotulo?: string;
+  /** Origen al que conviene abrir la conexión desde el principio (las fotos del catálogo). */
+  preconectar?: string;
 }
 
-const { title = 'SS Joyería', noindex = false, portada = true, amplio = false, rotulo } = Astro.props;
+const { title = 'SS Joyería', noindex = false, portada = true, amplio = false, rotulo, preconectar } = Astro.props;
 // `swap`: el texto se ve de inmediato con la serif del sistema y cambia cuando llega la fuente.
 const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuente}') format('woff2');font-weight:500 700;font-display:swap}`;
 ---
@@ -25,6 +27,9 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
 <Base title={title} noindex={noindex} clase="fondo-publico">
   <Fragment slot="head">
     <link rel="preload" href={fuente} as="font" type="font/woff2" crossorigin />
+    {/* El catálogo trae fotos de Supabase: abrir esa conexión desde el principio ahorra la espera
+        (DNS y TLS) antes de la primera foto, sobre todo en 4G. */}
+    {preconectar && <link rel="preconnect" href={preconectar} />}
     <style set:html={caraFuente}></style>
     <!-- Las tarjetas se ocultan para entrar al hacer scroll solo si hay con qué mostrarlas
          (IntersectionObserver) y si el visitante no pidió menos movimiento. -->

@@ -178,10 +178,17 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   - [x] 5D — QR de respaldo para la carta: en el detalle de la venta y en `/admin/ventas/[id]/qr`
         (hoja imprimible, fichas de 5,5 × 7 cm con QR de 3 cm; `src/lib/qr.ts` con `uqr`,
         `src/components/admin/HojaQR.astro`). Misma URL del sticker (`ssjoyeria.com`).
-  - [ ] 5E — revisión de rendimiento.
+  - [x] 5E — revisión de rendimiento (5 nov 2026): HTML de 2 a 5 KB, CSS 3 KB, fuente 37,6 KB (todo
+        con caché de un año), sin JavaScript que descargar, CLS 0 en catálogo, ficha y chip. Las fotos
+        de la cuadrícula pesan 39 a 101 KB y la primera de la ficha unos 290 KB. Las páginas que
+        consultan Supabase tardan ~0,4 s más (ida y vuelta a São Paulo). Mejora aplicada: preconnect
+        a Supabase en el catálogo. LCP ~3 s por la animación de entrada (diseño, no carga).
   - Pendiente de los socios: activar en Supabase → Authentication → Passwords mínimo 12 caracteres
     con letras, números y símbolos.
 - [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.
+      Con el dominio: guardar `/catalogo` en la caché de Cloudflare (Cache API, que no funciona en
+      `workers.dev`) y agregar una regla de límite de intentos en el panel de Cloudflare.
+      Mantenimiento: `npm audit` avisa de `undici` (lo usa `wrangler`, solo en desarrollo).
 
 ## Pendiente de los socios
 

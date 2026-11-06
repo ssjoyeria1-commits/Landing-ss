@@ -19,8 +19,6 @@ export interface VentaContable {
   costo_piezas_cop: number;
   costo_completo: boolean;
   piezas: number;
-  empaques: number;
-  empaque_cop: number;
   domicilio_pagado_cop: number;
   comision_pct: number;
   comision_cop: number;
@@ -147,7 +145,6 @@ export interface Resumen {
   domicilioCobrado: number;
   ingresos: number;
   costoPiezas: number;
-  empaques: number;
   mensajeros: number;
   comisiones: number;
   costosDirectos: number;
@@ -160,16 +157,15 @@ export interface Resumen {
   /** Ventas con piezas escritas a mano sin costo: su utilidad está sobrestimada. */
   ventasSinCosto: number;
   porMedio: Map<string, { ventas: number; ingresos: number; comisiones: number }>;
-  empaquesSinCosto: number;
 }
 
 export function resumir(ventas: VentaContable[], gastos: Gasto[]): Resumen {
   const n = (v: unknown) => Number(v ?? 0);
   const r: Resumen = {
     ventas: 0, ventasClientes: 0, ventasAliados: 0, piezas: 0, piezasClientesCop: 0, piezasAliadosCop: 0, descuentos: 0,
-    domicilioCobrado: 0, ingresos: 0, costoPiezas: 0, empaques: 0, mensajeros: 0, comisiones: 0, costosDirectos: 0,
+    domicilioCobrado: 0, ingresos: 0, costoPiezas: 0, mensajeros: 0, comisiones: 0, costosDirectos: 0,
     utilidadBruta: 0, gastos: 0, gastosPorCategoria: new Map(), utilidadNeta: 0, porCobrarAliados: 0, ventasSinCosto: 0,
-    porMedio: new Map(), empaquesSinCosto: 0,
+    porMedio: new Map(),
   };
   for (const v of ventas) {
     if (v.anulada) continue;
@@ -187,13 +183,11 @@ export function resumir(ventas: VentaContable[], gastos: Gasto[]): Resumen {
     r.domicilioCobrado += n(v.domicilio_cobrado_cop);
     r.ingresos += n(v.ingresos_cop);
     r.costoPiezas += n(v.costo_piezas_cop);
-    r.empaques += n(v.empaque_cop);
     r.mensajeros += n(v.domicilio_pagado_cop);
     r.comisiones += n(v.comision_cop);
     r.costosDirectos += n(v.costos_cop);
     r.utilidadBruta += n(v.utilidad_cop);
     if (!v.costo_completo) r.ventasSinCosto += 1;
-    if (n(v.empaques) > 0 && n(v.empaque_cop) === 0) r.empaquesSinCosto += 1;
     const medio = v.medio_pago ?? 'Sin definir';
     const m = r.porMedio.get(medio) ?? { ventas: 0, ingresos: 0, comisiones: 0 };
     m.ventas += 1;

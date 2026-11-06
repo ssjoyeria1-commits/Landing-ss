@@ -1,112 +1,21 @@
 ---
 // Cuerpo de Ajustes de contabilidad (lo usan /admin/contabilidad/ajustes y la prueba /pruebas/ajustes).
-import { fecha, pesos } from '../../lib/formato';
 
-export type CostoEmpaque = { id: string; desde: string; cantidad: number; total_cop: number; costo_unitario_cop: number; nota: string | null };
 export type MedioPago = { id: string; nombre: string; comision_pct: number; activo: boolean };
 export type CategoriaGasto = { id: string; nombre: string; activa: boolean };
 
 interface Props {
-  hoy: string;
   error: string;
   aviso: string;
-  empaques: CostoEmpaque[];
   medios: MedioPago[];
   categorias: CategoriaGasto[];
 }
-const { hoy, error, aviso, empaques, medios, categorias } = Astro.props;
-const vigente = empaques.find((e) => e.desde <= hoy);
+const { error, aviso, medios, categorias } = Astro.props;
 ---
 
   <p><a href="/admin/contabilidad">← Contabilidad</a></p>
   {error && <p class="aviso error">{error}</p>}
   {aviso && <p class="aviso ok">{aviso}</p>}
-
-  <section class="tarjeta">
-    <h2 style="margin-top: 0">Costo del empaque</h2>
-    <p>
-      {
-        vigente ? (
-          <>Hoy: <strong>{pesos(vigente.costo_unitario_cop)}</strong> por empaque (desde el {fecha(vigente.desde)}). Cada caja de una venta usa un empaque.</>
-        ) : (
-          <>Todavía no hay costo de empaque: las ventas lo cuentan en $ 0. Registra la compra de empaques para que entre en la utilidad.</>
-        )
-      }
-    </p>
-    <form method="post">
-      <input type="hidden" name="accion" value="empaque" />
-      <div class="fila">
-        <div class="campo">
-          <label for="cantidad">Empaques comprados</label>
-          <input id="cantidad" name="cantidad" type="number" min="1" step="1" placeholder="300" required />
-        </div>
-        <div class="campo">
-          <label for="total">Total pagado (COP)</label>
-          <input id="total" name="total" inputmode="numeric" placeholder="900.000" required autocomplete="off" />
-        </div>
-        <div class="campo">
-          <label for="desde">Aplica desde</label>
-          <input id="desde" name="desde" type="date" value={hoy} max={hoy} required />
-        </div>
-      </div>
-      <div class="campo">
-        <label for="nota-empaque">Nota (opcional)</label>
-        <input id="nota-empaque" name="nota" placeholder="Proveedor, referencia del empaque…" autocomplete="off" />
-      </div>
-      <button type="submit">Registrar compra de empaques</button>
-      <p class="ayuda">
-        El costo por empaque es el total dividido entre la cantidad. Cada venta usa el de la compra vigente en su fecha (desde
-        "Aplica desde" hasta la compra siguiente); las ventas anteriores a la primera compra quedan en $ 0. Si corriges o borras
-        una compra, las ventas se recalculan solas.
-      </p>
-    </form>
-    {
-      empaques.length > 0 && (
-        <div class="compras">
-          <h3>Compras registradas</h3>
-          {empaques.map((e) => (
-            <details class="compra">
-              <summary>
-                <span>Desde el <strong>{fecha(e.desde)}</strong></span>
-                <span>{e.cantidad} por {pesos(e.total_cop)}</span>
-                <span><strong>{pesos(e.costo_unitario_cop)}</strong> c/u</span>
-                {e.nota && <small>{e.nota}</small>}
-                <span class="corregir">Corregir</span>
-              </summary>
-              <form method="post">
-                <input type="hidden" name="accion" value="empaque-editar" />
-                <input type="hidden" name="id" value={e.id} />
-                <div class="fila">
-                  <div class="campo">
-                    <label for={`cantidad-${e.id}`}>Empaques comprados</label>
-                    <input id={`cantidad-${e.id}`} name="cantidad" type="number" min="1" step="1" value={e.cantidad} required />
-                  </div>
-                  <div class="campo">
-                    <label for={`total-${e.id}`}>Total pagado (COP)</label>
-                    <input id={`total-${e.id}`} name="total" inputmode="numeric" value={pesos(e.total_cop).replace(/[^\d.]/g, '')} required autocomplete="off" />
-                  </div>
-                  <div class="campo">
-                    <label for={`desde-${e.id}`}>Aplica desde</label>
-                    <input id={`desde-${e.id}`} name="desde" type="date" value={e.desde} max={hoy} required />
-                  </div>
-                </div>
-                <div class="campo">
-                  <label for={`nota-${e.id}`}>Nota (opcional)</label>
-                  <input id={`nota-${e.id}`} name="nota" value={e.nota ?? ''} autocomplete="off" />
-                </div>
-                <button type="submit" class="secundario">Guardar cambios</button>
-              </form>
-              <form method="post" class="borrar-empaque">
-                <input type="hidden" name="accion" value="empaque-borrar" />
-                <input type="hidden" name="id" value={e.id} />
-                <button type="submit" class="enlace">Borrar esta compra</button>
-              </form>
-            </details>
-          ))}
-        </div>
-      )
-    }
-  </section>
 
   <section class="tarjeta">
     <h2 style="margin-top: 0">Medios de pago</h2>
@@ -204,60 +113,9 @@ const vigente = empaques.find((e) => e.desde <= hoy);
     nombre.addEventListener('input', () => (guardar.hidden = nombre.value === nombre.defaultValue));
   }
 
-  for (const form of document.querySelectorAll<HTMLFormElement>('.borrar-empaque')) {
-    form.addEventListener('submit', (e) => {
-      if (!confirm('¿Borrar esta compra de empaques? Las ventas se recalculan según su fecha.')) e.preventDefault();
-    });
-  }
 </script>
 
 <style>
-  .compras h3 {
-    margin: 1.25rem 0 0.25rem;
-    font-size: 1rem;
-  }
-
-  .compra {
-    border-top: 1px solid var(--borde);
-    padding: 0.6rem 0;
-  }
-
-  .compra summary {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.25rem 1rem;
-    cursor: pointer;
-    list-style: none;
-  }
-
-  .compra summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .compra summary small {
-    flex-basis: 100%;
-    color: var(--suave);
-  }
-
-  .compra .corregir {
-    margin-left: auto;
-    text-decoration: underline;
-    font-size: 0.9rem;
-  }
-
-  .compra[open] .corregir {
-    visibility: hidden;
-  }
-
-  .compra form {
-    margin-top: 0.75rem;
-  }
-
-  .borrar-empaque {
-    margin-top: 0.5rem;
-  }
-
   .linea-categoria {
     display: flex;
     align-items: center;

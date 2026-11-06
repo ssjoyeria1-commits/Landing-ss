@@ -946,52 +946,22 @@ async function contable(db, ventaId) {
   return como(db, 'authenticated', ADMIN, () => uno(db, 'select * from public.ventas_contables where id = $1', [ventaId]));
 }
 
-test('contabilidad: un empaque por caja con el costo vigente; el primer costo cubre las ventas anteriores', async () => {
+test('contabilidad: la compra de empaques es un gasto y la venta no resta empaque', async () => {
   const db = await nuevaBase();
-  const antes = await venta(db, { cajas: [{ es_regalo: false, piezas: [pieza()] }, { es_regalo: true, piezas: [pieza('Dije')] }] });
-  let c = await contable(db, antes.venta_id);
-  assert.equal(c.empaques, 2, 'una por caja');
-  assert.equal(Number(c.empaque_cop), 0, 'sin costo de empaque registrado');
-
-  // 300 empaques por 900.000 = 3.000 cada uno, desde una fecha anterior a la venta.
+  const r = await venta(db, { cajas: [{ es_regalo: false, piezas: [pieza()] }, { es_regalo: true, piezas: [pieza('Dije')] }] });
   await como(db, 'authenticated', ADMIN, () =>
-    db.query("insert into public.costos_empaque (desde, cantidad, total_cop) values (privado.hoy() - 30, 300, 900000)"),
+    db.query(
+      "insert into public.gastos (fecha, categoria_id, descripcion, monto_cop) select privado.hoy() - 3, id, 'Compra de 300 empaques', 1748400 from public.categorias_gasto where nombre = 'Empaques'",
+    ),
   );
-  c = await contable(db, antes.venta_id);
-  assert.equal(Number(c.empaque_cop), 6000, 'la venta anterior toma el primer costo');
-
-  // Una compra nueva desde mañana no cambia las ventas de hoy.
-  await como(db, 'authenticated', ADMIN, () =>
-    db.query("insert into public.costos_empaque (desde, cantidad, total_cop) values (privado.hoy() + 1, 100, 500000)"),
+  const c = await contable(db, r.venta_id);
+  assert.equal(Number(c.costos_cop), Number(c.costo_piezas_cop) + Number(c.domicilio_pagado_cop) + Number(c.comision_cop));
+  assert.equal('empaque_cop' in c, false, 'la vista ya no tiene costo de empaque');
+  const g = await como(db, 'authenticated', ADMIN, () =>
+    uno(db, "select g.monto_cop, cg.nombre from public.gastos g join public.categorias_gasto cg on cg.id = g.categoria_id"),
   );
-  assert.equal(Number((await contable(db, antes.venta_id)).empaque_cop), 6000);
-  const nueva = await venta(db);
-  assert.equal(Number((await contable(db, nueva.venta_id)).empaque_cop), 3000, 'la venta de hoy (una caja) toma la compra vigente hoy');
-});
-
-test('contabilidad: corregir o borrar una compra de empaques recalcula las ventas por su fecha', async () => {
-  const db = await nuevaBase();
-  const r = await venta(db);
-  // Registrada con la fecha equivocada (después de la venta): la venta queda en $ 0.
-  const compra = await como(db, 'authenticated', ADMIN, () =>
-    uno(db, "insert into public.costos_empaque (desde, cantidad, total_cop) values (privado.hoy() + 2, 300, 900000) returning id"),
-  );
-  assert.equal(Number((await contable(db, r.venta_id)).empaque_cop), 0);
-  // Se corrige la fecha y el total: la venta toma el costo.
-  await como(db, 'authenticated', ADMIN, () =>
-    db.query('update public.costos_empaque set desde = privado.hoy() - 5, total_cop = 1200000 where id = $1', [compra.id]),
-  );
-  assert.equal(Number((await contable(db, r.venta_id)).empaque_cop), 4000);
-  // Se borra: la venta vuelve a $ 0.
-  await como(db, 'authenticated', ADMIN, () => db.query('delete from public.costos_empaque where id = $1', [compra.id]));
-  assert.equal(Number((await contable(db, r.venta_id)).empaque_cop), 0);
-  // Un usuario que no es admin no puede cambiarlas.
-  await como(db, 'authenticated', ADMIN, () =>
-    db.query("insert into public.costos_empaque (desde, cantidad, total_cop) values (privado.hoy(), 300, 900000)"),
-  );
-  const cambiadas = await como(db, 'authenticated', NO_ADMIN, () => db.query('update public.costos_empaque set total_cop = 1'));
-  assert.equal(cambiadas.affectedRows ?? 0, 0);
-  assert.equal(Number((await contable(db, r.venta_id)).empaque_cop), 3000);
+  assert.equal(Number(g.monto_cop), 1748400);
+  assert.equal(g.nombre, 'Empaques');
 });
 
 test('contabilidad: desactivar varias categorías de gasto a la vez', async () => {
@@ -1002,7 +972,7 @@ test('contabilidad: desactivar varias categorías de gasto a la vez', async () =
   const activas = await como(db, 'authenticated', ADMIN, () =>
     uno(db, 'select count(*) filter (where activa)::int as si, count(*) filter (where not activa)::int as no from public.categorias_gasto'),
   );
-  assert.deepEqual(activas, { si: 11, no: 2 });
+  assert.deepEqual(activas, { si: 12, no: 2 });
 });
 
 test('contabilidad: comisión del medio de pago, domicilio cobrado y pagado, y utilidad de la venta', async () => {
@@ -1011,7 +981,6 @@ test('contabilidad: comisión del medio de pago, domicilio cobrado y pagado, y u
   const r = await venta(db, { cajas: [{ es_regalo: false, piezas: [{ unidad_id: u }] }] });
   await como(db, 'authenticated', ADMIN, async () => {
     await db.query("update public.medios_pago set comision_pct = 3 where nombre = 'Datáfono'");
-    await db.query("insert into public.costos_empaque (cantidad, total_cop) values (300, 900000)");
     await db.query(
       "update public.ventas set medio_pago_id = (select id from public.medios_pago where nombre = 'Datáfono'), domicilio_cobrado_cop = 15000, domicilio_pagado_cop = 12000 where id = $1",
       [r.venta_id],
@@ -1023,8 +992,7 @@ test('contabilidad: comisión del medio de pago, domicilio cobrado y pagado, y u
   assert.equal(Number(c.comision_cop), Math.round(815000 * 0.03));
   assert.equal(c.medio_pago, 'Datáfono');
   assert.equal(Number(c.costo_piezas_cop), 700000);
-  assert.equal(Number(c.empaque_cop), 3000, 'la venta del mismo día sin costo toma el primer costo de empaque');
-  assert.equal(Number(c.utilidad_cop), 815000 - 700000 - Number(c.empaque_cop) - 12000 - Math.round(815000 * 0.03));
+  assert.equal(Number(c.utilidad_cop), 815000 - 700000 - 12000 - Math.round(815000 * 0.03));
 
   // Si el medio cambia su comisión, la venta conserva la que tenía.
   await como(db, 'authenticated', ADMIN, () => db.query("update public.medios_pago set comision_pct = 5 where nombre = 'Datáfono'"));
@@ -1046,7 +1014,7 @@ test('contabilidad: gastos y medios de pago solo para admins', async () => {
     ),
     /row-level security/,
   );
-  for (const tabla of ['gastos', 'medios_pago', 'costos_empaque', 'categorias_gasto', 'ventas_contables']) {
+  for (const tabla of ['gastos', 'medios_pago', 'categorias_gasto', 'ventas_contables']) {
     await assert.rejects(como(db, 'anon', null, () => db.query(`select * from public.${tabla}`)), /permission denied/, tabla);
   }
   await assert.rejects(

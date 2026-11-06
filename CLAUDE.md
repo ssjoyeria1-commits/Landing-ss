@@ -30,7 +30,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 |---|---|
 | Servidor local | `npm run dev` (o `preview_start` con `astro-dev` de `.claude/launch.json`) → http://127.0.0.1:4321 |
 | Revisar tipos | `npx astro check` (debe dar 0 errores) |
-| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 51 pruebas) |
+| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 50 pruebas) |
 | Publicar | `npm run build` y luego `npx wrangler deploy` |
 | Tipos de las variables | `npm run types` (usa `--include-runtime=false`; ver abajo) |
 | Aplicar migraciones | `npx supabase db push --linked --dry-run`, luego sin `--dry-run` y con `--yes` |
@@ -203,18 +203,18 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
         piezas por código o nombre, peso y cantidad; `src/components/admin/FormularioVenta.astro`).
         Ficha `/admin/aliados/[id]`: debe y pagado, ventas, marcar pagada; los datos se editan en Aliados.
         Migración `20261106130000_ventas_aliados.sql`.
-- [x] **Contabilidad** (decisiones 7 nov 2026: un empaque por caja con costo configurable, domicilio cobrado
-      y pagado, medio de pago con % de comisión, sin impuestos). Migración `20261107120000_contabilidad.sql`:
-      tablas `medios_pago`, `costos_empaque` (cada compra fija el costo por unidad desde una fecha; las ventas
-      en $ 0 desde esa fecha lo toman), `categorias_gasto`, `gastos`; columnas de cobro y costos en `ventas`
-      (comisión y costo del empaque se copian al registrar: cambios posteriores no tocan ventas viejas);
-      vista `ventas_contables` (ingresos, costos directos, utilidad). Panel: cobro en Registrar venta y en el
-      detalle, `/admin/gastos`, `/admin/contabilidad` (estado de resultados por semana, mes o año, frente al
-      mismo tramo del periodo anterior si va en curso; `src/lib/contabilidad.ts`,
-      `src/components/admin/InformeContable.astro`) y `/admin/contabilidad/ajustes`. La compra de empaques y
-      la de oro **no** son gastos (entran como costo de cada venta). Las compras de empaque se corrigen o borran
-      (migración `20261108120000_empaque_editable.sql`): el costo de cada venta es el de la compra vigente en su
-      fecha y se recalcula solo. Categorías de gasto: activar o desactivar varias a la vez.
+- [x] **Contabilidad** (decisiones 7 nov 2026: domicilio cobrado y pagado, medio de pago con % de comisión,
+      sin impuestos). Migración `20261107120000_contabilidad.sql`: tablas `medios_pago`, `categorias_gasto`,
+      `gastos`; columnas de cobro en `ventas` (la comisión se copia al registrar: cambios posteriores no tocan
+      ventas viejas); vista `ventas_contables` (ingresos, costos directos —piezas, mensajero, comisión—,
+      utilidad). Panel: cobro en Registrar venta y en el detalle, `/admin/gastos`, `/admin/contabilidad`
+      (estado de resultados por semana, mes o año, frente al mismo tramo del periodo anterior si va en curso;
+      `src/lib/contabilidad.ts`, `src/components/admin/InformeContable.astro`) y `/admin/contabilidad/ajustes`
+      (medios de pago; categorías de gasto, activar o desactivar varias a la vez).
+      **Empaques = gasto** (decisión posterior; migración `20261108130000_empaque_como_gasto.sql`): la compra
+      se registra en Gastos, categoría "Empaques", con la fecha de la compra; las ventas ya no restan empaque
+      (se quitaron `costos_empaque` y las columnas `empaques`/`empaque_unitario_cop`). La compra de oro **no**
+      es gasto (entra como costo de cada pieza vendida).
 - [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.
       Con el dominio: guardar `/catalogo` en la caché de Cloudflare (Cache API, que no funciona en
       `workers.dev`) y agregar una regla de límite de intentos en el panel de Cloudflare.

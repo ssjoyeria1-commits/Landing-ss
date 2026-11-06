@@ -29,10 +29,9 @@ const ventas: VentaContable[] = Array.from({ length: 70 }, (_, i) => {
   const [medio, pct] = medios[i % medios.length];
   const domCobrado = !aliado && i % 3 === 0 ? 15_000 : 0;
   const domPagado = domCobrado ? 12_000 : 0;
-  const empaques = 1 + (i % 7 === 0 ? 1 : 0);
   const comision = Math.round(((monto + domCobrado) * pct) / 100);
   const ingresos = monto + domCobrado;
-  const costos = costo + empaques * 3000 + domPagado + comision;
+  const costos = costo + domPagado + comision;
   return {
     id: `v${i}`,
     fecha: diasAtras(i * 3),
@@ -49,8 +48,6 @@ const ventas: VentaContable[] = Array.from({ length: 70 }, (_, i) => {
     costo_piezas_cop: costo,
     costo_completo: i !== 2,
     piezas: 1 + (i % 3),
-    empaques,
-    empaque_cop: i === 1 ? 0 : empaques * 3000,
     domicilio_pagado_cop: domPagado,
     comision_pct: pct,
     comision_cop: comision,

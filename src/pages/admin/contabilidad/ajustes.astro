@@ -1,13 +1,10 @@
 ---
-// Ajustes de la contabilidad: costo del empaque (cada compra de empaques fija el costo por unidad
-// desde una fecha), medios de pago con su comisión y categorías de gasto.
+// Ajustes de la contabilidad: medios de pago con su comisión y categorías de gasto (activar o
+// desactivar varias a la vez). La compra de empaques se registra en Gastos.
 import Admin from '../../../layouts/Admin.astro';
-import AjustesContables, { type CategoriaGasto, type CostoEmpaque, type MedioPago } from '../../../components/admin/AjustesContables.astro';
-import { fecha, hoyBogota, pesos } from '../../../lib/formato';
-import { leerMonto } from '../../../lib/venta';
+import AjustesContables, { type CategoriaGasto, type MedioPago } from '../../../components/admin/AjustesContables.astro';
 
 const supabase = Astro.locals.supabase;
-const hoy = hoyBogota();
 let error = '';
 let aviso = '';
 
@@ -23,25 +20,7 @@ if (Astro.request.method === 'POST') {
   };
   const comision = (v: string) => Number(v.replace(',', '.') || '0');
 
-  if (accion === 'empaque' || accion === 'empaque-editar') {
-    const cantidad = Number(t('cantidad'));
-    const total = leerMonto(t('total'));
-    if (!Number.isInteger(cantidad) || cantidad <= 0) error = 'Escribe cuántos empaques compraron.';
-    else if (!Number.isSafeInteger(total) || total <= 0) error = 'Escribe cuánto pagaron en total.';
-    else if (!/^\d{4}-\d{2}-\d{2}$/.test(t('desde')) || t('desde') > hoy) error = 'Elige desde qué fecha aplica (no futura).';
-    else {
-      const datos = { desde: t('desde'), cantidad, total_cop: total, nota: t('nota') || null };
-      const texto = `${pesos(Math.round(total / cantidad))} cada uno desde el ${fecha(t('desde'))}`;
-      if (accion === 'empaque') await resultado(supabase.from('costos_empaque').insert(datos), `Costo del empaque: ${texto}.`);
-      else
-        await resultado(
-          supabase.from('costos_empaque').update(datos).eq('id', id),
-          `Compra corregida: ${texto}. Las ventas se recalcularon según su fecha.`,
-        );
-    }
-  } else if (accion === 'empaque-borrar') {
-    await resultado(supabase.from('costos_empaque').delete().eq('id', id), 'Compra de empaques borrada. Las ventas se recalcularon según su fecha.');
-  } else if (accion === 'categorias-activar' || accion === 'categorias-desactivar') {
+  if (accion === 'categorias-activar' || accion === 'categorias-desactivar') {
     const ids = form.getAll('ids').map(String).filter(Boolean);
     const activa = accion === 'categorias-activar';
     if (ids.length === 0) error = 'Marca al menos una categoría.';
@@ -74,16 +53,14 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const [{ data: dataEmpaque }, { data: dataMedios }, { data: dataCategorias }] = await Promise.all([
-  supabase.from('costos_empaque').select('*').order('desde', { ascending: false }).order('created_at', { ascending: false }),
+const [{ data: dataMedios }, { data: dataCategorias }] = await Promise.all([
   supabase.from('medios_pago').select('*').order('orden').order('nombre'),
   supabase.from('categorias_gasto').select('*').order('nombre'),
 ]);
-const empaques = (dataEmpaque ?? []) as CostoEmpaque[];
 const medios = (dataMedios ?? []) as MedioPago[];
 const categorias = (dataCategorias ?? []) as CategoriaGasto[];
 ---
 
 <Admin title="Ajustes de contabilidad">
-  <AjustesContables {hoy} {error} {aviso} {empaques} {medios} {categorias} />
+  <AjustesContables {error} {aviso} {medios} {categorias} />
 </Admin>

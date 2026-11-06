@@ -1,6 +1,6 @@
 ---
 // Gastos del negocio por mes: registrar, corregir y borrar, con el total por categoría. La compra de
-// empaques va en Contabilidad → Ajustes y la de oro en los lotes del inventario (no son gastos).
+// empaques es un gasto (categoría Empaques); la de oro va en los lotes del inventario (no es gasto).
 import Admin from '../../layouts/Admin.astro';
 import { fecha, hoyBogota, pesos } from '../../lib/formato';
 import { periodoDe, moverPeriodo, leerPeriodo, type Gasto } from '../../lib/contabilidad';
@@ -141,8 +141,8 @@ const fechaNueva = mes.clave === periodoDe(hoy, 'mes').clave ? hoy : mes.fin;
       </div>
       <button type="submit">Registrar gasto</button>
       <p class="ayuda">
-        No van aquí: la compra de empaques (en <a href="/admin/contabilidad/ajustes">Contabilidad → Ajustes</a>, entra como costo de cada
-        venta) ni la compra de oro (en los lotes del inventario, entra como costo de cada pieza vendida). Así no se cuentan dos veces.
+        La compra de empaques sí va aquí, en la categoría Empaques, con la fecha de la compra. No va la compra de oro (en los
+        lotes del inventario, entra como costo de cada pieza vendida): así no se cuenta dos veces.
       </p>
     </form>
   </section>

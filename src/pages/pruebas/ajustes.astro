@@ -2,22 +2,16 @@
 // SOLO DESARROLLO: Ajustes de contabilidad con datos de ejemplo, sin sesión ni base de datos. Al enviar
 // un formulario muestra lo que llegaría al servidor (no guarda nada). En producción responde 404.
 import Admin from '../../layouts/Admin.astro';
-import AjustesContables, { type CategoriaGasto, type CostoEmpaque, type MedioPago } from '../../components/admin/AjustesContables.astro';
-import { hoyBogota } from '../../lib/formato';
+import AjustesContables, { type CategoriaGasto, type MedioPago } from '../../components/admin/AjustesContables.astro';
 
 if (import.meta.env.PROD) return new Response(null, { status: 404 });
 
-const hoy = hoyBogota();
 let aviso = '';
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   aviso = JSON.stringify([...form.entries()].map(([k, v]) => `${k}=${v}`));
 }
 
-const empaques: CostoEmpaque[] = [
-  { id: 'e2', desde: hoy, cantidad: 300, total_cop: 1_748_400, costo_unitario_cop: 5828, nota: 'Cajas negras con cinta vino' },
-  { id: 'e1', desde: '2026-09-15', cantidad: 100, total_cop: 450_000, costo_unitario_cop: 4500, nota: null },
-];
 const medios: MedioPago[] = [
   { id: 'm1', nombre: 'Efectivo', comision_pct: 0, activo: true },
   { id: 'm2', nombre: 'Datáfono', comision_pct: 3.49, activo: true },
@@ -29,5 +23,5 @@ const categorias: CategoriaGasto[] = [
 ---
 
 <Admin title="Ajustes de contabilidad (prueba)">
-  <AjustesContables {hoy} error="" {aviso} {empaques} {medios} {categorias} />
+  <AjustesContables error="" {aviso} {medios} {categorias} />
 </Admin>

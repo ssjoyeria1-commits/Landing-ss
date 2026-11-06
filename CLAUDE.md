@@ -30,7 +30,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 |---|---|
 | Servidor local | `npm run dev` (o `preview_start` con `astro-dev` de `.claude/launch.json`) → http://127.0.0.1:4321 |
 | Revisar tipos | `npx astro check` (debe dar 0 errores) |
-| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 38 pruebas) |
+| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 42 pruebas) |
 | Publicar | `npm run build` y luego `npx wrangler deploy` |
 | Tipos de las variables | `npm run types` (usa `--include-runtime=false`; ver abajo) |
 | Aplicar migraciones | `npx supabase db push --linked --dry-run`, luego sin `--dry-run` y con `--yes` |

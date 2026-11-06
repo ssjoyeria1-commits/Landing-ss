@@ -768,3 +768,94 @@ test('catálogo público: el visitante no lee tablas, hasta 5 fotos y solo los a
   assert.equal(Number(bucket.file_size_limit), 1024 * 1024, 'fotos de hasta 1 MB');
   assert.deepEqual(bucket.allowed_mime_types, ['image/webp', 'image/jpeg']);
 });
+
+// ---------------------------------------------------------------------------
+// Fase A1: catálogo para aliados
+// ---------------------------------------------------------------------------
+
+/** Crea un aliado como admin y devuelve { id, token }. */
+async function aliado(db, nombre = 'Laura Gómez', extra = {}) {
+  return como(db, 'authenticated', ADMIN, () =>
+    uno(db, 'insert into public.aliados (nombre, activo) values ($1, $2) returning id, token', [nombre, extra.activo ?? true]),
+  );
+}
+
+async function catalogoAliado(db, token) {
+  return como(db, 'anon', null, async () => (await uno(db, 'select public.catalogo_aliado($1) as c', [token])).c);
+}
+
+/** Inventario de Anillos (400.000/g público) con precio de aliado y una foto en AN-014. */
+async function inventarioConAliado(db, pesos, precioAliado = 300000) {
+  const ids = await inventario(db, pesos);
+  await como(db, 'authenticated', ADMIN, async () => {
+    await db.query("update public.categorias set precio_aliado_gramo_cop = $1 where nombre = 'Anillos'", [precioAliado]);
+    await db.query("insert into public.fotos_producto (producto_id) select id from public.productos where codigo = 'AN-014'");
+  });
+  return ids;
+}
+
+test('aliados: el enlace trae precio de aliado, precio público sugerido y cantidad por peso, sin costos', async () => {
+  const db = await nuevaBase();
+  const [u2a] = await inventarioConAliado(db, [2, 2, 1.5]);
+  const a = await aliado(db);
+  assert.match(a.token, /^[a-km-np-z2-9]{20}$/);
+
+  const c = await catalogoAliado(db, a.token);
+  assert.equal(c.aliado, 'Laura', 'solo el primer nombre');
+  assert.equal(c.productos.length, 1, 'aparece aunque no esté publicado en el catálogo público');
+  const [p] = c.productos;
+  assert.equal(p.codigo, 'AN-014');
+  assert.equal(p.fotos.length, 1);
+  // 300.000/g de aliado y 400.000/g público; dos piezas de 2 g.
+  assert.deepEqual(
+    p.opciones.map((o) => [Number(o.peso_gramos), Number(o.precio_cop), Number(o.precio_publico_cop), o.cantidad]),
+    [[1.5, 450000, 600000, 1], [2, 600000, 800000, 2]],
+  );
+  assert.doesNotMatch(JSON.stringify(c), /costo|lote|proveedor|mano_obra|token/);
+  const acceso = await como(db, 'authenticated', ADMIN, () => uno(db, 'select ultimo_acceso from public.aliados where id = $1', [a.id]));
+  assert.ok(acceso.ultimo_acceso, 'anota el último acceso');
+
+  // Al vender una de 2 g, la cantidad baja; el catálogo público sigue vacío (no está publicado).
+  await venta(db, { cajas: [{ piezas: [{ unidad_id: u2a }] }] });
+  const despues = (await catalogoAliado(db, a.token)).productos[0].opciones;
+  assert.deepEqual(despues.map((o) => o.cantidad), [1, 1]);
+  assert.deepEqual(await catalogo(db), []);
+});
+
+test('aliados: sin precio de aliado en la categoría o sin foto, el producto no aparece', async () => {
+  const db = await nuevaBase();
+  await inventario(db, [2]);
+  const a = await aliado(db);
+  assert.deepEqual((await catalogoAliado(db, a.token)).productos, [], 'la categoría no tiene precio de aliado');
+  await como(db, 'authenticated', ADMIN, () => db.query("update public.categorias set precio_aliado_gramo_cop = 300000"));
+  assert.deepEqual((await catalogoAliado(db, a.token)).productos, [], 'sin foto');
+});
+
+test('aliados: código inválido, inexistente o de un aliado inactivo no devuelve nada', async () => {
+  const db = await nuevaBase();
+  await inventarioConAliado(db, [2]);
+  const a = await aliado(db);
+  const inactivo = await aliado(db, 'Pedro', { activo: false });
+  assert.equal(await catalogoAliado(db, 'abc'), null);
+  assert.equal(await catalogoAliado(db, 'zzzzzzzzzzzzzzzzzzzz'), null);
+  assert.equal(await catalogoAliado(db, inactivo.token), null);
+  assert.notEqual(await catalogoAliado(db, a.token), null);
+});
+
+test('aliados: regenerar el enlace invalida el anterior; solo los admins lo hacen y nadie más lee la tabla', async () => {
+  const db = await nuevaBase();
+  await inventarioConAliado(db, [2]);
+  const a = await aliado(db);
+  const nuevo = await rpc(db, 'regenerar_enlace_aliado', a.id);
+  assert.notEqual(nuevo, a.token);
+  assert.equal(await catalogoAliado(db, a.token), null, 'el enlace viejo ya no sirve');
+  assert.notEqual(await catalogoAliado(db, nuevo), null);
+
+  await assert.rejects(rpc(db, 'regenerar_enlace_aliado', a.id, NO_ADMIN), /No autorizado/);
+  await como(db, 'anon', null, async () => {
+    await assert.rejects(db.query('select * from public.aliados'), /permission denied/);
+    await assert.rejects(db.query('select public.regenerar_enlace_aliado($1)', [a.id]), /permission denied/);
+  });
+  const vistos = await como(db, 'authenticated', NO_ADMIN, () => uno(db, 'select count(*)::int as n from public.aliados'));
+  assert.equal(vistos.n, 0, 'un usuario que no es admin no ve aliados');
+});

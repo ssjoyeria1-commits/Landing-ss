@@ -46,7 +46,7 @@ const esReferencia = /^ss-/i.test(q);
 let consulta = supabase
   .from('ventas')
   .select(
-    `id, fecha, monto_cop, descuento_cop, anulada, nota, created_at, clientes${!esReferencia && q ? '!inner' : ''}(nombre, apellido), cajas${esReferencia ? '!inner' : ''}(referencia, es_regalo, piezas(count))`,
+    `id, fecha, monto_cop, descuento_cop, anulada, nota, created_at, pagada_aliado_at, clientes${!esReferencia && q ? '!inner' : ''}(nombre, apellido), aliados(nombre), cajas${esReferencia ? '!inner' : ''}(referencia, es_regalo, piezas(count))`,
   )
   .order('fecha', { ascending: false })
   .order('created_at', { ascending: false })
@@ -65,7 +65,9 @@ type Fila = {
   descuento_cop: number;
   anulada: boolean;
   nota: string | null;
-  clientes: { nombre: string; apellido: string | null };
+  pagada_aliado_at: string | null;
+  clientes: { nombre: string; apellido: string | null } | null;
+  aliados: { nombre: string } | null;
   cajas: { referencia: string; es_regalo: boolean; piezas: { count: number }[] }[];
 };
 const ventas = (data ?? []) as unknown as Fila[];
@@ -139,7 +141,16 @@ const accionMasiva = estado === 'anuladas' ? 'reactivar' : 'anular';
                     <td>
                       <a href={`/admin/ventas/${v.id}`}>{fecha(v.fecha)}</a>
                     </td>
-                    <td>{nombreCompleto(v.clientes)}</td>
+                    <td>
+                      {v.clientes ? (
+                        nombreCompleto(v.clientes)
+                      ) : (
+                        <>
+                          {v.aliados?.nombre} <span class="etiqueta">Aliado</span>
+                          {!v.anulada && !v.pagada_aliado_at && <span class="etiqueta alerta">Pago pendiente</span>}
+                        </>
+                      )}
+                    </td>
                     <td>
                       {v.cajas.map((c) => (
                         <>

@@ -37,7 +37,9 @@ interface PiezaDb {
 
 interface VentaDb {
   id: string;
-  cliente_id: string;
+  cliente_id: string | null;
+  pagada_aliado_at: string | null;
+  aliados: { nombre: string } | null;
   fecha: string;
   monto_cop: number;
   nota: string | null;
@@ -58,7 +60,7 @@ async function ventasConClientes(supabase: Supabase) {
       supabase
         .from('ventas')
         .select(
-          'id, cliente_id, fecha, monto_cop, nota, anulada, created_at, cajas(referencia, es_regalo, nombre_destinatario, created_at, piezas(descripcion, peso_gramos, ley, orden))',
+          'id, cliente_id, pagada_aliado_at, aliados(nombre), fecha, monto_cop, nota, anulada, created_at, cajas(referencia, es_regalo, nombre_destinatario, created_at, piezas(descripcion, peso_gramos, ley, orden))',
         )
         .order('fecha', { ascending: false })
         .order('created_at', { ascending: false })
@@ -71,7 +73,7 @@ async function ventasConClientes(supabase: Supabase) {
     v.cajas.sort((a, b) => a.created_at.localeCompare(b.created_at));
     for (const caja of v.cajas) caja.piezas.sort((a, b) => a.orden - b.orden);
   }
-  return { ventas, cliente: (id: string) => porId.get(id)! };
+  return { ventas, cliente: (id: string | null) => (id ? porId.get(id) : undefined) };
 }
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
@@ -91,23 +93,24 @@ export const EXPORTACIONES: Record<string, Exportacion> = {
         ],
         filas: ventas.map((v) => {
           const c = cliente(v.cliente_id);
+          const estado = v.anulada ? 'Anulada' : v.aliados ? (v.pagada_aliado_at ? 'Activa, pagada' : 'Activa, pago pendiente') : 'Activa';
           const piezas = v.cajas.flatMap((caja) => caja.piezas);
           const regalos = v.cajas
             .filter((caja) => caja.es_regalo)
             .map((caja) => (caja.nombre_destinatario ? `Para ${caja.nombre_destinatario}` : 'Sí'));
           return [
             v.fecha,
-            nombreCompleto(c),
-            formatoWhatsapp(c.whatsapp),
-            c.codigo_referido,
-            c.referido_por_codigo ?? '',
+            c ? nombreCompleto(c) : `Aliado: ${v.aliados?.nombre ?? ''}`,
+            c ? formatoWhatsapp(c.whatsapp) : '',
+            c?.codigo_referido ?? '',
+            c?.referido_por_codigo ?? '',
             v.monto_cop,
             v.cajas.length,
             v.cajas.map((caja) => caja.referencia),
             regalos.length ? regalos : 'No',
             piezas.map((p) => `${p.descripcion} (${String(p.peso_gramos).replace('.', ',')} g, ${p.ley})`).join(' | '),
             redondear(piezas.reduce((total, p) => total + Number(p.peso_gramos), 0)),
-            v.anulada ? 'Anulada' : 'Activa',
+            estado,
             v.nota ?? '',
           ];
         }),
@@ -129,7 +132,7 @@ export const EXPORTACIONES: Record<string, Exportacion> = {
           v.cajas.flatMap((caja) =>
             caja.piezas.map((p) => [
               v.fecha,
-              nombreCompleto(cliente(v.cliente_id)),
+              v.aliados ? `Aliado: ${v.aliados.nombre}` : nombreCompleto(cliente(v.cliente_id)!),
               caja.referencia,
               caja.es_regalo ? caja.nombre_destinatario || 'Sí (sin nombre)' : '',
               p.descripcion,
@@ -273,7 +276,7 @@ const RESPALDO: Record<string, { columnas: string[]; orden: string }> = {
     orden: 'created_at',
   },
   ventas: {
-    columnas: ['id', 'cliente_id', 'fecha', 'monto_cop', 'descuento_cop', 'nota', 'anulada', 'anulada_at', 'created_at'],
+    columnas: ['id', 'cliente_id', 'aliado_id', 'fecha', 'monto_cop', 'descuento_cop', 'nota', 'anulada', 'anulada_at', 'pagada_aliado_at', 'created_at'],
     orden: 'created_at',
   },
   cajas: { columnas: ['id', 'venta_id', 'referencia', 'codigo_chip', 'es_regalo', 'nombre_destinatario', 'created_at'], orden: 'created_at' },
@@ -283,7 +286,12 @@ const RESPALDO: Record<string, { columnas: string[]; orden: string }> = {
   },
   premios: { columnas: ['id', 'cliente_id', 'hito', 'fecha_entrega', 'nota', 'created_at'], orden: 'created_at' },
   escaneos: { columnas: ['id', 'caja_id', 'created_at'], orden: 'id' },
-  categorias: { columnas: ['id', 'nombre', 'mano_obra_gramo_cop', 'precio_gramo_cop', 'activa', 'created_at'], orden: 'created_at' },
+  categorias: {
+    columnas: ['id', 'nombre', 'mano_obra_gramo_cop', 'precio_gramo_cop', 'precio_aliado_gramo_cop', 'activa', 'created_at'],
+    orden: 'created_at',
+  },
+  // Sin el token: el enlace privado no sale en los archivos (se puede generar uno nuevo).
+  aliados: { columnas: ['id', 'nombre', 'whatsapp', 'activo', 'nota', 'ultimo_acceso', 'created_at'], orden: 'created_at' },
   productos: { columnas: ['id', 'codigo', 'nombre', 'categoria_id', 'stock_minimo', 'activo', 'nota', 'created_at'], orden: 'created_at' },
   proveedores: { columnas: ['id', 'nombre', 'contacto', 'nota', 'activo', 'created_at'], orden: 'created_at' },
   lotes: { columnas: ['id', 'proveedor_id', 'fecha', 'oro_gramo_cop', 'nota', 'creado_por', 'created_at'], orden: 'created_at' },

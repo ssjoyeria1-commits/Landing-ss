@@ -30,7 +30,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 |---|---|
 | Servidor local | `npm run dev` (o `preview_start` con `astro-dev` de `.claude/launch.json`) → http://127.0.0.1:4321 |
 | Revisar tipos | `npx astro check` (debe dar 0 errores) |
-| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 42 pruebas) |
+| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 46 pruebas) |
 | Publicar | `npm run build` y luego `npx wrangler deploy` |
 | Tipos de las variables | `npm run types` (usa `--include-runtime=false`; ver abajo) |
 | Aplicar migraciones | `npx supabase db push --linked --dry-run`, luego sin `--dry-run` y con `--yes` |
@@ -196,8 +196,11 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   - [x] A3 — `/aliados/[token]` (`CatalogoAliado.astro`): por peso, cantidad, su precio y el sugerido;
         Compartir (fotos + texto sin precio, menú del celular) y Descargar fotos. `noindex`, sin caché,
         `no-referrer`, límite de 30 por minuto. Prueba: `/pruebas/aliados`.
-  - [ ] A4 — ventas a aliados (a su precio, sin Círculo) e informe por aliado. Falta decidir si la caja
-        lleva chip.
+  - [x] A4 — ventas a aliados (decisión 6 nov: **sin chip**, con pago pendiente o pagado). Una venta es
+        de un cliente o de un aliado (`ventas.aliado_id`, `pagada_aliado_at`); `registrar_venta_aliado(p)`
+        toma por producto y peso las piezas del lote más antiguo, a precio de aliado; su caja es interna y
+        `pagina_caja` no la muestra. Ficha `/admin/aliados/[id]`: debe y pagado, ventas, marcar pagada,
+        registrar venta. Migración `20261106130000_ventas_aliados.sql`.
 - [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.
       Con el dominio: guardar `/catalogo` en la caché de Cloudflare (Cache API, que no funciona en
       `workers.dev`) y agregar una regla de límite de intentos en el panel de Cloudflare.

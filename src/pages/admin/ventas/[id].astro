@@ -30,14 +30,16 @@ if (Astro.request.method === 'POST') {
 const { data: venta } = await supabase
   .from('ventas')
   .select(
-    'id, fecha, monto_cop, descuento_cop, nota, anulada, anulada_at, clientes(id, nombre, apellido, codigo_referido), cajas(id, codigo_chip, referencia, es_regalo, nombre_destinatario, created_at, piezas(descripcion, peso_gramos, ley, orden, precio_cop, costo_cop, unidad_id), escaneos(count))',
+    'id, fecha, monto_cop, descuento_cop, nota, anulada, anulada_at, pagada_aliado_at, aliados(id, nombre), clientes(id, nombre, apellido, codigo_referido), cajas(id, codigo_chip, referencia, es_regalo, nombre_destinatario, created_at, piezas(descripcion, peso_gramos, ley, orden, precio_cop, costo_cop, unidad_id), escaneos(count))',
   )
   .eq('id', id!)
   .maybeSingle();
 
 if (!venta) return new Response('Venta no encontrada', { status: 404 });
 
-const cliente = venta.clientes as unknown as { id: string; nombre: string; apellido: string | null; codigo_referido: string };
+const cliente = venta.clientes as unknown as { id: string; nombre: string; apellido: string | null; codigo_referido: string } | null;
+// Venta a un aliado: sin cliente ni chip (su caja solo guarda las piezas).
+const aliado = venta.aliados as unknown as { id: string; nombre: string } | null;
 const cajas = [...venta.cajas].sort((a, b) => a.created_at.localeCompare(b.created_at));
 
 // Totales por pieza: subtotal, costo (solo de las piezas del inventario) y margen.
@@ -56,8 +58,24 @@ const margen = venta.monto_cop - costo;
 
   <div class="tarjeta">
     <p style="margin: 0">
-      <strong>Cliente:</strong> <a href={`/admin/clientes/${cliente.id}`}>{nombreCompleto(cliente)}</a>
-      (<code>{cliente.codigo_referido}</code>)<br />
+      {
+        cliente ? (
+          <>
+            <strong>Cliente:</strong> <a href={`/admin/clientes/${cliente.id}`}>{nombreCompleto(cliente)}</a>
+            (<code>{cliente.codigo_referido}</code>)<br />
+          </>
+        ) : (
+          aliado && (
+            <>
+              <strong>Aliado:</strong> <a href={`/admin/aliados/${aliado.id}`}>{aliado.nombre}</a> (a precio de aliado, sin Círculo)
+              <br />
+              <strong>Pago:</strong>{' '}
+              {venta.pagada_aliado_at ? `pagada el ${fecha(venta.pagada_aliado_at.slice(0, 10))}` : 'pendiente (se marca en la ficha del aliado)'}
+              <br />
+            </>
+          )
+        )
+      }
       {conPrecio && (
         <>
           <strong>Subtotal de las piezas:</strong> {pesos(subtotal)}<br />
@@ -88,18 +106,22 @@ const margen = venta.monto_cop - costo;
             {caja.es_regalo && <span class="etiqueta">Regalo{caja.nombre_destinatario && ` para ${caja.nombre_destinatario}`}</span>}
           </h2>
 
-          <label>URL para el sticker y el QR</label>
-          <div class="acciones">
-            <code style="font-size: 1.05rem">{url}</code>
-            <button type="button" class="secundario copiar" data-texto={url}>Copiar</button>
-            <a href={`/c/${caja.codigo_chip}`} target="_blank" rel="noopener">Probar en este sitio</a>
-          </div>
-          <div class="acciones" style="margin-top: 0.75rem">
-            <div class="qr-caja" set:html={qrSvg(url)} />
-            <a class="boton secundario" href={`/admin/ventas/${venta.id}/qr`}>
-              Imprimir QR de respaldo
-            </a>
-          </div>
+          {!aliado && (
+            <>
+              <label>URL para el sticker y el QR</label>
+              <div class="acciones">
+                <code style="font-size: 1.05rem">{url}</code>
+                <button type="button" class="secundario copiar" data-texto={url}>Copiar</button>
+                <a href={`/c/${caja.codigo_chip}`} target="_blank" rel="noopener">Probar en este sitio</a>
+              </div>
+              <div class="acciones" style="margin-top: 0.75rem">
+                <div class="qr-caja" set:html={qrSvg(url)} />
+                <a class="boton secundario" href={`/admin/ventas/${venta.id}/qr`}>
+                  Imprimir QR de respaldo
+                </a>
+              </div>
+            </>
+          )}
 
           <ul>
             {[...caja.piezas]
@@ -113,9 +135,9 @@ const margen = venta.monto_cop - costo;
                 </li>
               ))}
           </ul>
-          <p class="ayuda">Escaneos: {escaneos}</p>
+          {!aliado && <p class="ayuda">Escaneos: {escaneos}</p>}
 
-          {!venta.anulada && (
+          {!venta.anulada && !aliado && (
             <form method="post" class="regenerar">
               <input type="hidden" name="accion" value="regenerar" />
               <input type="hidden" name="caja_id" value={caja.id} />

@@ -7,11 +7,12 @@ import { SITIO } from '../../../../config/sitio';
 const { id } = Astro.params;
 const { data: venta } = await Astro.locals.supabase
   .from('ventas')
-  .select('id, anulada, cajas(codigo_chip, referencia, created_at)')
+  .select('id, anulada, aliado_id, cajas(codigo_chip, referencia, created_at)')
   .eq('id', id!)
   .maybeSingle();
 
-if (!venta) return new Response('Venta no encontrada', { status: 404 });
+// Las ventas a aliados no llevan chip ni QR.
+if (!venta || venta.aliado_id) return new Response('Venta no encontrada', { status: 404 });
 
 const cajas = [...venta.cajas]
   .sort((a, b) => a.created_at.localeCompare(b.created_at))

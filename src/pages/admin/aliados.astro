@@ -3,7 +3,7 @@
 // activarlos o desactivarlos (un aliado inactivo no puede abrir su catálogo).
 import Admin from '../../layouts/Admin.astro';
 import { leerAliado, urlAliado, type Aliado } from '../../lib/aliados';
-import { fecha } from '../../lib/formato';
+import { fecha, pesos } from '../../lib/formato';
 import { enlaceWhatsApp, formatoWhatsapp } from '../../lib/whatsapp';
 import { MENSAJES } from '../../config/mensajes';
 
@@ -44,6 +44,17 @@ const { data, error: falloLista } = await supabase
   .order('activo', { ascending: false })
   .order('nombre');
 const aliados = (data ?? []) as Aliado[];
+
+// Lo vendido a cada aliado y lo que debe (ventas vigentes sin marcar pagadas).
+const { data: dataVentas } = await supabase.from('ventas').select('aliado_id, monto_cop, pagada_aliado_at').not('aliado_id', 'is', null).eq('anulada', false);
+const cuentas = new Map<string, { vendido: number; debe: number }>();
+for (const v of (dataVentas ?? []) as { aliado_id: string; monto_cop: number; pagada_aliado_at: string | null }[]) {
+  const c = cuentas.get(v.aliado_id) ?? { vendido: 0, debe: 0 };
+  c.vendido += Number(v.monto_cop);
+  if (!v.pagada_aliado_at) c.debe += Number(v.monto_cop);
+  cuentas.set(v.aliado_id, c);
+}
+const totalDebe = [...cuentas.values()].reduce((s, c) => s + c.debe, 0);
 const origen = Astro.url.origin;
 const valor = (campo: string) => String(enviado?.get(campo) ?? '');
 ---
@@ -58,6 +69,7 @@ const valor = (campo: string) => String(enviado?.get(campo) ?? '');
   {error && <p class="aviso error">{error}</p>}
   {ok && <p class="aviso ok">{ok}</p>}
   {falloLista && <p class="aviso error">No se pudo cargar la lista: {falloLista.message}</p>}
+  {totalDebe > 0 && <p class="tarjeta"><strong>Por cobrar a aliados:</strong> {pesos(totalDebe)}</p>}
 
   {
     aliados.length === 0 && !falloLista && <p class="tarjeta">Todavía no hay aliados. Crea el primero abajo.</p>
@@ -69,13 +81,20 @@ const valor = (campo: string) => String(enviado?.get(campo) ?? '');
       return (
         <section class="tarjeta">
           <div class="acciones" style="justify-content: space-between">
-            <h2 style="margin: 0">{a.nombre}</h2>
+            <h2 style="margin: 0">
+              <a href={`/admin/aliados/${a.id}`}>{a.nombre}</a>
+            </h2>
             {a.activo ? <span class="etiqueta">Activo</span> : <span class="etiqueta alerta">Inactivo</span>}
           </div>
           <p class="ayuda">
             {a.whatsapp ? formatoWhatsapp(a.whatsapp) : 'Sin WhatsApp'} ·{' '}
             {a.ultimo_acceso ? `Abrió su catálogo el ${fecha(a.ultimo_acceso.slice(0, 10))}` : 'Aún no ha abierto su catálogo'}
             {a.nota && <> · {a.nota}</>}
+          </p>
+          <p style="margin: 0.4rem 0 0.8rem">
+            Vendido: {pesos(cuentas.get(a.id)?.vendido ?? 0)} · Debe:{' '}
+            <strong>{pesos(cuentas.get(a.id)?.debe ?? 0)}</strong> ·{' '}
+            <a href={`/admin/aliados/${a.id}`}>Ventas y pagos{a.activo && ', registrar venta'}</a>
           </p>
           {a.activo && (
             <>

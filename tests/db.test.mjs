@@ -859,3 +859,81 @@ test('aliados: regenerar el enlace invalida el anterior; solo los admins lo hace
   const vistos = await como(db, 'authenticated', NO_ADMIN, () => uno(db, 'select count(*)::int as n from public.aliados'));
   assert.equal(vistos.n, 0, 'un usuario que no es admin no ve aliados');
 });
+
+// ---------------------------------------------------------------------------
+// Fase A4: ventas a aliados
+// ---------------------------------------------------------------------------
+
+async function ventaAliado(db, aliadoId, lineas, extra = {}, usuario = ADMIN) {
+  return rpc(db, 'registrar_venta_aliado', { aliado_id: aliadoId, lineas, ...extra }, usuario);
+}
+
+test('venta a aliado: a su precio, toma las piezas del lote más antiguo y no lleva cliente', async () => {
+  const db = await nuevaBase();
+  await inventarioConAliado(db, [2, 2, 1.5]);
+  const a = await aliado(db);
+  const producto = (await uno(db, "select id from public.productos where codigo = 'AN-014'")).id;
+  const r = await ventaAliado(db, a.id, [{ producto_id: producto, peso_gramos: 2, cantidad: 2 }], { descuento_cop: 50000 });
+  // 2 piezas de 2 g a 300.000/g de aliado = 1.200.000 − 50.000
+  assert.equal(Number(r.monto_cop), 1150000);
+  assert.match(r.referencia, /^SS-/);
+
+  const venta = await uno(db, 'select cliente_id, aliado_id, pagada_aliado_at, descuento_cop from public.ventas where id = $1', [r.venta_id]);
+  assert.equal(venta.cliente_id, null);
+  assert.equal(venta.aliado_id, a.id);
+  assert.equal(venta.pagada_aliado_at, null, 'queda pendiente de pago');
+  const piezas = (await db.query('select precio_cop, costo_cop, unidad_id from public.piezas order by orden')).rows;
+  assert.deepEqual(piezas.map((p) => Number(p.precio_cop)), [600000, 600000]);
+  assert.ok(piezas.every((p) => Number(p.costo_cop) > 0 && p.unidad_id), 'guarda el costo y la pieza del inventario');
+  const estados = (await db.query("select peso_gramos, estado from public.unidades order by peso_gramos, estado")).rows;
+  assert.deepEqual(estados.map((u) => [Number(u.peso_gramos), u.estado]), [[1.5, 'disponible'], [2, 'vendida'], [2, 'vendida']]);
+});
+
+test('venta a aliado: no cuenta en el Círculo y su caja no abre la página del chip', async () => {
+  const db = await nuevaBase();
+  await inventarioConAliado(db, [3]);
+  const a = await aliado(db);
+  const producto = (await uno(db, "select id from public.productos where codigo = 'AN-014'")).id;
+  const r = await ventaAliado(db, a.id, [{ producto_id: producto, peso_gramos: 3, cantidad: 1 }]);
+  const chip = (await uno(db, 'select codigo_chip from public.cajas where venta_id = $1', [r.venta_id])).codigo_chip;
+  assert.equal(await pagina(db, chip), null);
+  assert.equal((await uno(db, 'select count(*)::int as n from public.escaneos')).n, 0, 'ni suma escaneo');
+  const conteo = await como(db, 'authenticated', ADMIN, () => uno(db, 'select count(*)::int as n from public.clientes_circulo where interacciones > 0'));
+  assert.equal(conteo.n, 0);
+});
+
+test('venta a aliado: sin piezas suficientes, sin precio de aliado o aliado inactivo, no guarda nada', async () => {
+  const db = await nuevaBase();
+  await inventario(db, [2]);
+  const a = await aliado(db);
+  const inactivo = await aliado(db, 'Pedro', { activo: false });
+  const producto = (await uno(db, "select id from public.productos where codigo = 'AN-014'")).id;
+  const linea = (cantidad) => [{ producto_id: producto, peso_gramos: 2, cantidad }];
+  await assert.rejects(ventaAliado(db, a.id, linea(1)), /no tiene precio para aliados/);
+  await como(db, 'authenticated', ADMIN, () => db.query('update public.categorias set precio_aliado_gramo_cop = 300000'));
+  await assert.rejects(ventaAliado(db, a.id, linea(2)), /No hay 2 piezas/);
+  await assert.rejects(ventaAliado(db, inactivo.id, linea(1)), /inactivo/);
+  await assert.rejects(ventaAliado(db, a.id, []), /al menos una pieza/);
+  await assert.rejects(ventaAliado(db, a.id, linea(1), {}, NO_ADMIN), /No autorizado/);
+  assert.equal((await uno(db, 'select count(*)::int as n from public.ventas')).n, 0, 'todo o nada');
+  assert.equal((await uno(db, "select estado from public.unidades")).estado, 'disponible');
+});
+
+test('venta a aliado: anular devuelve las piezas; se marca pagada; una venta no puede ser de cliente y aliado', async () => {
+  const db = await nuevaBase();
+  await inventarioConAliado(db, [2]);
+  const a = await aliado(db);
+  const producto = (await uno(db, "select id from public.productos where codigo = 'AN-014'")).id;
+  const r = await ventaAliado(db, a.id, [{ producto_id: producto, peso_gramos: 2, cantidad: 1 }]);
+  await como(db, 'authenticated', ADMIN, async () => {
+    await db.query('update public.ventas set pagada_aliado_at = now() where id = $1', [r.venta_id]);
+    await db.query('update public.ventas set anulada = true where id = $1', [r.venta_id]);
+  });
+  assert.equal((await uno(db, 'select estado from public.unidades')).estado, 'disponible');
+  // Una venta normal de cliente no puede llevar aliado ni pago de aliado.
+  const normal = await venta(db);
+  await como(db, 'authenticated', ADMIN, async () => {
+    await assert.rejects(db.query('update public.ventas set aliado_id = $1 where id = $2', [a.id, normal.venta_id]), /ventas_cliente_o_aliado/);
+    await assert.rejects(db.query('update public.ventas set pagada_aliado_at = now() where id = $1', [normal.venta_id]), /ventas_pago_solo_aliado/);
+  });
+});

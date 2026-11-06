@@ -26,6 +26,32 @@ const total = productos.reduce(
   { piezas: 0, costo: 0, valor: 0 },
 );
 const categorias = (dataCategorias ?? []) as Pick<Categoria, 'id' | 'nombre'>[];
+
+// Lista de precios: cada peso disponible de cada producto con su precio de venta de hoy y cuántas hay.
+type PrecioPieza = { peso: number; precio: number; hay: number };
+const preciosPorProducto = new Map<string, PrecioPieza[]>();
+if (productos.length > 0) {
+  const piezas: { producto_id: string; peso_gramos: number; precio_cop: number }[] = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data: lote } = await supabase
+      .from('unidades_detalle')
+      .select('producto_id, peso_gramos, precio_cop')
+      .eq('estado', 'disponible')
+      .order('id')
+      .range(desde, desde + 999);
+    piezas.push(...((lote ?? []) as typeof piezas));
+    if (!lote || lote.length < 1000) break;
+  }
+  for (const u of piezas) {
+    const lista = preciosPorProducto.get(u.producto_id) ?? [];
+    const peso = Number(u.peso_gramos);
+    const igual = lista.find((x) => x.peso === peso);
+    if (igual) igual.hay += 1;
+    else lista.push({ peso, precio: Number(u.precio_cop), hay: 1 });
+    preciosPorProducto.set(u.producto_id, lista);
+  }
+  for (const lista of preciosPorProducto.values()) lista.sort((a, b) => a.peso - b.peso);
+}
 ---
 
 <Admin title="Inventario">
@@ -80,6 +106,7 @@ const categorias = (dataCategorias ?? []) as Pick<Categoria, 'id' | 'nombre'>[];
             <tr>
               <th>Código</th>
               <th>Producto</th>
+              <th class="num">Precio por pieza</th>
               <th>Categoría</th>
               <th class="num">Disponibles</th>
               <th class="num">Gramos</th>
@@ -103,6 +130,15 @@ const categorias = (dataCategorias ?? []) as Pick<Categoria, 'id' | 'nombre'>[];
                     </>
                   )}
                 </td>
+                <td class="num precios">
+                  {(preciosPorProducto.get(p.id) ?? []).map((x) => (
+                    <span>
+                      {gramos(x.peso)} · <strong>{pesos(x.precio)}</strong>
+                      {x.hay > 1 && <small> ×{x.hay}</small>}
+                    </span>
+                  ))}
+                  <small class="ayuda">{pesos(p.precio_gramo_cop)} por gramo</small>
+                </td>
                 <td>{p.categoria}</td>
                 <td class="num">
                   {p.disponibles}
@@ -124,7 +160,7 @@ const categorias = (dataCategorias ?? []) as Pick<Categoria, 'id' | 'nombre'>[];
           </tbody>
           <tfoot>
             <tr>
-              <th colspan="3">Total</th>
+              <th colspan="4">Total</th>
               <th class="num">{total.piezas}</th>
               <th />
               <th class="num">{pesos(total.costo)}</th>
@@ -139,6 +175,19 @@ const categorias = (dataCategorias ?? []) as Pick<Categoria, 'id' | 'nombre'>[];
 
   <p class="ayuda" style="margin-top: 1rem">
     Cada pieza entra con su propio peso al registrar su lote. Costo = peso × (oro del lote + mano de obra por gramo);
-    valor de venta = peso × precio por gramo de hoy.
+    valor de venta = peso × precio por gramo de hoy. "Precio por pieza" es la lista de precios: cada peso disponible con su
+    precio (×2 si hay dos iguales).
   </p>
 </Admin>
+
+<style>
+  .precios span,
+  .precios > small {
+    display: block;
+    white-space: nowrap;
+  }
+
+  .precios span + span {
+    margin-top: 0.15rem;
+  }
+</style>

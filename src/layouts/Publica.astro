@@ -24,7 +24,7 @@ const { title = 'SS Joyería', noindex = false, portada = true, amplio = false, 
 const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuente}') format('woff2');font-weight:500 700;font-display:swap}`;
 ---
 
-<Base title={title} noindex={noindex} clase="fondo-publico">
+<Base title={title} noindex={noindex} clase={amplio ? 'fondo-publico fondo-catalogo' : 'fondo-publico'}>
   <Fragment slot="head">
     <link rel="preload" href={fuente} as="font" type="font/woff2" crossorigin />
     {/* El catálogo trae fotos de Supabase: abrir esa conexión desde el principio ahorra la espera
@@ -142,6 +142,11 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
     background: linear-gradient(180deg, #000 0%, #000 35%, #1c0306 65%, var(--fondo-final) 100%) 0 0 / 100% 100vh no-repeat
       var(--fondo-final);
     background-size: 100% 100lvh;
+  }
+
+  /* Catálogo (y el de aliados): el vino empieza más arriba, para que el fondo se vea menos negro. */
+  .fondo-catalogo::before {
+    background-image: linear-gradient(180deg, #000 0%, #000 8%, #1c0306 40%, var(--fondo-final) 100%);
   }
 
   .publica {

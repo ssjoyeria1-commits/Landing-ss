@@ -1,24 +1,30 @@
 ---
 import Admin from '../../../layouts/Admin.astro';
+import FormularioVenta from '../../../components/admin/FormularioVenta.astro';
 import { hoyBogota } from '../../../lib/formato';
-import { leerFormularioVenta } from '../../../lib/venta';
+import { leerFormularioVenta, leerVentaAliado } from '../../../lib/venta';
 import { listaPaises } from '../../../lib/whatsapp';
-import type { UnidadDetalle } from '../../../lib/inventario';
+import { mensajeError, type UnidadDetalle } from '../../../lib/inventario';
 
 let error = '';
 
 if (Astro.request.method === 'POST') {
   const quiereJson = Astro.request.headers.get('Accept')?.includes('application/json');
-  const leido = leerFormularioVenta(await Astro.request.formData());
+  const form = await Astro.request.formData();
+  // Venta a un aliado (a su precio, sin cliente, sin chip y pendiente de pago) o a un cliente.
+  const esAliado = form.get('tipo') === 'aliado';
+  const leido = esAliado ? leerVentaAliado(form) : leerFormularioVenta(form);
 
   if ('error' in leido) {
     error = leido.error;
   } else {
-    const { data, error: fallo } = await Astro.locals.supabase.rpc('registrar_venta', { p: leido.payload });
+    const { data, error: fallo } = esAliado
+      ? await Astro.locals.supabase.rpc('registrar_venta_aliado', { p: leido.payload })
+      : await Astro.locals.supabase.rpc('registrar_venta', { p: leido.payload });
     if (fallo) {
-      error = fallo.message;
+      error = esAliado ? mensajeError(fallo.message) : fallo.message;
     } else {
-      const destino = `/admin/ventas/${data.venta_id}?nueva=1`;
+      const destino = `/admin/ventas/${data.venta_id}?${esAliado ? 'aliado' : 'nueva'}=1`;
       if (quiereJson) return Response.json({ ok: true, destino });
       return Astro.redirect(destino);
     }
@@ -27,399 +33,36 @@ if (Astro.request.method === 'POST') {
 }
 
 // Piezas disponibles del inventario, para elegirlas por producto y peso.
-const { data: dataUnidades } = await Astro.locals.supabase
-  .from('unidades_detalle')
-  .select('id, producto_id, codigo, producto, peso_gramos, precio_cop')
-  .eq('estado', 'disponible')
-  .order('codigo')
-  .order('peso_gramos')
-  // Entre piezas iguales sale primero la del lote más antiguo.
-  .order('lote_fecha')
-  .order('created_at');
+const [{ data: dataUnidades }, { data: dataAliados }, { data: dataPrecios }] = await Promise.all([
+  Astro.locals.supabase
+    .from('unidades_detalle')
+    .select('id, producto_id, codigo, producto, categoria, peso_gramos, precio_cop')
+    .eq('estado', 'disponible')
+    .order('codigo')
+    .order('peso_gramos')
+    // Entre piezas iguales sale primero la del lote más antiguo.
+    .order('lote_fecha')
+    .order('created_at'),
+  Astro.locals.supabase.from('aliados').select('id, nombre').eq('activo', true).order('nombre'),
+  Astro.locals.supabase.from('productos_catalogo').select('id, precio_aliado_gramo_cop').not('precio_aliado_gramo_cop', 'is', null),
+]);
 const unidades = (dataUnidades ?? []) as Pick<
   UnidadDetalle,
-  'id' | 'producto_id' | 'codigo' | 'producto' | 'peso_gramos' | 'precio_cop'
+  'id' | 'producto_id' | 'codigo' | 'producto' | 'categoria' | 'peso_gramos' | 'precio_cop'
 >[];
+const aliados = (dataAliados ?? []) as { id: string; nombre: string }[];
+// Precio de aliado por gramo de cada producto (el de su categoría); sin él no se vende a aliados.
+const preciosAliado = Object.fromEntries(
+  ((dataPrecios ?? []) as { id: string; precio_aliado_gramo_cop: number }[]).map((p) => [p.id, Number(p.precio_aliado_gramo_cop)]),
+);
 
 const paises = listaPaises();
 const hoy = hoyBogota();
+// Desde la ficha de un aliado se llega con ?aliado=ID para dejarlo elegido.
+const aliadoInicial = aliados.find((a) => a.id === Astro.url.searchParams.get('aliado'))?.id ?? '';
+const tipoInicial: 'cliente' | 'aliado' = aliadoInicial || Astro.url.searchParams.get('tipo') === 'aliado' ? 'aliado' : 'cliente';
 ---
 
 <Admin title="Registrar venta">
-  <form method="post" id="venta" novalidate>
-    <p class="aviso error" id="error" hidden={!error}>{error}</p>
-
-    <section class="tarjeta">
-      <h2 style="margin-top: 0">Cliente</h2>
-      <div class="fila">
-        <div class="campo">
-          <label for="pais">País del WhatsApp</label>
-          <select id="pais" name="pais">
-            {paises.map((p) => <option value={p.codigo}>{p.nombre}</option>)}
-          </select>
-        </div>
-        <div class="campo">
-          <label for="whatsapp">WhatsApp</label>
-          <input id="whatsapp" name="whatsapp" type="tel" inputmode="tel" autocomplete="off" required placeholder="300 123 4567" />
-        </div>
-      </div>
-      <p class="ayuda" id="estado-cliente">Escribe el número para saber si el cliente ya existe.</p>
-
-      <fieldset id="cliente-nuevo" style="border: 0; padding: 0; margin: 1rem 0 0">
-        <div class="fila">
-          <div class="campo">
-            <label for="nombre">Primer nombre</label>
-            <input id="nombre" name="nombre" autocomplete="off" maxlength="60" />
-          </div>
-          <div class="campo">
-            <label for="apellido">Apellido (opcional)</label>
-            <input id="apellido" name="apellido" autocomplete="off" maxlength="60" />
-          </div>
-        </div>
-        <div class="fila">
-          <div class="campo">
-            <label class="check"><input type="checkbox" name="autorizo_datos" /> Autorizó el tratamiento de datos por WhatsApp</label>
-          </div>
-          <div class="campo">
-            <label for="autorizo_datos_fecha">Fecha de la autorización</label>
-            <input id="autorizo_datos_fecha" name="autorizo_datos_fecha" type="date" value={hoy} max={hoy} />
-          </div>
-        </div>
-        <div class="campo" style="max-width: 20rem">
-          <label for="codigo_referido_de">Código de quien lo refirió (opcional)</label>
-          <input id="codigo_referido_de" name="codigo_referido_de" autocomplete="off" placeholder="MARIA-4821" style="text-transform: uppercase" />
-          <p class="ayuda">Solo para clientes nuevos. No se puede cambiar después.</p>
-        </div>
-      </fieldset>
-    </section>
-
-    <section class="tarjeta">
-      <h2 style="margin-top: 0">Venta</h2>
-      <div class="fila">
-        <div class="campo">
-          <label for="descuento">Descuento (COP, opcional)</label>
-          <input id="descuento" name="descuento" inputmode="numeric" autocomplete="off" placeholder="0" />
-        </div>
-        <div class="campo">
-          <label for="fecha">Fecha</label>
-          <input id="fecha" name="fecha" type="date" value={hoy} max={hoy} />
-        </div>
-      </div>
-      <div class="campo">
-        <label for="nota">Nota interna (opcional)</label>
-        <textarea id="nota" name="nota" rows="2"></textarea>
-      </div>
-    </section>
-
-    <div id="cajas"></div>
-    <p><button type="button" class="secundario" id="agregar-caja">+ Agregar otra caja</button></p>
-
-    <section class="tarjeta" aria-live="polite">
-      <p style="margin: 0" id="totales">Agrega las piezas para ver el total.</p>
-      <p class="ayuda">El total de la venta es la suma de los precios de las piezas menos el descuento.</p>
-    </section>
-    <script type="application/json" id="inventario" set:html={JSON.stringify(unidades)} />
-
-    <p><button type="submit" id="guardar">Guardar venta y generar códigos</button></p>
-  </form>
-
-  <template id="tpl-caja">
-    <section class="tarjeta caja">
-      <div class="acciones" style="justify-content: space-between">
-        <h2 style="margin: 0" class="titulo-caja">Caja</h2>
-        <button type="button" class="enlace quitar-caja">Quitar caja</button>
-      </div>
-      <div class="fila" style="margin-top: 0.75rem">
-        <div class="campo">
-          <label class="check"><input type="checkbox" data-campo="regalo" /> Es un regalo</label>
-        </div>
-        <div class="campo destinatario" hidden>
-          <label>Nombre de quien recibe (opcional)</label>
-          <input data-campo="destinatario" maxlength="60" autocomplete="off" />
-        </div>
-      </div>
-      <div class="piezas"></div>
-      <button type="button" class="enlace agregar-pieza">+ Agregar pieza</button>
-    </section>
-  </template>
-
-  <template id="tpl-pieza">
-    <div class="pieza" style="border-top: 1px solid var(--borde); padding-top: 0.75rem; margin-top: 0.75rem">
-      <div class="fila">
-        <div class="campo">
-          <label>Pieza</label>
-          <select data-campo="origen">
-            <option value="inventario">Del inventario</option>
-            <option value="manual">Fuera del inventario</option>
-          </select>
-        </div>
-        <div class="campo" style="align-self: end; text-align: right">
-          <button type="button" class="enlace quitar-pieza">Quitar</button>
-        </div>
-      </div>
-      <div class="fila del-inventario">
-        <div class="campo" style="grid-column: span 2">
-          <label>Producto</label>
-          <select data-producto>
-            <option value="">Elige…</option>
-          </select>
-        </div>
-        <div class="campo">
-          <label>Peso de la pieza</label>
-          <select data-peso>
-            <option value="">Elige el producto</option>
-          </select>
-          <input type="hidden" data-campo="unidad" />
-        </div>
-      </div>
-      <div class="fila manual" hidden>
-        <div class="campo" style="grid-column: span 2">
-          <label>Descripción</label>
-          <input data-campo="descripcion" maxlength="120" placeholder="Cadena tejido lazo 50 cm" autocomplete="off" />
-        </div>
-        <div class="campo">
-          <label>Peso (g)</label>
-          <input data-campo="peso" inputmode="decimal" placeholder="5,25" autocomplete="off" />
-        </div>
-        <div class="campo">
-          <label>Precio (COP)</label>
-          <input data-campo="precio" inputmode="numeric" placeholder="1.680.000" autocomplete="off" />
-        </div>
-      </div>
-      <p class="precio-pieza" style="margin: 0 0 0.25rem; font-weight: 600"></p>
-    </div>
-  </template>
+  <FormularioVenta {error} {unidades} {aliados} {preciosAliado} {paises} {hoy} {aliadoInicial} tipoInicial={tipoInicial} />
 </Admin>
-
-<script>
-  const form = document.querySelector<HTMLFormElement>('#venta')!;
-  const contenedor = document.querySelector<HTMLElement>('#cajas')!;
-  const tplCaja = document.querySelector<HTMLTemplateElement>('#tpl-caja')!;
-  const tplPieza = document.querySelector<HTMLTemplateElement>('#tpl-pieza')!;
-  const errorBox = document.querySelector<HTMLElement>('#error')!;
-
-  // Los nombres de los campos se recalculan tras cada cambio: caja-{i}-..., caja-{i}-pieza-{j}-...
-  function renumerar() {
-    const cajas = [...contenedor.querySelectorAll<HTMLElement>('.caja')];
-    cajas.forEach((caja, i) => {
-      caja.querySelector('.titulo-caja')!.textContent = `Caja ${i + 1}`;
-      caja.querySelector<HTMLElement>('.quitar-caja')!.hidden = cajas.length === 1;
-      caja.querySelector<HTMLInputElement>('[data-campo="regalo"]')!.name = `caja-${i}-regalo`;
-      caja.querySelector<HTMLInputElement>('[data-campo="destinatario"]')!.name = `caja-${i}-destinatario`;
-      const piezas = [...caja.querySelectorAll<HTMLElement>('.pieza')];
-      piezas.forEach((pieza, j) => {
-        pieza.querySelector<HTMLElement>('.quitar-pieza')!.hidden = piezas.length === 1;
-        for (const input of pieza.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-campo]')) {
-          input.name = `caja-${i}-pieza-${j}-${input.dataset.campo}`;
-        }
-      });
-    });
-  }
-
-  // Inventario disponible: productos, y dentro de cada uno sus piezas agrupadas por peso. En la lista
-  // se elige el peso (con cuántas hay); la pieza concreta la asigna el formulario, la del lote más antiguo.
-  type Unidad = { id: string; producto_id: string; codigo: string; producto: string; peso_gramos: number; precio_cop: number };
-  const unidades = JSON.parse(document.querySelector('#inventario')!.textContent || '[]') as Unidad[];
-  const clavePeso = (g: number) => Number(g).toFixed(2);
-  const productos = new Map<string, { nombre: string; total: number; pesos: Map<string, Unidad[]> }>();
-  for (const u of unidades) {
-    if (!productos.has(u.producto_id)) {
-      productos.set(u.producto_id, { nombre: `${u.codigo} · ${u.producto}`, total: 0, pesos: new Map() });
-    }
-    const p = productos.get(u.producto_id)!;
-    p.total += 1;
-    const k = clavePeso(u.peso_gramos);
-    if (!p.pesos.has(k)) p.pesos.set(k, []);
-    p.pesos.get(k)!.push(u);
-  }
-  const porId = new Map(unidades.map((u) => [u.id, u]));
-  const pesos = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
-  const gramos = (g: number) => `${Number(g).toLocaleString('es-CO', { maximumFractionDigits: 2 })} g`;
-  const monto = (v: string) => Number(v.replace(/\D/g, '')) || 0;
-
-  /** Piezas ya asignadas en otras filas: no se usan dos veces. */
-  function usadas(excepto: HTMLElement) {
-    return new Set(
-      [...contenedor.querySelectorAll<HTMLElement>('.pieza')]
-        .filter((p) => p !== excepto)
-        .map((p) => p.querySelector<HTMLInputElement>('[data-campo="unidad"]')!.value)
-        .filter(Boolean),
-    );
-  }
-
-  /** Llena la lista de pesos de la fila (con cuántas quedan libres) y asigna la pieza del peso elegido. */
-  function llenarPesos(pieza: HTMLElement) {
-    const producto = pieza.querySelector<HTMLSelectElement>('[data-producto]')!;
-    const peso = pieza.querySelector<HTMLSelectElement>('[data-peso]')!;
-    const unidad = pieza.querySelector<HTMLInputElement>('[data-campo="unidad"]')!;
-    const ocupadas = usadas(pieza);
-    const actual = peso.value;
-    peso.replaceChildren(new Option(producto.value ? 'Elige…' : 'Elige el producto', ''));
-    for (const [k, grupo] of productos.get(producto.value)?.pesos ?? []) {
-      const libres = grupo.filter((u) => !ocupadas.has(u.id));
-      if (libres.length === 0) continue;
-      const etiqueta = `${gramos(grupo[0].peso_gramos)} · ${pesos.format(grupo[0].precio_cop)} · ${libres.length} ${
-        libres.length === 1 ? 'disponible' : 'disponibles'
-      }`;
-      peso.append(new Option(etiqueta, k, false, k === actual));
-    }
-    // Con un solo peso disponible, se elige solo.
-    if (!peso.value && peso.options.length === 2) peso.selectedIndex = 1;
-
-    // Se conserva la pieza asignada si sigue siendo de ese peso y nadie más la usa; si no, la siguiente libre.
-    const grupo = productos.get(producto.value)?.pesos.get(peso.value) ?? [];
-    if (!grupo.some((u) => u.id === unidad.value) || ocupadas.has(unidad.value)) {
-      unidad.value = grupo.find((u) => !ocupadas.has(u.id))?.id ?? '';
-    }
-  }
-
-  function refrescarPesos() {
-    for (const pieza of contenedor.querySelectorAll<HTMLElement>('.pieza')) llenarPesos(pieza);
-  }
-
-  function mostrarOrigen(pieza: HTMLElement) {
-    const manual = pieza.querySelector<HTMLSelectElement>('[data-campo="origen"]')!.value === 'manual';
-    pieza.querySelector<HTMLElement>('.del-inventario')!.hidden = manual;
-    pieza.querySelector<HTMLElement>('.manual')!.hidden = !manual;
-  }
-
-  // Precio de cada pieza y total de la venta (suma − descuento), en vivo.
-  const totales = document.querySelector<HTMLElement>('#totales')!;
-  const descuento = document.querySelector<HTMLInputElement>('#descuento')!;
-  function actualizarTotales() {
-    let subtotal = 0;
-    let n = 0;
-    for (const pieza of contenedor.querySelectorAll<HTMLElement>('.pieza')) {
-      const manual = pieza.querySelector<HTMLSelectElement>('[data-campo="origen"]')!.value === 'manual';
-      const elegida = manual ? undefined : porId.get(pieza.querySelector<HTMLInputElement>('[data-campo="unidad"]')!.value);
-      const precio = manual ? monto(pieza.querySelector<HTMLInputElement>('[data-campo="precio"]')!.value) : (elegida?.precio_cop ?? 0);
-      pieza.querySelector<HTMLElement>('.precio-pieza')!.textContent = elegida
-        ? `${elegida.producto} · ${gramos(elegida.peso_gramos)} · 18k · ${pesos.format(elegida.precio_cop)}`
-        : '';
-      if (precio) {
-        subtotal += precio;
-        n += 1;
-      }
-    }
-    const d = monto(descuento.value);
-    const partes = [`${n} ${n === 1 ? 'pieza' : 'piezas'}`, `subtotal ${pesos.format(subtotal)}`];
-    if (d) partes.push(`descuento ${pesos.format(d)}`);
-    partes.push(`total ${pesos.format(Math.max(subtotal - d, 0))}`);
-    totales.textContent = n ? partes.join(' · ') : 'Agrega las piezas para ver el total.';
-  }
-  descuento.addEventListener('input', actualizarTotales);
-  contenedor.addEventListener('input', actualizarTotales);
-
-  function agregarPieza(caja: HTMLElement) {
-    const nodo = tplPieza.content.cloneNode(true) as DocumentFragment;
-    const producto = nodo.querySelector<HTMLSelectElement>('[data-producto]')!;
-    for (const [id, p] of productos) producto.append(new Option(`${p.nombre} (${p.total})`, id));
-    // Sin inventario cargado, las piezas se escriben a mano.
-    if (productos.size === 0) nodo.querySelector<HTMLSelectElement>('[data-campo="origen"]')!.value = 'manual';
-    caja.querySelector('.piezas')!.append(nodo);
-    mostrarOrigen(caja.querySelector<HTMLElement>('.pieza:last-child')!);
-    renumerar();
-    actualizarTotales();
-  }
-
-  function agregarCaja() {
-    contenedor.append(tplCaja.content.cloneNode(true));
-    agregarPieza(contenedor.lastElementChild as HTMLElement);
-  }
-
-  contenedor.addEventListener('click', (e) => {
-    const boton = (e.target as HTMLElement).closest('button');
-    if (!boton) return;
-    const caja = boton.closest<HTMLElement>('.caja')!;
-    if (boton.classList.contains('agregar-pieza')) agregarPieza(caja);
-    if (boton.classList.contains('quitar-pieza')) boton.closest('.pieza')!.remove();
-    if (boton.classList.contains('quitar-caja')) caja.remove();
-    renumerar();
-    refrescarPesos();
-    actualizarTotales();
-  });
-
-  contenedor.addEventListener('change', (e) => {
-    const input = e.target as HTMLInputElement;
-    if (input.dataset.campo === 'regalo') {
-      input.closest('.caja')!.querySelector<HTMLElement>('.destinatario')!.hidden = !input.checked;
-    }
-    const pieza = input.closest<HTMLElement>('.pieza');
-    if (pieza && input.dataset.campo === 'origen') mostrarOrigen(pieza);
-    // Al cambiar producto o peso se asigna la pieza y se actualizan las cantidades libres de las demás filas.
-    if (pieza && input.hasAttribute('data-producto')) {
-      pieza.querySelector<HTMLSelectElement>('[data-peso]')!.value = '';
-      pieza.querySelector<HTMLInputElement>('[data-campo="unidad"]')!.value = '';
-    }
-    if (pieza && (input.hasAttribute('data-producto') || input.hasAttribute('data-peso'))) {
-      llenarPesos(pieza);
-      for (const otra of contenedor.querySelectorAll<HTMLElement>('.pieza')) if (otra !== pieza) llenarPesos(otra);
-    }
-    actualizarTotales();
-  });
-
-  document.querySelector('#agregar-caja')!.addEventListener('click', agregarCaja);
-  agregarCaja();
-
-  // Búsqueda del cliente por WhatsApp.
-  const pais = document.querySelector<HTMLSelectElement>('#pais')!;
-  const whatsapp = document.querySelector<HTMLInputElement>('#whatsapp')!;
-  const estado = document.querySelector<HTMLElement>('#estado-cliente')!;
-  const nuevo = document.querySelector<HTMLFieldSetElement>('#cliente-nuevo')!;
-  let consulta = 0;
-
-  async function buscarCliente() {
-    const id = ++consulta;
-    const numero = whatsapp.value.trim();
-    nuevo.disabled = false;
-    if (numero.replace(/\D/g, '').length < 7) {
-      estado.textContent = 'Escribe el número para saber si el cliente ya existe.';
-      return;
-    }
-    const r = await fetch(`/admin/api/cliente?pais=${pais.value}&numero=${encodeURIComponent(numero)}`);
-    const datos = await r.json();
-    if (id !== consulta) return;
-    if (!datos.valido) {
-      estado.textContent = 'Número no válido para el país elegido.';
-    } else if (datos.cliente) {
-      const c = datos.cliente;
-      estado.textContent = `Cliente existente: ${c.nombre} ${c.apellido ?? ''} · ${c.codigo_referido} · ${c.interacciones} interacciones.`;
-      nuevo.disabled = true;
-    } else {
-      estado.textContent = `Cliente nuevo (${datos.whatsapp}). Completa sus datos.`;
-    }
-  }
-
-  let espera: number | undefined;
-  whatsapp.addEventListener('input', () => {
-    clearTimeout(espera);
-    espera = window.setTimeout(buscarCliente, 400);
-  });
-  pais.addEventListener('change', buscarCliente);
-
-  // Envío sin recargar, para no perder las cajas si hay un error.
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const boton = document.querySelector<HTMLButtonElement>('#guardar')!;
-    boton.disabled = true;
-    errorBox.hidden = true;
-    try {
-      const r = await fetch(form.action, {
-        method: 'POST',
-        body: new FormData(form),
-        headers: { Accept: 'application/json' },
-      });
-      const datos = await r.json();
-      if (datos.ok) {
-        location.href = datos.destino;
-        return;
-      }
-      errorBox.textContent = datos.error;
-    } catch {
-      errorBox.textContent = 'No se pudo guardar. Revisa la conexión e intenta de nuevo.';
-    }
-    errorBox.hidden = false;
-    errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    boton.disabled = false;
-  });
-</script>

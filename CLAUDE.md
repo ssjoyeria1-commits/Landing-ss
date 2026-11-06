@@ -78,7 +78,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   Cada sección es una tarjeta vino oscuro (`--franja`) con tres rombos del imagotipo arriba. Rojo solo
   para el botón principal y los rombos ganados del Círculo. Botones oscuros con filete marfil.
 - Datos de prueba de la página del chip sin base de datos: `/pruebas/casos?datos=demo|peor|cero|diez|regalo|regalo-sin-nombre|neutra|temporal`
-  (solo en desarrollo; en producción da 404). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. QR de respaldo: `/pruebas/qr`. Catálogo de aliado: `/pruebas/aliados`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
+  (solo en desarrollo; en producción da 404). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. QR de respaldo: `/pruebas/qr`. Catálogo de aliado: `/pruebas/aliados`. Registrar venta (cliente o aliado, muestra el JSON sin guardar): `/pruebas/venta?aliado=a1`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
   (`&ficha=CODIGO` para la ficha, `&whatsapp=1` para ver el botón con un número de ejemplo).
 - Nombres con mayúscula inicial (`capitalizar()` al guardar y al mostrar).
 - CSV "informes" para Excel en español: separador `;` y decimales con coma. Los de "respaldo técnico"
@@ -199,8 +199,10 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   - [x] A4 — ventas a aliados (decisión 6 nov: **sin chip**, con pago pendiente o pagado). Una venta es
         de un cliente o de un aliado (`ventas.aliado_id`, `pagada_aliado_at`); `registrar_venta_aliado(p)`
         toma por producto y peso las piezas del lote más antiguo, a precio de aliado; su caja es interna y
-        `pagina_caja` no la muestra. Ficha `/admin/aliados/[id]`: debe y pagado, ventas, marcar pagada,
-        registrar venta. Migración `20261106130000_ventas_aliados.sql`.
+        `pagina_caja` no la muestra. Se registra en Registrar venta eligiendo "A un aliado" (buscador de
+        piezas por código o nombre, peso y cantidad; `src/components/admin/FormularioVenta.astro`).
+        Ficha `/admin/aliados/[id]`: debe y pagado, ventas, marcar pagada; los datos se editan en Aliados.
+        Migración `20261106130000_ventas_aliados.sql`.
 - [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.
       Con el dominio: guardar `/catalogo` en la caché de Cloudflare (Cache API, que no funciona en
       `workers.dev`) y agregar una regla de límite de intentos en el panel de Cloudflare.

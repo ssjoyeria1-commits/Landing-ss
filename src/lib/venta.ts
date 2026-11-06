@@ -120,3 +120,49 @@ export function leerFormularioVenta(form: FormData): { payload: PayloadVenta } |
     },
   };
 }
+
+export interface PayloadVentaAliado {
+  aliado_id: string;
+  /** Cuántas piezas de cada producto y peso; registrar_venta_aliado elige las del lote más antiguo. */
+  lineas: { producto_id: string; peso_gramos: number; cantidad: number }[];
+  descuento_cop: number;
+  fecha: string | null;
+  nota: string | null;
+}
+
+/**
+ * Arma el JSON de registrar_venta_aliado a partir del formulario de venta en modo aliado: campos
+ * aliado_id y, por cada fila, linea-producto, linea-peso y linea-cantidad (repetidos, en orden).
+ */
+export function leerVentaAliado(form: FormData): { payload: PayloadVentaAliado } | { error: string } {
+  const aliado_id = texto(form, 'aliado_id');
+  if (!aliado_id) return { error: 'Elige el aliado.' };
+
+  const descuentoTexto = texto(form, 'descuento');
+  const descuento = descuentoTexto ? leerMonto(descuentoTexto) : 0;
+  if (!Number.isSafeInteger(descuento) || descuento < 0) return { error: 'El descuento no es válido.' };
+
+  const productos = form.getAll('linea-producto').map((v) => String(v).trim());
+  const pesos = form.getAll('linea-peso').map((v) => String(v).trim());
+  const cantidades = form.getAll('linea-cantidad').map((v) => String(v).trim());
+  const lineas: PayloadVentaAliado['lineas'] = [];
+  for (let i = 0; i < productos.length; i++) {
+    if (!productos[i] && !pesos[i]) continue; // fila sin elegir
+    if (!productos[i]) return { error: `Pieza ${i + 1}: elige el producto.` };
+    if (!pesos[i]) return { error: `Pieza ${i + 1}: elige el peso.` };
+    const cantidad = Number(cantidades[i] || '1');
+    if (!Number.isInteger(cantidad) || cantidad <= 0) return { error: `Pieza ${i + 1}: la cantidad debe ser un número entero.` };
+    lineas.push({ producto_id: productos[i], peso_gramos: Number(pesos[i]), cantidad });
+  }
+  if (lineas.length === 0) return { error: 'Agrega al menos una pieza.' };
+
+  return {
+    payload: {
+      aliado_id,
+      lineas,
+      descuento_cop: descuento,
+      fecha: texto(form, 'fecha') || null,
+      nota: texto(form, 'nota') || null,
+    },
+  };
+}

@@ -1,0 +1,773 @@
+---
+// Formulario de Registrar venta: a un cliente (cajas con chip, Círculo) o a un aliado (piezas por
+// producto y peso con buscador, a precio de aliado). Lo usan /admin/ventas/nueva y /pruebas/venta.
+import type { UnidadDetalle } from '../../lib/inventario';
+
+interface Props {
+  error: string;
+  unidades: Pick<UnidadDetalle, 'id' | 'producto_id' | 'codigo' | 'producto' | 'categoria' | 'peso_gramos' | 'precio_cop'>[];
+  aliados: { id: string; nombre: string }[];
+  preciosAliado: Record<string, number>;
+  paises: { codigo: string; nombre: string }[];
+  hoy: string;
+  aliadoInicial: string;
+  tipoInicial: 'cliente' | 'aliado';
+}
+
+const { error, unidades, aliados, preciosAliado, paises, hoy, aliadoInicial, tipoInicial } = Astro.props;
+---
+
+<form method="post" id="venta" novalidate>
+  <p class="aviso error" id="error" hidden={!error}>{error}</p>
+
+<fieldset class="tipo-venta">
+    <legend>¿A quién le vendes?</legend>
+    <label><input type="radio" name="tipo" value="cliente" checked={tipoInicial === 'cliente'} /> A un cliente</label>
+    <label><input type="radio" name="tipo" value="aliado" checked={tipoInicial === 'aliado'} /> A un aliado</label>
+  </fieldset>
+
+<section class="tarjeta" id="seccion-aliado" hidden={tipoInicial !== 'aliado'}>
+    <h2 style="margin-top: 0">Aliado</h2>
+    {
+      aliados.length === 0 ? (
+        <p class="ayuda">
+          No hay aliados activos. Créalos en <a href="/admin/aliados">Aliados</a>.
+        </p>
+      ) : (
+        <div class="campo" style="max-width: 22rem">
+          <label for="aliado_id">Aliado</label>
+          <select id="aliado_id" name="aliado_id">
+            <option value="">Elige…</option>
+            {aliados.map((a) => (
+              <option value={a.id} selected={a.id === aliadoInicial}>
+                {a.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+      )
+    }
+    <p class="ayuda">
+      A precio de aliado, sin chip y sin Círculo. Queda pendiente de pago hasta que la marques pagada en su ficha. Busca cada
+      pieza y escribe cuántas lleva: el sistema toma las del lote más antiguo.
+    </p>
+    <div id="lineas"></div>
+    <button type="button" class="enlace" id="agregar-linea">+ Agregar otra pieza</button>
+  </section>
+
+<section class="tarjeta" id="seccion-cliente" hidden={tipoInicial !== 'cliente'}>
+    <h2 style="margin-top: 0">Cliente</h2>
+    <div class="fila">
+      <div class="campo">
+        <label for="pais">País del WhatsApp</label>
+        <select id="pais" name="pais">
+          {paises.map((p) => <option value={p.codigo}>{p.nombre}</option>)}
+        </select>
+      </div>
+      <div class="campo">
+        <label for="whatsapp">WhatsApp</label>
+        <input id="whatsapp" name="whatsapp" type="tel" inputmode="tel" autocomplete="off" required placeholder="300 123 4567" />
+      </div>
+    </div>
+    <p class="ayuda" id="estado-cliente">Escribe el número para saber si el cliente ya existe.</p>
+
+  <fieldset id="cliente-nuevo" style="border: 0; padding: 0; margin: 1rem 0 0">
+      <div class="fila">
+        <div class="campo">
+          <label for="nombre">Primer nombre</label>
+          <input id="nombre" name="nombre" autocomplete="off" maxlength="60" />
+        </div>
+        <div class="campo">
+          <label for="apellido">Apellido (opcional)</label>
+          <input id="apellido" name="apellido" autocomplete="off" maxlength="60" />
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label class="check"><input type="checkbox" name="autorizo_datos" /> Autorizó el tratamiento de datos por WhatsApp</label>
+        </div>
+        <div class="campo">
+          <label for="autorizo_datos_fecha">Fecha de la autorización</label>
+          <input id="autorizo_datos_fecha" name="autorizo_datos_fecha" type="date" value={hoy} max={hoy} />
+        </div>
+      </div>
+      <div class="campo" style="max-width: 20rem">
+        <label for="codigo_referido_de">Código de quien lo refirió (opcional)</label>
+        <input id="codigo_referido_de" name="codigo_referido_de" autocomplete="off" placeholder="MARIA-4821" style="text-transform: uppercase" />
+        <p class="ayuda">Solo para clientes nuevos. No se puede cambiar después.</p>
+      </div>
+    </fieldset>
+  </section>
+
+<section class="tarjeta">
+    <h2 style="margin-top: 0">Venta</h2>
+    <div class="fila">
+      <div class="campo">
+        <label for="descuento">Descuento (COP, opcional)</label>
+        <input id="descuento" name="descuento" inputmode="numeric" autocomplete="off" placeholder="0" />
+      </div>
+      <div class="campo">
+        <label for="fecha">Fecha</label>
+        <input id="fecha" name="fecha" type="date" value={hoy} max={hoy} />
+      </div>
+    </div>
+    <div class="campo">
+      <label for="nota">Nota interna (opcional)</label>
+      <textarea id="nota" name="nota" rows="2"></textarea>
+    </div>
+  </section>
+
+<div id="seccion-cajas" hidden={tipoInicial !== 'cliente'}>
+    <div id="cajas"></div>
+    <p><button type="button" class="secundario" id="agregar-caja">+ Agregar otra caja</button></p>
+  </div>
+
+<section class="tarjeta" aria-live="polite">
+    <p style="margin: 0" id="totales">Agrega las piezas para ver el total.</p>
+    <p class="ayuda">El total de la venta es la suma de los precios de las piezas menos el descuento.</p>
+  </section>
+  <script type="application/json" id="inventario" set:html={JSON.stringify(unidades)} />
+  <script type="application/json" id="precios-aliado" set:html={JSON.stringify(preciosAliado)} />
+
+<p><button type="submit" id="guardar">{tipoInicial === 'aliado' ? 'Guardar venta al aliado' : 'Guardar venta y generar códigos'}</button></p>
+</form>
+
+<template id="tpl-linea">
+  <div class="linea">
+    <div class="fila">
+      <div class="campo buscador" style="grid-column: span 2">
+        <label>Pieza</label>
+        <input
+          type="text"
+          data-buscar
+          role="combobox"
+          aria-expanded="false"
+          aria-autocomplete="list"
+          autocomplete="off"
+          placeholder="Busca por código o nombre…"
+        />
+        <input type="hidden" name="linea-producto" />
+        <ul class="opciones" role="listbox" hidden></ul>
+      </div>
+      <div class="campo">
+        <label>Peso</label>
+        <select name="linea-peso" data-peso-aliado>
+          <option value="">Elige la pieza</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Cantidad</label>
+        <input name="linea-cantidad" type="number" min="1" step="1" value="1" inputmode="numeric" />
+      </div>
+    </div>
+    <div class="acciones" style="justify-content: space-between">
+      <p class="precio-linea" style="margin: 0; font-weight: 600"></p>
+      <button type="button" class="enlace quitar-linea">Quitar</button>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-caja">
+  <section class="tarjeta caja">
+    <div class="acciones" style="justify-content: space-between">
+      <h2 style="margin: 0" class="titulo-caja">Caja</h2>
+      <button type="button" class="enlace quitar-caja">Quitar caja</button>
+    </div>
+    <div class="fila" style="margin-top: 0.75rem">
+      <div class="campo">
+        <label class="check"><input type="checkbox" data-campo="regalo" /> Es un regalo</label>
+      </div>
+      <div class="campo destinatario" hidden>
+        <label>Nombre de quien recibe (opcional)</label>
+        <input data-campo="destinatario" maxlength="60" autocomplete="off" />
+      </div>
+    </div>
+    <div class="piezas"></div>
+    <button type="button" class="enlace agregar-pieza">+ Agregar pieza</button>
+  </section>
+</template>
+
+<template id="tpl-pieza">
+  <div class="pieza" style="border-top: 1px solid var(--borde); padding-top: 0.75rem; margin-top: 0.75rem">
+    <div class="fila">
+      <div class="campo">
+        <label>Pieza</label>
+        <select data-campo="origen">
+          <option value="inventario">Del inventario</option>
+          <option value="manual">Fuera del inventario</option>
+        </select>
+      </div>
+      <div class="campo" style="align-self: end; text-align: right">
+        <button type="button" class="enlace quitar-pieza">Quitar</button>
+      </div>
+    </div>
+    <div class="fila del-inventario">
+      <div class="campo" style="grid-column: span 2">
+        <label>Producto</label>
+        <select data-producto>
+          <option value="">Elige…</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Peso de la pieza</label>
+        <select data-peso>
+          <option value="">Elige el producto</option>
+        </select>
+        <input type="hidden" data-campo="unidad" />
+      </div>
+    </div>
+    <div class="fila manual" hidden>
+      <div class="campo" style="grid-column: span 2">
+        <label>Descripción</label>
+        <input data-campo="descripcion" maxlength="120" placeholder="Cadena tejido lazo 50 cm" autocomplete="off" />
+      </div>
+      <div class="campo">
+        <label>Peso (g)</label>
+        <input data-campo="peso" inputmode="decimal" placeholder="5,25" autocomplete="off" />
+      </div>
+      <div class="campo">
+        <label>Precio (COP)</label>
+        <input data-campo="precio" inputmode="numeric" placeholder="1.680.000" autocomplete="off" />
+      </div>
+    </div>
+    <p class="precio-pieza" style="margin: 0 0 0.25rem; font-weight: 600"></p>
+  </div>
+</template>
+<style>
+  .tipo-venta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border: 0;
+    padding: 0;
+    margin: 0 0 1rem;
+  }
+
+  .tipo-venta legend {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .tipo-venta label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--borde);
+    border-radius: 999px;
+    white-space: nowrap;
+    cursor: pointer;
+    background: #fff;
+  }
+
+  .tipo-venta label:has(input:checked) {
+    border-color: var(--rojo);
+    box-shadow: inset 0 0 0 1px var(--rojo);
+    font-weight: 600;
+  }
+
+  .tipo-venta input {
+    accent-color: var(--rojo);
+    margin: 0;
+  }
+
+  :global(.linea) {
+    border-top: 1px solid var(--borde);
+    padding-top: 0.75rem;
+    margin-top: 0.75rem;
+  }
+
+  :global(.buscador) {
+    position: relative;
+  }
+
+  :global(.opciones) {
+    position: absolute;
+    z-index: 10;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin: 0.25rem 0 0;
+    padding: 0.25rem 0;
+    list-style: none;
+    max-height: 18rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+  }
+
+  :global(.opciones li) {
+    display: flex;
+    flex-direction: column;
+    padding: 0.55rem 0.75rem;
+    cursor: pointer;
+  }
+
+  :global(.opciones li small) {
+    color: var(--suave);
+  }
+
+  :global(.opciones li.activa),
+  :global(.opciones li[data-id]:hover) {
+    background: #f6f0ee;
+  }
+
+  :global(.opciones li.vacia) {
+    color: var(--suave);
+    cursor: default;
+  }
+</style>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#venta')!;
+  const contenedor = document.querySelector<HTMLElement>('#cajas')!;
+  const tplCaja = document.querySelector<HTMLTemplateElement>('#tpl-caja')!;
+  const tplPieza = document.querySelector<HTMLTemplateElement>('#tpl-pieza')!;
+  const errorBox = document.querySelector<HTMLElement>('#error')!;
+
+  // Los nombres de los campos se recalculan tras cada cambio: caja-{i}-..., caja-{i}-pieza-{j}-...
+  function renumerar() {
+    const cajas = [...contenedor.querySelectorAll<HTMLElement>('.caja')];
+    cajas.forEach((caja, i) => {
+      caja.querySelector('.titulo-caja')!.textContent = `Caja ${i + 1}`;
+      caja.querySelector<HTMLElement>('.quitar-caja')!.hidden = cajas.length === 1;
+      caja.querySelector<HTMLInputElement>('[data-campo="regalo"]')!.name = `caja-${i}-regalo`;
+      caja.querySelector<HTMLInputElement>('[data-campo="destinatario"]')!.name = `caja-${i}-destinatario`;
+      const piezas = [...caja.querySelectorAll<HTMLElement>('.pieza')];
+      piezas.forEach((pieza, j) => {
+        pieza.querySelector<HTMLElement>('.quitar-pieza')!.hidden = piezas.length === 1;
+        for (const input of pieza.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-campo]')) {
+          input.name = `caja-${i}-pieza-${j}-${input.dataset.campo}`;
+        }
+      });
+    });
+  }
+
+  // Inventario disponible: productos, y dentro de cada uno sus piezas agrupadas por peso. En la lista
+  // se elige el peso (con cuántas hay); la pieza concreta la asigna el formulario, la del lote más antiguo.
+  type Unidad = { id: string; producto_id: string; codigo: string; producto: string; categoria: string; peso_gramos: number; precio_cop: number };
+  const unidades = JSON.parse(document.querySelector('#inventario')!.textContent || '[]') as Unidad[];
+  const clavePeso = (g: number) => Number(g).toFixed(2);
+  const productos = new Map<string, { nombre: string; total: number; pesos: Map<string, Unidad[]> }>();
+  for (const u of unidades) {
+    if (!productos.has(u.producto_id)) {
+      productos.set(u.producto_id, { nombre: `${u.codigo} · ${u.producto}`, total: 0, pesos: new Map() });
+    }
+    const p = productos.get(u.producto_id)!;
+    p.total += 1;
+    const k = clavePeso(u.peso_gramos);
+    if (!p.pesos.has(k)) p.pesos.set(k, []);
+    p.pesos.get(k)!.push(u);
+  }
+  const porId = new Map(unidades.map((u) => [u.id, u]));
+  const pesos = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+  const gramos = (g: number) => `${Number(g).toLocaleString('es-CO', { maximumFractionDigits: 2 })} g`;
+  const monto = (v: string) => Number(v.replace(/\D/g, '')) || 0;
+
+  /** Piezas ya asignadas en otras filas: no se usan dos veces. */
+  function usadas(excepto: HTMLElement) {
+    return new Set(
+      [...contenedor.querySelectorAll<HTMLElement>('.pieza')]
+        .filter((p) => p !== excepto)
+        .map((p) => p.querySelector<HTMLInputElement>('[data-campo="unidad"]')!.value)
+        .filter(Boolean),
+    );
+  }
+
+  /** Llena la lista de pesos de la fila (con cuántas quedan libres) y asigna la pieza del peso elegido. */
+  function llenarPesos(pieza: HTMLElement) {
+    const producto = pieza.querySelector<HTMLSelectElement>('[data-producto]')!;
+    const peso = pieza.querySelector<HTMLSelectElement>('[data-peso]')!;
+    const unidad = pieza.querySelector<HTMLInputElement>('[data-campo="unidad"]')!;
+    const ocupadas = usadas(pieza);
+    const actual = peso.value;
+    peso.replaceChildren(new Option(producto.value ? 'Elige…' : 'Elige el producto', ''));
+    for (const [k, grupo] of productos.get(producto.value)?.pesos ?? []) {
+      const libres = grupo.filter((u) => !ocupadas.has(u.id));
+      if (libres.length === 0) continue;
+      const etiqueta = `${gramos(grupo[0].peso_gramos)} · ${pesos.format(grupo[0].precio_cop)} · ${libres.length} ${
+        libres.length === 1 ? 'disponible' : 'disponibles'
+      }`;
+      peso.append(new Option(etiqueta, k, false, k === actual));
+    }
+    // Con un solo peso disponible, se elige solo.
+    if (!peso.value && peso.options.length === 2) peso.selectedIndex = 1;
+
+    // Se conserva la pieza asignada si sigue siendo de ese peso y nadie más la usa; si no, la siguiente libre.
+    const grupo = productos.get(producto.value)?.pesos.get(peso.value) ?? [];
+    if (!grupo.some((u) => u.id === unidad.value) || ocupadas.has(unidad.value)) {
+      unidad.value = grupo.find((u) => !ocupadas.has(u.id))?.id ?? '';
+    }
+  }
+
+  function refrescarPesos() {
+    for (const pieza of contenedor.querySelectorAll<HTMLElement>('.pieza')) llenarPesos(pieza);
+  }
+
+  function mostrarOrigen(pieza: HTMLElement) {
+    const manual = pieza.querySelector<HTMLSelectElement>('[data-campo="origen"]')!.value === 'manual';
+    pieza.querySelector<HTMLElement>('.del-inventario')!.hidden = manual;
+    pieza.querySelector<HTMLElement>('.manual')!.hidden = !manual;
+  }
+
+  // Precio de cada pieza y total de la venta (suma − descuento), en vivo.
+  const totales = document.querySelector<HTMLElement>('#totales')!;
+  const descuento = document.querySelector<HTMLInputElement>('#descuento')!;
+  function actualizarTotales() {
+    if (modo() === 'aliado') return totalesAliado();
+    let subtotal = 0;
+    let n = 0;
+    for (const pieza of contenedor.querySelectorAll<HTMLElement>('.pieza')) {
+      const manual = pieza.querySelector<HTMLSelectElement>('[data-campo="origen"]')!.value === 'manual';
+      const elegida = manual ? undefined : porId.get(pieza.querySelector<HTMLInputElement>('[data-campo="unidad"]')!.value);
+      const precio = manual ? monto(pieza.querySelector<HTMLInputElement>('[data-campo="precio"]')!.value) : (elegida?.precio_cop ?? 0);
+      pieza.querySelector<HTMLElement>('.precio-pieza')!.textContent = elegida
+        ? `${elegida.producto} · ${gramos(elegida.peso_gramos)} · 18k · ${pesos.format(elegida.precio_cop)}`
+        : '';
+      if (precio) {
+        subtotal += precio;
+        n += 1;
+      }
+    }
+    const d = monto(descuento.value);
+    const partes = [`${n} ${n === 1 ? 'pieza' : 'piezas'}`, `subtotal ${pesos.format(subtotal)}`];
+    if (d) partes.push(`descuento ${pesos.format(d)}`);
+    partes.push(`total ${pesos.format(Math.max(subtotal - d, 0))}`);
+    totales.textContent = n ? partes.join(' · ') : 'Agrega las piezas para ver el total.';
+  }
+  descuento.addEventListener('input', actualizarTotales);
+  contenedor.addEventListener('input', actualizarTotales);
+
+  function agregarPieza(caja: HTMLElement) {
+    const nodo = tplPieza.content.cloneNode(true) as DocumentFragment;
+    const producto = nodo.querySelector<HTMLSelectElement>('[data-producto]')!;
+    for (const [id, p] of productos) producto.append(new Option(`${p.nombre} (${p.total})`, id));
+    // Sin inventario cargado, las piezas se escriben a mano.
+    if (productos.size === 0) nodo.querySelector<HTMLSelectElement>('[data-campo="origen"]')!.value = 'manual';
+    caja.querySelector('.piezas')!.append(nodo);
+    mostrarOrigen(caja.querySelector<HTMLElement>('.pieza:last-child')!);
+    renumerar();
+    actualizarTotales();
+  }
+
+  function agregarCaja() {
+    contenedor.append(tplCaja.content.cloneNode(true));
+    agregarPieza(contenedor.lastElementChild as HTMLElement);
+  }
+
+  contenedor.addEventListener('click', (e) => {
+    const boton = (e.target as HTMLElement).closest('button');
+    if (!boton) return;
+    const caja = boton.closest<HTMLElement>('.caja')!;
+    if (boton.classList.contains('agregar-pieza')) agregarPieza(caja);
+    if (boton.classList.contains('quitar-pieza')) boton.closest('.pieza')!.remove();
+    if (boton.classList.contains('quitar-caja')) caja.remove();
+    renumerar();
+    refrescarPesos();
+    actualizarTotales();
+  });
+
+  contenedor.addEventListener('change', (e) => {
+    const input = e.target as HTMLInputElement;
+    if (input.dataset.campo === 'regalo') {
+      input.closest('.caja')!.querySelector<HTMLElement>('.destinatario')!.hidden = !input.checked;
+    }
+    const pieza = input.closest<HTMLElement>('.pieza');
+    if (pieza && input.dataset.campo === 'origen') mostrarOrigen(pieza);
+    // Al cambiar producto o peso se asigna la pieza y se actualizan las cantidades libres de las demás filas.
+    if (pieza && input.hasAttribute('data-producto')) {
+      pieza.querySelector<HTMLSelectElement>('[data-peso]')!.value = '';
+      pieza.querySelector<HTMLInputElement>('[data-campo="unidad"]')!.value = '';
+    }
+    if (pieza && (input.hasAttribute('data-producto') || input.hasAttribute('data-peso'))) {
+      llenarPesos(pieza);
+      for (const otra of contenedor.querySelectorAll<HTMLElement>('.pieza')) if (otra !== pieza) llenarPesos(otra);
+    }
+    actualizarTotales();
+  });
+
+  document.querySelector('#agregar-caja')!.addEventListener('click', agregarCaja);
+
+  // ----- Venta a un aliado -----
+  // Productos con precio de aliado y sus pesos disponibles (con cuántas hay de cada uno).
+  const preciosAliado = JSON.parse(document.querySelector('#precios-aliado')!.textContent || '{}') as Record<string, number>;
+  const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  type ProductoAliado = { id: string; codigo: string; nombre: string; categoria: string; busca: string; total: number; pesos: Map<string, number> };
+  const deAliado = new Map<string, ProductoAliado>();
+  for (const u of unidades) {
+    const precio = preciosAliado[u.producto_id];
+    if (!precio) continue;
+    let p = deAliado.get(u.producto_id);
+    if (!p) {
+      const cat = u.categoria ?? '';
+      p = { id: u.producto_id, codigo: u.codigo, nombre: u.producto, categoria: cat, busca: normal(`${u.codigo} ${u.producto} ${cat}`), total: 0, pesos: new Map() };
+      deAliado.set(u.producto_id, p);
+    }
+    const k = String(Number(u.peso_gramos));
+    p.pesos.set(k, (p.pesos.get(k) ?? 0) + 1);
+    p.total += 1;
+  }
+  const listaAliado = [...deAliado.values()];
+  const precioAliado = (productoId: string, peso: string) => Math.round(Number(peso) * (preciosAliado[productoId] ?? 0));
+
+  const lineas = document.querySelector<HTMLElement>('#lineas')!;
+  const tplLinea = document.querySelector<HTMLTemplateElement>('#tpl-linea')!;
+  const campo = <T extends Element>(linea: Element, sel: string) => linea.querySelector(sel) as T;
+
+  /** Cuántas piezas de ese producto y peso ya piden las otras filas. */
+  function pedidasEnOtras(linea: HTMLElement, producto: string, peso: string) {
+    let n = 0;
+    for (const otra of lineas.querySelectorAll<HTMLElement>('.linea')) {
+      if (otra === linea) continue;
+      if (campo<HTMLInputElement>(otra, '[name="linea-producto"]').value === producto && campo<HTMLSelectElement>(otra, '[data-peso-aliado]').value === peso) {
+        n += Number(campo<HTMLInputElement>(otra, '[name="linea-cantidad"]').value) || 0;
+      }
+    }
+    return n;
+  }
+
+  /** Llena los pesos de la fila (precio de aliado y cuántas quedan) y ajusta el máximo de la cantidad. */
+  function llenarPesosAliado(linea: HTMLElement) {
+    const producto = campo<HTMLInputElement>(linea, '[name="linea-producto"]').value;
+    const peso = campo<HTMLSelectElement>(linea, '[data-peso-aliado]');
+    const cantidad = campo<HTMLInputElement>(linea, '[name="linea-cantidad"]');
+    const actual = peso.value;
+    const p = deAliado.get(producto);
+    peso.replaceChildren(new Option(p ? 'Elige…' : 'Elige la pieza', ''));
+    for (const [k, hay] of p?.pesos ?? []) {
+      const libres = hay - pedidasEnOtras(linea, producto, k);
+      if (libres <= 0 && k !== actual) continue;
+      peso.append(new Option(`${gramos(Number(k))} · ${pesos.format(precioAliado(producto, k))} · hay ${Math.max(libres, 0)}`, k, false, k === actual));
+    }
+    if (!peso.value && peso.options.length === 2) peso.selectedIndex = 1;
+    const libres = p && peso.value ? (p.pesos.get(peso.value) ?? 0) - pedidasEnOtras(linea, producto, peso.value) : 0;
+    cantidad.max = String(Math.max(libres, 1));
+  }
+
+  function refrescarLineas() {
+    for (const linea of lineas.querySelectorAll<HTMLElement>('.linea')) llenarPesosAliado(linea);
+    totalesAliado();
+  }
+
+  function totalesAliado() {
+    let subtotal = 0;
+    let n = 0;
+    for (const linea of lineas.querySelectorAll<HTMLElement>('.linea')) {
+      const producto = campo<HTMLInputElement>(linea, '[name="linea-producto"]').value;
+      const peso = campo<HTMLSelectElement>(linea, '[data-peso-aliado]').value;
+      const cantidad = Math.max(0, Math.floor(Number(campo<HTMLInputElement>(linea, '[name="linea-cantidad"]').value) || 0));
+      const texto = campo<HTMLElement>(linea, '.precio-linea');
+      if (!producto || !peso || !cantidad) {
+        texto.textContent = '';
+        continue;
+      }
+      const precio = precioAliado(producto, peso);
+      texto.textContent = `${cantidad} × ${pesos.format(precio)} = ${pesos.format(cantidad * precio)}`;
+      subtotal += cantidad * precio;
+      n += cantidad;
+    }
+    const d = monto(descuento.value);
+    const partes = [`${n} ${n === 1 ? 'pieza' : 'piezas'}`, `subtotal ${pesos.format(subtotal)}`];
+    if (d) partes.push(`descuento ${pesos.format(d)}`);
+    partes.push(`total ${pesos.format(Math.max(subtotal - d, 0))}`);
+    totales.textContent = n ? `${partes.join(' · ')} (precio de aliado)` : 'Agrega las piezas para ver el total.';
+  }
+
+  // Buscador de la pieza: se escribe parte del código, del nombre o de la categoría y se elige de la lista.
+  function mostrarOpciones(linea: HTMLElement) {
+    const buscar = campo<HTMLInputElement>(linea, '[data-buscar]');
+    const lista = campo<HTMLUListElement>(linea, '.opciones');
+    const palabras = normal(buscar.value).split(/\s+/).filter(Boolean);
+    const hallados = listaAliado.filter((p) => palabras.every((w) => p.busca.includes(w))).slice(0, 60);
+    lista.replaceChildren(
+      ...(hallados.length
+        ? hallados.map((p, i) => {
+            const li = document.createElement('li');
+            li.role = 'option';
+            li.dataset.id = p.id;
+            li.className = i === 0 ? 'activa' : '';
+            const titulo = document.createElement('span');
+            titulo.textContent = `${p.codigo} · ${p.nombre}`;
+            const detalle = document.createElement('small');
+            detalle.textContent = `${p.categoria} · hay ${p.total}`;
+            li.append(titulo, detalle);
+            return li;
+          })
+        : [Object.assign(document.createElement('li'), { className: 'vacia', textContent: 'No hay piezas con ese nombre o código.' })]),
+    );
+    lista.hidden = false;
+    buscar.setAttribute('aria-expanded', 'true');
+  }
+
+  function cerrarOpciones(linea: HTMLElement) {
+    campo<HTMLUListElement>(linea, '.opciones').hidden = true;
+    campo<HTMLInputElement>(linea, '[data-buscar]').setAttribute('aria-expanded', 'false');
+  }
+
+  function elegirProducto(linea: HTMLElement, id: string) {
+    const p = deAliado.get(id);
+    if (!p) return;
+    campo<HTMLInputElement>(linea, '[name="linea-producto"]').value = id;
+    campo<HTMLInputElement>(linea, '[data-buscar]').value = `${p.codigo} · ${p.nombre}`;
+    campo<HTMLSelectElement>(linea, '[data-peso-aliado]').value = '';
+    cerrarOpciones(linea);
+    refrescarLineas();
+    const peso = campo<HTMLSelectElement>(linea, '[data-peso-aliado]');
+    (peso.value ? campo<HTMLInputElement>(linea, '[name="linea-cantidad"]') : peso).focus();
+  }
+
+  function agregarLinea() {
+    lineas.append(tplLinea.content.cloneNode(true));
+    const linea = lineas.lastElementChild as HTMLElement;
+    for (const l of lineas.querySelectorAll<HTMLElement>('.linea')) campo<HTMLElement>(l, '.quitar-linea').hidden = lineas.children.length === 1;
+    return linea;
+  }
+
+  lineas.addEventListener('focusin', (e) => {
+    const input = e.target as HTMLElement;
+    if (input.hasAttribute('data-buscar')) {
+      (input as HTMLInputElement).select();
+      mostrarOpciones(input.closest<HTMLElement>('.linea')!);
+    }
+  });
+  lineas.addEventListener('focusout', (e) => {
+    const input = e.target as HTMLElement;
+    if (!input.hasAttribute('data-buscar')) return;
+    const linea = input.closest<HTMLElement>('.linea')!;
+    // Al salir, el texto vuelve a la pieza elegida (o queda vacío si no se eligió ninguna).
+    setTimeout(() => {
+      cerrarOpciones(linea);
+      const p = deAliado.get(campo<HTMLInputElement>(linea, '[name="linea-producto"]').value);
+      (input as HTMLInputElement).value = p ? `${p.codigo} · ${p.nombre}` : '';
+    }, 150);
+  });
+  lineas.addEventListener('input', (e) => {
+    const input = e.target as HTMLElement;
+    if (input.hasAttribute('data-buscar')) mostrarOpciones(input.closest<HTMLElement>('.linea')!);
+    else if (input.getAttribute('name') === 'linea-cantidad') refrescarLineas();
+  });
+  lineas.addEventListener('change', (e) => {
+    if ((e.target as HTMLElement).hasAttribute('data-peso-aliado')) refrescarLineas();
+  });
+  lineas.addEventListener('keydown', (e) => {
+    const input = e.target as HTMLElement;
+    if (!input.hasAttribute('data-buscar')) return;
+    const linea = input.closest<HTMLElement>('.linea')!;
+    const lista = campo<HTMLUListElement>(linea, '.opciones');
+    const items = [...lista.querySelectorAll<HTMLLIElement>('li[data-id]')];
+    const i = items.findIndex((li) => li.classList.contains('activa'));
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (lista.hidden) return mostrarOpciones(linea);
+      const siguiente = items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length];
+      items.forEach((li) => li.classList.toggle('activa', li === siguiente));
+      siguiente?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault(); // no envía el formulario
+      if (!lista.hidden && items[i]) elegirProducto(linea, items[i].dataset.id!);
+    } else if (e.key === 'Escape') {
+      cerrarOpciones(linea);
+    }
+  });
+  // mousedown y no click: se elige antes de que el campo pierda el foco.
+  lineas.addEventListener('mousedown', (e) => {
+    const li = (e.target as HTMLElement).closest<HTMLLIElement>('li[data-id]');
+    if (!li) return;
+    e.preventDefault();
+    elegirProducto(li.closest<HTMLElement>('.linea')!, li.dataset.id!);
+  });
+  lineas.addEventListener('click', (e) => {
+    const boton = (e.target as HTMLElement).closest('.quitar-linea');
+    if (!boton) return;
+    boton.closest('.linea')!.remove();
+    for (const l of lineas.querySelectorAll<HTMLElement>('.linea')) campo<HTMLElement>(l, '.quitar-linea').hidden = lineas.children.length === 1;
+    refrescarLineas();
+  });
+  document.querySelector('#agregar-linea')!.addEventListener('click', () => {
+    campo<HTMLInputElement>(agregarLinea(), '[data-buscar]').focus();
+  });
+  agregarLinea();
+
+  // Cliente o aliado: se muestra solo lo de cada uno.
+  function modo() {
+    return document.querySelector<HTMLInputElement>('input[name="tipo"]:checked')?.value ?? 'cliente';
+  }
+  function cambiarModo(inicio = false) {
+    const aliado = modo() === 'aliado';
+    document.querySelector<HTMLElement>('#seccion-aliado')!.hidden = !aliado;
+    document.querySelector<HTMLElement>('#seccion-cliente')!.hidden = aliado;
+    document.querySelector<HTMLElement>('#seccion-cajas')!.hidden = aliado;
+    document.querySelector<HTMLButtonElement>('#guardar')!.textContent = aliado ? 'Guardar venta al aliado' : 'Guardar venta y generar códigos';
+    if (!inicio) errorBox.hidden = true;
+    actualizarTotales();
+  }
+  for (const r of document.querySelectorAll<HTMLInputElement>('input[name="tipo"]')) r.addEventListener('change', () => cambiarModo());
+  agregarCaja();
+  cambiarModo(true);
+
+  // Búsqueda del cliente por WhatsApp.
+  const pais = document.querySelector<HTMLSelectElement>('#pais')!;
+  const whatsapp = document.querySelector<HTMLInputElement>('#whatsapp')!;
+  const estado = document.querySelector<HTMLElement>('#estado-cliente')!;
+  const nuevo = document.querySelector<HTMLFieldSetElement>('#cliente-nuevo')!;
+  let consulta = 0;
+
+  async function buscarCliente() {
+    const id = ++consulta;
+    const numero = whatsapp.value.trim();
+    nuevo.disabled = false;
+    if (numero.replace(/\D/g, '').length < 7) {
+      estado.textContent = 'Escribe el número para saber si el cliente ya existe.';
+      return;
+    }
+    const r = await fetch(`/admin/api/cliente?pais=${pais.value}&numero=${encodeURIComponent(numero)}`);
+    const datos = await r.json();
+    if (id !== consulta) return;
+    if (!datos.valido) {
+      estado.textContent = 'Número no válido para el país elegido.';
+    } else if (datos.cliente) {
+      const c = datos.cliente;
+      estado.textContent = `Cliente existente: ${c.nombre} ${c.apellido ?? ''} · ${c.codigo_referido} · ${c.interacciones} interacciones.`;
+      nuevo.disabled = true;
+    } else {
+      estado.textContent = `Cliente nuevo (${datos.whatsapp}). Completa sus datos.`;
+    }
+  }
+
+  let espera: number | undefined;
+  whatsapp.addEventListener('input', () => {
+    clearTimeout(espera);
+    espera = window.setTimeout(buscarCliente, 400);
+  });
+  pais.addEventListener('change', buscarCliente);
+
+  // Envío sin recargar, para no perder las cajas si hay un error.
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const boton = document.querySelector<HTMLButtonElement>('#guardar')!;
+    boton.disabled = true;
+    errorBox.hidden = true;
+    try {
+      const r = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { Accept: 'application/json' },
+      });
+      const datos = await r.json();
+      if (datos.ok) {
+        location.href = datos.destino;
+        return;
+      }
+      errorBox.textContent = datos.error;
+    } catch {
+      errorBox.textContent = 'No se pudo guardar. Revisa la conexión e intenta de nuevo.';
+    }
+    errorBox.hidden = false;
+    errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    boton.disabled = false;
+  });
+</script>

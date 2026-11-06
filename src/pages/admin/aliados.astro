@@ -11,6 +11,8 @@ const supabase = Astro.locals.supabase;
 let error = '';
 let ok = '';
 let enviado: FormData | null = null;
+// Aliado cuyo formulario de edición se reabre con lo escrito si hubo un error.
+let editando = '';
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
@@ -26,6 +28,17 @@ if (Astro.request.method === 'POST') {
       const { error: fallo } = await supabase.from('aliados').insert(leido.datos);
       if (fallo) error = fallo.message;
       else ok = `Se creó el aliado ${leido.datos.nombre}. Envíale su enlace.`;
+    }
+  } else if (accion === 'editar') {
+    const leido = leerAliado(form);
+    if ('error' in leido) {
+      error = leido.error;
+      editando = id;
+      enviado = form;
+    } else {
+      const { error: fallo } = await supabase.from('aliados').update(leido.datos).eq('id', id);
+      if (fallo) error = fallo.message;
+      else ok = `Se guardaron los datos de ${leido.datos.nombre}.`;
     }
   } else if (accion === 'regenerar') {
     const { error: fallo } = await supabase.rpc('regenerar_enlace_aliado', { p_aliado_id: id });
@@ -56,7 +69,9 @@ for (const v of (dataVentas ?? []) as { aliado_id: string; monto_cop: number; pa
 }
 const totalDebe = [...cuentas.values()].reduce((s, c) => s + c.debe, 0);
 const origen = Astro.url.origin;
-const valor = (campo: string) => String(enviado?.get(campo) ?? '');
+const valor = (campo: string) => (editando ? '' : String(enviado?.get(campo) ?? ''));
+const valorEdicion = (a: Aliado, campo: 'nombre' | 'whatsapp' | 'nota') =>
+  editando === a.id ? String(enviado?.get(campo) ?? '') : campo === 'whatsapp' ? (a.whatsapp ? formatoWhatsapp(a.whatsapp) : '') : (a[campo] ?? '');
 ---
 
 <Admin title="Aliados">
@@ -140,6 +155,28 @@ const valor = (campo: string) => String(enviado?.get(campo) ?? '');
               </button>
             </form>
           </div>
+          <details open={editando === a.id} style="margin-top: 0.75rem">
+            <summary>Editar datos</summary>
+            <form method="post" style="margin-top: 0.75rem">
+              <input type="hidden" name="accion" value="editar" />
+              <input type="hidden" name="id" value={a.id} />
+              <div class="fila">
+                <div class="campo">
+                  <label for={`nombre-${a.id}`}>Nombre</label>
+                  <input id={`nombre-${a.id}`} name="nombre" maxlength="80" value={valorEdicion(a, 'nombre')} required autocomplete="off" />
+                </div>
+                <div class="campo">
+                  <label for={`whatsapp-${a.id}`}>WhatsApp (opcional)</label>
+                  <input id={`whatsapp-${a.id}`} name="whatsapp" inputmode="tel" value={valorEdicion(a, 'whatsapp')} autocomplete="off" />
+                </div>
+              </div>
+              <div class="campo">
+                <label for={`nota-${a.id}`}>Nota (opcional)</label>
+                <input id={`nota-${a.id}`} name="nota" value={valorEdicion(a, 'nota')} autocomplete="off" />
+              </div>
+              <button type="submit" class="secundario">Guardar cambios</button>
+            </form>
+          </details>
         </section>
       );
     })

@@ -7,7 +7,11 @@ import { qrSvg } from '../../../lib/qr';
 
 const { id } = Astro.params;
 const supabase = Astro.locals.supabase;
-let aviso = Astro.url.searchParams.get('nueva') ? 'Venta guardada. Graba cada URL en su sticker, bloquéalo y escanéalo antes de pegarlo.' : '';
+let aviso = Astro.url.searchParams.get('nueva')
+  ? 'Venta guardada. Graba cada URL en su sticker, bloquéalo y escanéalo antes de pegarlo.'
+  : Astro.url.searchParams.get('aliado')
+    ? 'Venta al aliado guardada, pendiente de pago. Cuando pague, márcala pagada en su ficha.'
+    : '';
 let error = '';
 
 if (Astro.request.method === 'POST') {

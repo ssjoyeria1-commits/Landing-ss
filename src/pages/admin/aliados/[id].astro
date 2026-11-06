@@ -1,54 +1,20 @@
 ---
-// Ficha de un aliado: lo que debe, sus ventas (pagadas o pendientes) y el formulario para registrarle
-// una venta: lo disponible agrupado por producto y peso, con cuántas hay y su precio de aliado; se
-// escribe cuántas lleva de cada uno y la base elige las piezas (las del lote más antiguo primero).
+// Ficha de un aliado: lo que debe, sus ventas (pagadas o pendientes) y marcar cada una pagada o
+// pendiente. Las ventas se registran en Registrar venta (?aliado=ID lo deja elegido).
 import Admin from '../../../layouts/Admin.astro';
 import type { Aliado } from '../../../lib/aliados';
-import { peso } from '../../../lib/caja';
-import { fecha, hoyBogota, pesos } from '../../../lib/formato';
-import { mensajeError } from '../../../lib/inventario';
-import { leerMonto } from '../../../lib/venta';
+import { fecha, pesos } from '../../../lib/formato';
 
 const supabase = Astro.locals.supabase;
 const id = Astro.params.id ?? '';
 let error = '';
 let aviso = Astro.url.searchParams.get('aviso') ?? '';
-let enviado: FormData | null = null;
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const accion = String(form.get('accion') ?? '');
 
-  if (accion === 'vender') {
-    enviado = form;
-    const lineas = [...form.entries()]
-      .filter(([k, v]) => k.startsWith('cant:') && String(v).trim() !== '' && Number(v) > 0)
-      .map(([k, v]) => {
-        const [, producto_id, peso_gramos] = k.split(':');
-        return { producto_id, peso_gramos: Number(peso_gramos), cantidad: Number(v) };
-      });
-    const textoDescuento = String(form.get('descuento') ?? '').trim();
-    const descuento = textoDescuento ? leerMonto(textoDescuento) : 0;
-    if (lineas.length === 0) error = 'Escribe cuántas piezas lleva de al menos un producto.';
-    else if (lineas.some((l) => !Number.isInteger(l.cantidad))) error = 'Las cantidades deben ser números enteros.';
-    else if (!Number.isSafeInteger(descuento) || descuento < 0) error = 'El descuento debe ser un monto en pesos.';
-    else {
-      const { data, error: fallo } = await supabase.rpc('registrar_venta_aliado', {
-        p: {
-          aliado_id: id,
-          lineas,
-          descuento_cop: descuento,
-          fecha: String(form.get('fecha') ?? '') || undefined,
-          nota: String(form.get('nota') ?? ''),
-        },
-      });
-      if (fallo) error = mensajeError(fallo.message);
-      else
-        return Astro.redirect(
-          `/admin/aliados/${id}?aviso=${encodeURIComponent(`Venta registrada por ${pesos(data.monto_cop)}, pendiente de pago.`)}`,
-        );
-    }
-  } else if (accion === 'pagada' || accion === 'pendiente') {
+  if (accion === 'pagada' || accion === 'pendiente') {
     const { error: fallo } = await supabase
       .from('ventas')
       .update({ pagada_aliado_at: accion === 'pagada' ? new Date().toISOString() : null })
@@ -59,7 +25,7 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const [{ data: dataAliado }, { data: dataVentas }, { data: dataPiezas }, { data: dataProductos }] = await Promise.all([
+const [{ data: dataAliado }, { data: dataVentas }] = await Promise.all([
   supabase.from('aliados').select('*').eq('id', id).maybeSingle(),
   supabase
     .from('ventas')
@@ -67,8 +33,6 @@ const [{ data: dataAliado }, { data: dataVentas }, { data: dataPiezas }, { data:
     .eq('aliado_id', id)
     .order('fecha', { ascending: false })
     .order('created_at', { ascending: false }),
-  supabase.from('unidades_detalle').select('producto_id, codigo, producto, categoria, peso_gramos').eq('estado', 'disponible'),
-  supabase.from('productos_catalogo').select('id, precio_aliado_gramo_cop, activo').not('precio_aliado_gramo_cop', 'is', null),
 ]);
 const aliado = dataAliado as Aliado | null;
 if (!aliado) return new Response('Aliado no encontrado', { status: 404 });
@@ -88,25 +52,6 @@ const vigentes = ventas.filter((v) => !v.anulada);
 const pendiente = vigentes.filter((v) => !v.pagada_aliado_at).reduce((s, v) => s + Number(v.monto_cop), 0);
 const pagado = vigentes.filter((v) => v.pagada_aliado_at).reduce((s, v) => s + Number(v.monto_cop), 0);
 
-// Disponible para vender al aliado: producto activo con precio de aliado, agrupado por peso.
-const precioAliado = new Map(
-  ((dataProductos ?? []) as { id: string; precio_aliado_gramo_cop: number; activo: boolean }[])
-    .filter((p) => p.activo)
-    .map((p) => [p.id, Number(p.precio_aliado_gramo_cop)]),
-);
-type Grupo = { producto_id: string; codigo: string; producto: string; categoria: string; peso: number; hay: number; precio: number };
-const grupos = new Map<string, Grupo>();
-for (const u of (dataPiezas ?? []) as { producto_id: string; codigo: string; producto: string; categoria: string; peso_gramos: number }[]) {
-  const precio = precioAliado.get(u.producto_id);
-  if (!precio) continue;
-  const g = Number(u.peso_gramos);
-  const clave = `${u.producto_id}:${g}`;
-  const grupo = grupos.get(clave) ?? { producto_id: u.producto_id, codigo: u.codigo, producto: u.producto, categoria: u.categoria, peso: g, hay: 0, precio: Math.round(g * precio) };
-  grupo.hay += 1;
-  grupos.set(clave, grupo);
-}
-const disponibles = [...grupos.values()].sort((a, b) => a.categoria.localeCompare(b.categoria) || a.codigo.localeCompare(b.codigo) || a.peso - b.peso);
-const valor = (campo: string) => String(enviado?.get(campo) ?? '');
 ---
 
 <Admin title={aliado.nombre}>
@@ -122,7 +67,10 @@ const valor = (campo: string) => String(enviado?.get(campo) ?? '');
     </p>
   </div>
 
-  <h2>Ventas</h2>
+  <div class="acciones" style="justify-content: space-between; margin-top: 1.5rem">
+    <h2 style="margin: 0">Ventas</h2>
+    {aliado.activo && <a class="boton" href={`/admin/ventas/nueva?aliado=${aliado.id}`}>+ Registrar venta</a>}
+  </div>
   {
     ventas.length === 0 ? (
       <p class="tarjeta">Todavía no hay ventas a este aliado.</p>
@@ -181,102 +129,4 @@ const valor = (campo: string) => String(enviado?.get(campo) ?? '');
     )
   }
 
-  <h2>Registrar venta</h2>
-  {
-    !aliado.activo ? (
-      <p class="tarjeta">Activa al aliado para registrarle ventas.</p>
-    ) : disponibles.length === 0 ? (
-      <p class="tarjeta">
-        No hay piezas disponibles con precio para aliados. Fija el precio en <a href="/admin/inventario/categorias">Categorías</a>.
-      </p>
-    ) : (
-      <form method="post" id="venta-aliado">
-        <input type="hidden" name="accion" value="vender" />
-        <p class="ayuda">Escribe cuántas lleva de cada pieza. El sistema elige las piezas (las del lote más antiguo primero).</p>
-        <div class="tabla">
-          <table>
-            <thead>
-              <tr>
-                <th>Pieza</th>
-                <th class="num">Peso</th>
-                <th class="num">Hay</th>
-                <th class="num">Precio aliado</th>
-                <th class="num">Lleva</th>
-              </tr>
-            </thead>
-            <tbody>
-              {disponibles.map((g) => {
-                const nombre = `cant:${g.producto_id}:${g.peso}`;
-                return (
-                  <tr data-precio={g.precio}>
-                    <td>
-                      <code>{g.codigo}</code> {g.producto}
-                      <small style="display: block" class="ayuda">
-                        {g.categoria}
-                      </small>
-                    </td>
-                    <td class="num">{peso(g.peso)}</td>
-                    <td class="num">{g.hay}</td>
-                    <td class="num">{pesos(g.precio)}</td>
-                    <td class="num">
-                      <input
-                        name={nombre}
-                        type="number"
-                        min="0"
-                        max={g.hay}
-                        step="1"
-                        inputmode="numeric"
-                        value={valor(nombre)}
-                        aria-label={`Cuántas de ${g.codigo} de ${peso(g.peso)}`}
-                        style="max-width: 5rem; text-align: right"
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div class="fila" style="margin-top: 1rem">
-          <div class="campo">
-            <label for="fecha">Fecha</label>
-            <input id="fecha" name="fecha" type="date" value={valor('fecha') || hoyBogota()} max={hoyBogota()} />
-          </div>
-          <div class="campo">
-            <label for="descuento">Descuento (opcional)</label>
-            <input id="descuento" name="descuento" inputmode="numeric" value={valor('descuento')} placeholder="0" />
-          </div>
-          <div class="campo">
-            <label for="nota">Nota (opcional)</label>
-            <input id="nota" name="nota" value={valor('nota')} autocomplete="off" />
-          </div>
-        </div>
-        <p id="total-venta" class="aviso" style="background: #f6f4f2" aria-live="polite">Elige las piezas.</p>
-        <button type="submit">Registrar venta a {aliado.nombre.split(' ')[0]}</button>
-      </form>
-    )
-  }
 </Admin>
-
-<script>
-  const form = document.querySelector<HTMLFormElement>('#venta-aliado');
-  if (form) {
-    const total = form.querySelector<HTMLElement>('#total-venta')!;
-    const formato = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
-    const actualizar = () => {
-      let piezas = 0;
-      let suma = 0;
-      for (const fila of form.querySelectorAll<HTMLTableRowElement>('tbody tr')) {
-        const n = Math.max(0, Math.floor(Number(fila.querySelector('input')!.value) || 0));
-        piezas += n;
-        suma += n * Number(fila.dataset.precio);
-      }
-      const descuento = Number(form.querySelector<HTMLInputElement>('#descuento')!.value.replace(/\D/g, '')) || 0;
-      total.textContent = piezas
-        ? `${piezas} ${piezas === 1 ? 'pieza' : 'piezas'} · Total: ${formato.format(Math.max(0, suma - descuento))}${descuento ? ` (con descuento de ${formato.format(descuento)})` : ''}`
-        : 'Elige las piezas.';
-    };
-    form.addEventListener('input', actualizar);
-    actualizar();
-  }
-</script>

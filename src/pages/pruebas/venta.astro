@@ -1,0 +1,60 @@
+---
+// SOLO DESARROLLO: el formulario de Registrar venta con inventario y aliados de ejemplo, sin sesión
+// ni base de datos. Al guardar no registra nada: muestra el JSON que se enviaría a la base.
+// ?aliado=a1 lo abre en modo aliado con Laura elegida. En producción responde 404.
+import Admin from '../../layouts/Admin.astro';
+import FormularioVenta from '../../components/admin/FormularioVenta.astro';
+import { hoyBogota } from '../../lib/formato';
+import { leerFormularioVenta, leerVentaAliado } from '../../lib/venta';
+import { listaPaises } from '../../lib/whatsapp';
+
+if (import.meta.env.PROD) return new Response(null, { status: 404 });
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const leido = form.get('tipo') === 'aliado' ? leerVentaAliado(form) : leerFormularioVenta(form);
+  const error = 'error' in leido ? leido.error : `Prueba (no se guardó): ${JSON.stringify(leido.payload)}`;
+  return Response.json({ ok: false, error }, { status: 422 });
+}
+
+let n = 0;
+const u = (producto_id: string, codigo: string, producto: string, categoria: string, peso_gramos: number, gramo: number) => ({
+  id: `u${++n}`,
+  producto_id,
+  codigo,
+  producto,
+  categoria,
+  peso_gramos,
+  precio_cop: Math.round(peso_gramos * gramo),
+});
+const unidades = [
+  u('p1', 'CGC-001', 'Cadena tejido GC 55cm', 'Cadenas Nacionales', 6.38, 415000),
+  u('p2', 'CGC-002', 'Cadena tejido GC 60cm', 'Cadenas Nacionales', 6.84, 415000),
+  u('p2', 'CGC-002', 'Cadena tejido GC 60cm', 'Cadenas Nacionales', 6.84, 415000),
+  u('p2', 'CGC-002', 'Cadena tejido GC 60cm', 'Cadenas Nacionales', 7.1, 415000),
+  u('p3', 'CD-001', 'Candonga enroscada', 'Candongas', 1.19, 415000),
+  u('p3', 'CD-001', 'Candonga enroscada', 'Candongas', 1.19, 415000),
+  u('p4', 'AN-014', 'Anillo solitario corazón', 'Anillos', 2.05, 430000),
+  u('p5', 'PU-003', 'Pulsera eslabón italiano con nombre muy largo para probar', 'Pulseras', 9.4, 415000),
+  u('p6', 'DJ-001', 'Dije sin precio de aliado', 'Dijes', 1.5, 450000),
+];
+const preciosAliado = { p1: 330000, p2: 330000, p3: 330000, p4: 345000, p5: 330000 };
+const aliados = [
+  { id: 'a1', nombre: 'Laura Restrepo' },
+  { id: 'a2', nombre: 'Pedro Gómez' },
+];
+const aliadoInicial = aliados.find((a) => a.id === Astro.url.searchParams.get('aliado'))?.id ?? '';
+---
+
+<Admin title="Registrar venta (prueba)">
+  <FormularioVenta
+    error=""
+    unidades={unidades}
+    aliados={aliados}
+    preciosAliado={preciosAliado}
+    paises={listaPaises()}
+    hoy={hoyBogota()}
+    aliadoInicial={aliadoInicial}
+    tipoInicial={aliadoInicial ? 'aliado' : 'cliente'}
+  />
+</Admin>

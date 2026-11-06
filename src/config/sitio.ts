@@ -6,6 +6,6 @@ export const SITIO = {
   urlChips: 'https://ssjoyeria.com/c/',
   /** Línea de atención (formato internacional). PENDIENTE. */
   whatsappNegocio: '+570000000000',
-  instagram: 'https://instagram.com/', // PENDIENTE
-  tiktok: 'https://tiktok.com/', // PENDIENTE
+  instagram: 'https://www.instagram.com/ss__joyeria/',
+  tiktok: 'https://www.tiktok.com/@ss_joyeria00',
 } as const;

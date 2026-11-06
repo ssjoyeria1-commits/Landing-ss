@@ -1,11 +1,12 @@
 // Límite de intentos por IP con un contador exacto (Durable Object ContadorIntentos, src/lib/contador.ts).
 // Página del chip: 30 por minuto (nadie la abre tanto; frena a quien prueba códigos al azar).
-// Login del panel: 5 por minuto.
+// Login del panel: 5 por minuto. Catálogo de aliados: 30 por minuto (frena a quien prueba enlaces).
 import { env } from 'cloudflare:workers';
 
 const LIMITES = {
   chip: { limite: 30, ventanaMs: 60_000 },
   login: { limite: 5, ventanaMs: 60_000 },
+  aliado: { limite: 30, ventanaMs: 60_000 },
 } as const;
 
 /** true si la IP aún puede seguir. Sin contador (servidor local) o si el contador falla, deja pasar. */

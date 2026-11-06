@@ -78,7 +78,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   Cada sección es una tarjeta vino oscuro (`--franja`) con tres rombos del imagotipo arriba. Rojo solo
   para el botón principal y los rombos ganados del Círculo. Botones oscuros con filete marfil.
 - Datos de prueba de la página del chip sin base de datos: `/pruebas/casos?datos=demo|peor|cero|diez|regalo|regalo-sin-nombre|neutra|temporal`
-  (solo en desarrollo; en producción da 404). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. QR de respaldo: `/pruebas/qr`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
+  (solo en desarrollo; en producción da 404). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. QR de respaldo: `/pruebas/qr`. Catálogo de aliado: `/pruebas/aliados`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
   (`&ficha=CODIGO` para la ficha, `&whatsapp=1` para ver el botón con un número de ejemplo).
 - Nombres con mayúscula inicial (`capitalizar()` al guardar y al mostrar).
 - CSV "informes" para Excel en español: separador `;` y decimales con coma. Los de "respaldo técnico"
@@ -185,6 +185,19 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
         a Supabase en el catálogo. LCP ~3 s por la animación de entrada (diseño, no carga).
   - Pendiente de los socios: activar en Supabase → Authentication → Passwords mínimo 12 caracteres
     con letras, números y símbolos.
+- [ ] **Aliados (vendedores con comisión).** Decisiones (6 nov 2026): las piezas siguen con SS (el
+      aliado vende con fotos), enlace privado sin contraseña, el aliado **sí ve cantidades**, el cliente
+      final es del aliado (sus ventas no cuentan en el Círculo).
+  - [x] A1 — `categorias.precio_aliado_gramo_cop` (opcional; sin él la categoría no sale), tabla
+        `aliados` (enlace de 20 caracteres), `catalogo_aliado(token)` para anon y
+        `regenerar_enlace_aliado(id)`. Aplicada.
+  - [x] A2 — panel: precio de aliado en Categorías y `/admin/aliados` (crear, copiar o enviar el enlace
+        por WhatsApp, regenerar, activar/desactivar, último acceso).
+  - [x] A3 — `/aliados/[token]` (`CatalogoAliado.astro`): por peso, cantidad, su precio y el sugerido;
+        Compartir (fotos + texto sin precio, menú del celular) y Descargar fotos. `noindex`, sin caché,
+        `no-referrer`, límite de 30 por minuto. Prueba: `/pruebas/aliados`.
+  - [ ] A4 — ventas a aliados (a su precio, sin Círculo) e informe por aliado. Falta decidir si la caja
+        lleva chip.
 - [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.
       Con el dominio: guardar `/catalogo` en la caché de Cloudflare (Cache API, que no funciona en
       `workers.dev`) y agregar una regla de límite de intentos en el panel de Cloudflare.

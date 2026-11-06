@@ -1,0 +1,435 @@
+---
+// Cuerpo de /aliados/{token}: lo disponible para un aliado, por categoría. Cada tarjeta lleva la foto
+// principal, el nombre, el código y por cada peso cuántas hay, el precio de aliado y el público
+// sugerido. "Compartir" manda las fotos con un texto (sin precio: cada aliado pone el suyo) por el
+// menú de compartir del celular; "Descargar fotos" las guarda. Lo usan /aliados/[token] y /pruebas/aliados.
+import { peso } from '../../lib/caja';
+import { anclaCategoria, type ProductoAliado } from '../../lib/catalogo';
+import { pesos } from '../../lib/formato';
+
+interface Props {
+  aliado: string;
+  productos: ProductoAliado[];
+}
+
+const { aliado, productos } = Astro.props;
+
+const categorias = [...new Set(productos.map((p) => p.categoria))];
+const porCategoria = categorias.map((nombre) => ({
+  nombre,
+  ancla: anclaCategoria(nombre),
+  productos: productos.filter((p) => p.categoria === nombre),
+}));
+
+/** Texto que acompaña las fotos al compartir: pieza y pesos disponibles, sin precios. */
+const textoCompartir = (p: ProductoAliado) =>
+  `${p.nombre} · Oro 18k\n${p.opciones.length === 1 ? 'Peso' : 'Pesos disponibles'}: ${p.opciones.map((o) => peso(o.peso_gramos)).join(' · ')}`;
+---
+
+<header class="encabezado">
+  <h1 class="aparece">Hola, {aliado}</h1>
+  <p class="aparece">
+    Lo disponible hoy con tus precios de aliado. Se actualiza solo: si una pieza se vende, sale de aquí. Este enlace es
+    solo para ti; a tus clientes compárteles las fotos.
+  </p>
+  {
+    categorias.length > 1 && (
+      <nav class="categorias aparece" aria-label="Categorías">
+        {porCategoria.map((c) => (
+          <a href={`#${c.ancla}`}>{c.nombre}</a>
+        ))}
+      </nav>
+    )
+  }
+</header>
+
+{productos.length === 0 && <p class="vacio">Por ahora no hay piezas disponibles. Vuelve a revisar pronto.</p>}
+
+{
+  porCategoria.map((c) => (
+    <section class="categoria" id={c.ancla} aria-labelledby={`t-${c.ancla}`}>
+      <div class="divisor-rombos aparece" aria-hidden="true" />
+      <h2 id={`t-${c.ancla}`} class="aparece">
+        {c.nombre}
+      </h2>
+      <ul class="rejilla">
+        {c.productos.map((p, ip) => (
+          <li class="aparece" style={`--orden: ${ip % 4}`}>
+            <article class="tarjeta">
+              <span class="foto">
+                <img src={p.fotos[0].mini} alt={p.nombre} width="480" height="600" loading={ip < 4 ? 'eager' : 'lazy'} decoding="async" />
+                {p.fotos.length > 1 && <span class="cuantas">{p.fotos.length} fotos</span>}
+              </span>
+              <span class="nombre luz-dorada">{p.nombre}</span>
+              <span class="codigo">{p.codigo}</span>
+              <table class="pesos">
+                <thead>
+                  <tr>
+                    <th>Peso</th>
+                    <th>Tu precio</th>
+                    <th>Sugerido</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {p.opciones.map((o) => (
+                    <tr>
+                      <td>
+                        {peso(o.peso_gramos)}
+                        <span class="cantidad">× {o.cantidad}</span>
+                      </td>
+                      <td class="mio">{pesos(o.precio_cop)}</td>
+                      <td class="sugerido">{pesos(o.precio_publico_cop)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div
+                class="acciones-foto"
+                data-fotos={JSON.stringify(p.fotos.map((f) => f.grande))}
+                data-codigo={p.codigo}
+                data-texto={textoCompartir(p)}
+              >
+                <button type="button" class="compartir">
+                  Compartir
+                </button>
+                <a class="descargar" href={`${p.fotos[0].grande}?download=${encodeURIComponent(p.codigo)}`}>
+                  {p.fotos.length > 1 ? 'Descargar fotos' : 'Descargar foto'}
+                </a>
+              </div>
+            </article>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))
+}
+
+<style>
+  .encabezado {
+    text-align: center;
+    max-width: 34rem;
+    margin: 1rem auto 3rem;
+  }
+
+  .encabezado h1 {
+    margin-bottom: 0.75rem;
+  }
+
+  .encabezado p {
+    margin: 0;
+    color: var(--gris);
+  }
+
+  .categorias {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.6rem 0.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .categorias a {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.85rem;
+    border-radius: 999px;
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #fff;
+    background: var(--rojo);
+  }
+
+  .categorias a::before {
+    content: '';
+    position: absolute;
+    inset: -0.45rem -0.15rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html:has(.categorias)) {
+      scroll-behavior: smooth;
+    }
+  }
+
+  .vacio {
+    text-align: center;
+    color: var(--gris);
+    font-family: var(--display);
+    font-size: 1.45rem;
+    margin: 3rem 0;
+  }
+
+  .categoria {
+    margin: 0 0 3.5rem;
+    scroll-margin-top: 1.5rem;
+  }
+
+  .divisor-rombos {
+    max-width: 34rem;
+    margin: 0 auto 3rem;
+  }
+
+  .categoria h2 {
+    display: table;
+    margin: 0 auto 1.75rem;
+    padding: 0.45rem 1.35rem;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.3;
+    color: #fff;
+    background: var(--rojo);
+  }
+
+  /* Una columna en el celular (cada tarjeta lleva su tabla de precios), dos en tableta y tres en
+     computador. Las filas se centran. */
+  .rejilla {
+    --columnas: 1;
+    --hueco: 1.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2.5rem var(--hueco);
+  }
+
+  .rejilla > li {
+    width: calc((100% - (var(--columnas) - 1) * var(--hueco)) / var(--columnas));
+    max-width: 22rem;
+  }
+
+  @media (min-width: 40rem) {
+    .rejilla {
+      --columnas: 2;
+    }
+  }
+
+  @media (min-width: 60rem) {
+    .rejilla {
+      --columnas: 3;
+    }
+  }
+
+  :global(.entrada) .rejilla > li.aparece {
+    transition-delay: calc(var(--orden, 0) * 90ms);
+  }
+
+  .tarjeta {
+    display: flex;
+    flex-direction: column;
+    color: var(--tinta);
+  }
+
+  .foto {
+    position: relative;
+    display: block;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border-radius: 10px;
+    background: var(--franja);
+    box-shadow: var(--halo-foto);
+  }
+
+  .foto img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .cuantas {
+    position: absolute;
+    right: 0.6rem;
+    bottom: 0.6rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    color: var(--tinta);
+    background: rgb(0 0 0 / 0.6);
+  }
+
+  .nombre {
+    margin-top: 0.9rem;
+    font-family: var(--display);
+    font-size: 1.45rem;
+    font-weight: 600;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .codigo {
+    margin-top: 0.2rem;
+    color: var(--gris);
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+  }
+
+  .pesos {
+    width: 100%;
+    margin-top: 0.75rem;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pesos th {
+    padding: 0 0 0.3rem;
+    text-align: right;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--gris);
+  }
+
+  .pesos th:first-child,
+  .pesos td:first-child {
+    text-align: left;
+  }
+
+  .pesos td {
+    padding: 0.35rem 0;
+    text-align: right;
+    border-top: 1px solid rgb(242 236 228 / 0.12);
+  }
+
+  .cantidad {
+    margin-left: 0.35rem;
+    color: var(--gris);
+  }
+
+  .mio {
+    font-weight: 700;
+  }
+
+  .sugerido {
+    color: var(--gris);
+  }
+
+  .acciones-foto {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .acciones-foto > * {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0 0.75rem;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .compartir {
+    color: #fff;
+    background: var(--rojo);
+  }
+
+  .descargar {
+    color: var(--tinta);
+    background: var(--superficie);
+    box-shadow: var(--filete);
+  }
+
+  .acciones-foto > :active {
+    transform: scale(0.97);
+  }
+
+  .acciones-foto [aria-busy='true'] {
+    opacity: 0.6;
+    cursor: wait;
+  }
+</style>
+
+<script>
+  // Compartir y descargar las fotos de una pieza. Las fotos se bajan de Supabase (permite CORS) y se
+  // nombran con el código y la extensión de su tipo real (WebP o JPEG).
+  const extension = (tipo: string) => (tipo === 'image/jpeg' ? 'jpg' : tipo === 'image/png' ? 'png' : 'webp');
+
+  async function bajarFotos(caja: HTMLElement): Promise<File[]> {
+    const urls: string[] = JSON.parse(caja.dataset.fotos ?? '[]');
+    const codigo = caja.dataset.codigo ?? 'SS';
+    return Promise.all(
+      urls.map(async (url, i) => {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('foto');
+        const blob = await r.blob();
+        return new File([blob], `${codigo}-${i + 1}.${extension(blob.type)}`, { type: blob.type });
+      }),
+    );
+  }
+
+  async function ocupado(boton: HTMLElement, tarea: () => Promise<void>) {
+    if (boton.getAttribute('aria-busy') === 'true') return;
+    boton.setAttribute('aria-busy', 'true');
+    try {
+      await tarea();
+    } finally {
+      boton.removeAttribute('aria-busy');
+    }
+  }
+
+  function guardar(archivos: File[]) {
+    for (const archivo of archivos) {
+      const url = URL.createObjectURL(archivo);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = archivo.name;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    }
+  }
+
+  for (const caja of document.querySelectorAll<HTMLElement>('.acciones-foto')) {
+    const compartir = caja.querySelector<HTMLButtonElement>('.compartir')!;
+    const descargar = caja.querySelector<HTMLAnchorElement>('.descargar')!;
+
+    compartir.addEventListener('click', () =>
+      ocupado(compartir, async () => {
+        const texto = caja.dataset.texto ?? '';
+        try {
+          const archivos = await bajarFotos(caja);
+          if (navigator.canShare?.({ files: archivos })) {
+            await navigator.share({ files: archivos, text: texto });
+          } else {
+            // Sin compartir archivos (p. ej. en computador): se descargan las fotos.
+            guardar(archivos);
+          }
+        } catch (e) {
+          if (e instanceof DOMException && e.name === 'AbortError') return; // el aliado cerró el menú
+          alert('No se pudieron preparar las fotos. Revisa tu conexión y vuelve a intentarlo.');
+        }
+      }),
+    );
+
+    descargar.addEventListener('click', (e) => {
+      e.preventDefault();
+      ocupado(descargar, async () => {
+        try {
+          guardar(await bajarFotos(caja));
+        } catch {
+          // Si algo falla, el enlace normal descarga al menos la primera foto.
+          window.location.href = descargar.href;
+        }
+      });
+    });
+  }
+</script>

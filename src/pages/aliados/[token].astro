@@ -1,0 +1,45 @@
+---
+import Publica from '../../layouts/Publica.astro';
+import CatalogoAliado from '../../components/catalogo/CatalogoAliado.astro';
+import { obtenerCatalogoAliado, origenFotos, type CatalogoAliado as Datos } from '../../lib/catalogo';
+import { dentroDelLimite } from '../../lib/limite';
+
+// Catálogo privado de un aliado (precios especiales): fuera de buscadores, sin caché y sin enviar la
+// URL con el código a los sitios que se abran desde aquí (como la página del chip).
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+
+let datos: Datos | null = null;
+let temporal = false;
+const limitado = !(await dentroDelLimite('aliado', Astro.request));
+if (limitado) {
+  temporal = true;
+  Astro.response.headers.set('Retry-After', '60');
+} else {
+  try {
+    datos = await obtenerCatalogoAliado(Astro.params.token ?? '');
+  } catch (e) {
+    console.error('catalogo_aliado', e);
+    temporal = true;
+  }
+}
+if (!datos) Astro.response.status = limitado ? 429 : temporal ? 503 : 404;
+---
+
+<Publica title="Catálogo de aliados · SS Joyería" noindex portada={false} amplio preconectar={origenFotos()}>
+  {
+    datos ? (
+      <CatalogoAliado aliado={datos.aliado} productos={datos.productos} />
+    ) : (
+      <section class="seccion">
+        <h1>{temporal ? 'Vuelve a intentarlo' : 'Este enlace no está activo'}</h1>
+        <p>
+          {temporal
+            ? 'No pudimos cargar el catálogo en este momento. Prueba de nuevo en unos minutos.'
+            : 'Puede que haya cambiado. Pídele a SS Joyería tu enlace actualizado.'}
+        </p>
+      </section>
+    )
+  }
+</Publica>

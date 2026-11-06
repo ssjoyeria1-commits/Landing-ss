@@ -15,7 +15,8 @@ export const CSP = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${ORIGEN_FOTOS}`,
   "font-src 'self'",
-  "connect-src 'self'",
+  // connect-src: el catálogo de aliados descarga las fotos de Supabase para compartirlas.
+  `connect-src 'self' ${ORIGEN_FOTOS}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

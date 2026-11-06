@@ -122,6 +122,53 @@ export async function obtenerCatalogo(): Promise<ProductoPublico[]> {
   }));
 }
 
+// ---------------------------------------------------------------------------
+// Catálogo de aliados (/aliados/{token}): lo que devuelve public.catalogo_aliado(token)
+// ---------------------------------------------------------------------------
+
+/** Un peso disponible para un aliado: su precio, el público sugerido y cuántas piezas hay. */
+export interface OpcionAliado {
+  peso_gramos: number;
+  precio_cop: number;
+  precio_publico_cop: number;
+  cantidad: number;
+}
+
+export interface ProductoAliado extends Omit<ProductoPublico, 'opciones'> {
+  opciones: OpcionAliado[];
+}
+
+export interface CatalogoAliado {
+  /** Primer nombre del aliado. */
+  aliado: string;
+  productos: ProductoAliado[];
+}
+
+/** Catálogo del aliado con ese código de enlace, o null si no existe o está inactivo. */
+export async function obtenerCatalogoAliado(token: string): Promise<CatalogoAliado | null> {
+  if (!/^[a-km-np-z2-9]{20}$/.test(token)) return null;
+  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await supabase.rpc('catalogo_aliado', { p_token: token });
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  const crudo = data as { aliado: string; productos: (Omit<ProductoAliado, 'fotos'> & { fotos: string[] })[] };
+  return {
+    aliado: crudo.aliado,
+    productos: crudo.productos.map((p) => ({
+      ...p,
+      fotos: p.fotos.map((ruta) => ({ grande: urlFoto(ruta), mini: urlFoto(ruta, 'mini') })),
+      opciones: p.opciones.map((o) => ({
+        peso_gramos: Number(o.peso_gramos),
+        precio_cop: Number(o.precio_cop),
+        precio_publico_cop: Number(o.precio_publico_cop),
+        cantidad: Number(o.cantidad),
+      })),
+    })),
+  };
+}
+
 /** Ancla de una categoría en la página del catálogo ("Anillos de compromiso" → "anillos-de-compromiso"). */
 export function anclaCategoria(nombre: string): string {
   return nombre

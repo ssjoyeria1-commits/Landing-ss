@@ -1,0 +1,55 @@
+---
+// SOLO DESARROLLO: el catálogo de un aliado con datos de ejemplo (sin base de datos), con fotos
+// reales del bucket público para probar Compartir y Descargar. ?datos=vacio para el caso sin piezas.
+// En producción responde 404.
+import Publica from '../../layouts/Publica.astro';
+import CatalogoAliado from '../../components/catalogo/CatalogoAliado.astro';
+import type { ProductoAliado } from '../../lib/catalogo';
+
+if (import.meta.env.PROD) return new Response(null, { status: 404 });
+
+const base = 'https://dtwlwoyvpcpbaswbkanx.supabase.co/storage/v1/object/public/catalogo';
+const foto = (ruta: string) => ({ grande: `${base}/${ruta}.webp`, mini: `${base}/${ruta}-mini.webp` });
+const o = (g: number, publico: number, aliado: number, cantidad: number) => ({
+  peso_gramos: g,
+  precio_cop: Math.round(g * aliado),
+  precio_publico_cop: Math.round(g * publico),
+  cantidad,
+});
+
+const demo: ProductoAliado[] = [
+  {
+    codigo: 'CGC-001',
+    nombre: 'Cadena tejido GC 55cm',
+    descripcion: null,
+    categoria: 'Cadenas Nacionales',
+    fotos: [
+      foto('0cef3c5e-8264-417d-a875-16adbd2b72c4/7db47777-2165-4deb-a262-f5e99acbca63'),
+      foto('0cef3c5e-8264-417d-a875-16adbd2b72c4/a92525b3-5cad-4afa-9d8d-ad92b1e8f7cf'),
+    ],
+    opciones: [o(6.38, 415000, 330000, 1)],
+  },
+  {
+    codigo: 'CGC-002',
+    nombre: 'Cadena tejido GC 60cm',
+    descripcion: null,
+    categoria: 'Cadenas Nacionales',
+    fotos: [foto('06b0393d-6634-483a-9507-a2eab7fef987/d545aa41-df82-41bc-8fc4-72e050be4c95')],
+    opciones: [o(6.84, 415000, 330000, 2), o(7.1, 415000, 330000, 1)],
+  },
+  {
+    codigo: 'CD-001',
+    nombre: 'Candonga enroscada',
+    descripcion: null,
+    categoria: 'Candongas',
+    fotos: [foto('a21e5ec1-f3d3-4d9e-8701-8ab12130c969/27352351-e08f-4937-9591-dc641e3018ca')],
+    opciones: [o(1.19, 415000, 330000, 5)],
+  },
+];
+
+const productos = Astro.url.searchParams.get('datos') === 'vacio' ? [] : demo;
+---
+
+<Publica title="Catálogo de aliados · SS Joyería" noindex portada={false} amplio>
+  <CatalogoAliado aliado="Laura" productos={productos} />
+</Publica>

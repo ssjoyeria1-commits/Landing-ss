@@ -1,0 +1,392 @@
+---
+// Estado de resultados de un periodo (semana, mes o año) frente al anterior, por medio de pago,
+// historial de periodos y las ventas del periodo. Lo usan /admin/contabilidad y /pruebas/contabilidad.
+import { fecha, pesos } from '../../lib/formato';
+import { cambio, porcentaje, type Periodo, type Resumen, type VentaContable, type Vista } from '../../lib/contabilidad';
+
+interface Props {
+  base: string;
+  periodo: Periodo;
+  anterior: Periodo;
+  /** Con qué se compara: el periodo anterior completo o, si este va en curso, el mismo tramo del anterior. */
+  comparacion: Periodo;
+  enCurso: boolean;
+  siguiente: Periodo | null;
+  actual: Resumen;
+  previo: Resumen;
+  historial: { periodo: Periodo; resumen: Resumen }[];
+  ventas: VentaContable[];
+}
+
+const { base, periodo, anterior, comparacion, enCurso, siguiente, actual, previo, historial, ventas } = Astro.props;
+const enlace = (vista: Vista, clave?: string) => `${base}?vista=${vista}${clave ? `&p=${clave}` : ''}`;
+const vistas: [Vista, string][] = [
+  ['semana', 'Semana'],
+  ['mes', 'Mes'],
+  ['anio', 'Año'],
+];
+const nombreAnterior = `${enCurso ? 'mismos días del ' : ''}${{ semana: 'la semana anterior', mes: 'mes anterior', anio: 'año anterior' }[periodo.vista]}`.replace('del la', 'de la');
+
+type Linea = { texto: string; a: number; b: number; tipo?: 'resta' | 'total' | 'grande' | 'detalle'; margen?: [number, number] };
+const lineas: Linea[] = [
+  { texto: 'Ventas a clientes', a: actual.piezasClientesCop, b: previo.piezasClientesCop },
+  ...(actual.piezasAliadosCop || previo.piezasAliadosCop ? [{ texto: 'Ventas a aliados', a: actual.piezasAliadosCop, b: previo.piezasAliadosCop }] : []),
+  { texto: 'Domicilios cobrados', a: actual.domicilioCobrado, b: previo.domicilioCobrado },
+  { texto: 'Ingresos', a: actual.ingresos, b: previo.ingresos, tipo: 'total' },
+  { texto: 'Costo de las piezas', a: actual.costoPiezas, b: previo.costoPiezas, tipo: 'resta' },
+  { texto: 'Empaques', a: actual.empaques, b: previo.empaques, tipo: 'resta' },
+  { texto: 'Mensajeros', a: actual.mensajeros, b: previo.mensajeros, tipo: 'resta' },
+  { texto: 'Comisiones de medios de pago', a: actual.comisiones, b: previo.comisiones, tipo: 'resta' },
+  { texto: 'Utilidad bruta', a: actual.utilidadBruta, b: previo.utilidadBruta, tipo: 'total', margen: [actual.utilidadBruta, actual.ingresos] },
+];
+const categorias = [...new Set([...actual.gastosPorCategoria.keys(), ...previo.gastosPorCategoria.keys()])].sort(
+  (x, y) => (actual.gastosPorCategoria.get(y) ?? 0) - (actual.gastosPorCategoria.get(x) ?? 0),
+);
+const lineasGastos: Linea[] = [
+  { texto: 'Gastos', a: actual.gastos, b: previo.gastos, tipo: 'resta' },
+  ...categorias.map((c) => ({ texto: c, a: actual.gastosPorCategoria.get(c) ?? 0, b: previo.gastosPorCategoria.get(c) ?? 0, tipo: 'detalle' as const })),
+  { texto: 'Utilidad neta', a: actual.utilidadNeta, b: previo.utilidadNeta, tipo: 'grande', margen: [actual.utilidadNeta, actual.ingresos] },
+];
+const ticket = (r: Resumen) => (r.ventas ? Math.round(r.ingresos / r.ventas) : 0);
+const medios = [...actual.porMedio].sort((x, y) => y[1].ingresos - x[1].ingresos);
+---
+
+<nav class="vistas" aria-label="Periodo">
+  {vistas.map(([v, t]) => <a href={enlace(v)} aria-current={v === periodo.vista ? 'page' : undefined}>{t}</a>)}
+</nav>
+
+<div class="navegar">
+  <a href={enlace(periodo.vista, anterior.clave)} aria-label={`Ver ${anterior.etiqueta}`}>←</a>
+  <h2>{periodo.etiqueta}{enCurso && <small> (en curso)</small>}</h2>
+  {siguiente ? <a href={enlace(periodo.vista, siguiente.clave)} aria-label={`Ver ${siguiente.etiqueta}`}>→</a> : <span />}
+</div>
+
+<div class="cifras">
+  <div class="cifra">
+    <span>Ingresos</span>
+    <strong>{pesos(actual.ingresos)}</strong>
+    <small>{cambio(actual.ingresos, previo.ingresos) && `${cambio(actual.ingresos, previo.ingresos)} vs. ${nombreAnterior}`}</small>
+  </div>
+  <div class="cifra">
+    <span>Utilidad bruta</span>
+    <strong>{pesos(actual.utilidadBruta)}</strong>
+    <small>{porcentaje(actual.utilidadBruta, actual.ingresos) && `margen ${porcentaje(actual.utilidadBruta, actual.ingresos)}`}</small>
+  </div>
+  <div class="cifra">
+    <span>Gastos</span>
+    <strong>{pesos(actual.gastos)}</strong>
+    <small>{cambio(actual.gastos, previo.gastos) && `${cambio(actual.gastos, previo.gastos)} vs. ${nombreAnterior}`}</small>
+  </div>
+  <div class="cifra" data-signo={actual.utilidadNeta < 0 ? 'negativo' : 'positivo'}>
+    <span>Utilidad neta</span>
+    <strong>{pesos(actual.utilidadNeta)}</strong>
+    <small>{porcentaje(actual.utilidadNeta, actual.ingresos) && `margen ${porcentaje(actual.utilidadNeta, actual.ingresos)}`}</small>
+  </div>
+</div>
+
+{
+  (actual.porCobrarAliados > 0 || actual.ventasSinCosto > 0 || actual.empaquesSinCosto > 0) && (
+    <div class="tarjeta avisos">
+      {actual.porCobrarAliados > 0 && (
+        <p>
+          <strong>Por cobrar a aliados:</strong> {pesos(actual.porCobrarAliados)} de ventas de este periodo, ya incluidas en los ingresos.{' '}
+          <a href="/admin/aliados">Ver aliados</a>
+        </p>
+      )}
+      {actual.ventasSinCosto > 0 && (
+        <p>
+          {actual.ventasSinCosto} {actual.ventasSinCosto === 1 ? 'venta tiene' : 'ventas tienen'} piezas escritas a mano sin costo: su utilidad
+          sale más alta de lo real.
+        </p>
+      )}
+      {actual.empaquesSinCosto > 0 && (
+        <p>
+          {actual.empaquesSinCosto} {actual.empaquesSinCosto === 1 ? 'venta tiene' : 'ventas tienen'} el empaque en $ 0. Registra su costo en{' '}
+          <a href="/admin/contabilidad/ajustes">Ajustes</a>.
+        </p>
+      )}
+    </div>
+  )
+}
+
+<section class="tarjeta">
+  <h3>Estado de resultados</h3>
+  <div class="tabla">
+    <table class="estado">
+      <thead>
+        <tr>
+          <th />
+          <th class="num">{periodo.etiqueta}</th>
+          <th class="num">{comparacion.etiqueta}</th>
+          <th class="num">Cambio</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          [...lineas, ...lineasGastos].map((l) => (
+            <tr class={l.tipo}>
+              <td>{l.tipo === 'resta' ? `− ${l.texto}` : l.texto}</td>
+              <td class="num">
+                {pesos(l.a)}
+                {l.margen && porcentaje(...l.margen) && <small> ({porcentaje(...l.margen)})</small>}
+              </td>
+              <td class="num">{pesos(l.b)}</td>
+              <td class="num">{cambio(l.a, l.b)}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="ayuda">
+    {actual.ventas} {actual.ventas === 1 ? 'venta' : 'ventas'} ({actual.ventasClientes} a clientes{actual.ventasAliados > 0 && `, ${actual.ventasAliados} a aliados`}) ·{' '}
+    {actual.piezas} {actual.piezas === 1 ? 'pieza' : 'piezas'} · ticket promedio {pesos(ticket(actual))}
+    {actual.descuentos > 0 && ` · descuentos dados ${pesos(actual.descuentos)}`}. Las ventas anuladas no cuentan.
+  </p>
+</section>
+
+{
+  medios.length > 0 && (
+    <section class="tarjeta">
+      <h3>Por medio de pago</h3>
+      <div class="tabla">
+        <table>
+          <thead>
+            <tr><th>Medio</th><th class="num">Ventas</th><th class="num">Entró</th><th class="num">Comisiones</th></tr>
+          </thead>
+          <tbody>
+            {medios.map(([m, d]) => (
+              <tr>
+                <td>{m}</td>
+                <td class="num">{d.ventas}</td>
+                <td class="num">{pesos(d.ingresos)}</td>
+                <td class="num">{d.comisiones ? pesos(d.comisiones) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+<section class="tarjeta">
+  <h3>{{ semana: 'Últimas 12 semanas', mes: 'Últimos 12 meses', anio: 'Por año' }[periodo.vista]}</h3>
+  <div class="tabla">
+    <table>
+      <thead>
+        <tr>
+          <th>Periodo</th>
+          <th class="num">Ventas</th>
+          <th class="num">Ingresos</th>
+          <th class="num">Utilidad bruta</th>
+          <th class="num">Gastos</th>
+          <th class="num">Utilidad neta</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          historial.map(({ periodo: p, resumen: r }) => (
+            <tr aria-current={p.clave === periodo.clave ? 'true' : undefined}>
+              <td><a href={enlace(p.vista, p.clave)}>{p.etiqueta}</a></td>
+              <td class="num">{r.ventas}</td>
+              <td class="num">{pesos(r.ingresos)}</td>
+              <td class="num">{pesos(r.utilidadBruta)}</td>
+              <td class="num">{pesos(r.gastos)}</td>
+              <td class="num" data-signo={r.utilidadNeta < 0 ? 'negativo' : undefined}>{pesos(r.utilidadNeta)}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{
+  ventas.length > 0 && (
+    <details class="tarjeta">
+      <summary><strong>Ventas del periodo ({ventas.length})</strong></summary>
+      <div class="tabla" style="margin-top: 0.75rem">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Venta</th>
+              <th>Medio</th>
+              <th class="num">Ingresos</th>
+              <th class="num">Costos</th>
+              <th class="num">Utilidad</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...ventas].reverse().map((v) => (
+              <tr>
+                <td><a href={`/admin/ventas/${v.id}`}>{fecha(v.fecha)}</a></td>
+                <td>{v.tipo === 'aliado' ? 'Aliado' : 'Cliente'} · {v.piezas} {v.piezas === 1 ? 'pieza' : 'piezas'}</td>
+                <td>{v.medio_pago ?? '—'}</td>
+                <td class="num">{pesos(v.ingresos_cop)}</td>
+                <td class="num">{pesos(v.costos_cop)}</td>
+                <td class="num">
+                  {pesos(v.utilidad_cop)}
+                  <small> ({porcentaje(Number(v.utilidad_cop), Number(v.ingresos_cop))})</small>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  )
+}
+
+<p class="ayuda">
+  Ingresos = ventas (ya con descuento) + domicilios cobrados. Utilidad bruta = ingresos − costos directos de cada venta (piezas,
+  empaque, mensajero y comisión). Utilidad neta = utilidad bruta − gastos. Las ventas a aliados cuentan el día de la venta aunque
+  estén por cobrar. Descargas para Excel en <a href="/admin/exportar">Exportar</a>.
+</p>
+
+<style>
+  .vistas {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--borde);
+    border-radius: 999px;
+    background: #fff;
+    margin-bottom: 1rem;
+  }
+
+  .vistas a {
+    padding: 0.4rem 1rem;
+    border-radius: 999px;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .vistas a[aria-current='page'] {
+    background: var(--rojo);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .navegar {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr 2.5rem;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .navegar h2 {
+    margin: 0;
+    text-align: center;
+    font-size: 1.2rem;
+  }
+
+  .navegar a {
+    display: grid;
+    place-items: center;
+    height: 2.5rem;
+    border: 1px solid var(--borde);
+    border-radius: 50%;
+    text-decoration: none;
+    background: #fff;
+    color: inherit;
+  }
+
+  .cifras {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+
+  @media (min-width: 48rem) {
+    .cifras {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .cifra {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .cifra span,
+  .cifra small {
+    color: var(--suave);
+    font-size: 0.85rem;
+  }
+
+  .cifra strong {
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  [data-signo='negativo'] strong,
+  td[data-signo='negativo'] {
+    color: var(--rojo);
+  }
+
+  h3 {
+    margin-top: 0;
+  }
+
+  .avisos p {
+    margin: 0.25rem 0;
+  }
+
+  .estado td.num,
+  .estado th.num {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 30rem) {
+    .estado {
+      font-size: 0.85rem;
+    }
+
+    .estado td,
+    .estado th {
+      padding-left: 0.35rem;
+      padding-right: 0.35rem;
+    }
+
+    .estado td:first-child {
+      min-width: 8.5rem;
+    }
+  }
+
+  .estado tr.resta td:first-child,
+  .estado tr.detalle td:first-child {
+    color: var(--suave);
+  }
+
+  .estado tr.detalle td:first-child {
+    padding-left: 1.5rem;
+  }
+
+  .estado tr.detalle td {
+    font-size: 0.9rem;
+  }
+
+  .estado tr.total td,
+  .estado tr.grande td {
+    border-top: 1px solid var(--texto);
+    font-weight: 600;
+  }
+
+  .estado tr.grande td {
+    font-size: 1.1rem;
+  }
+
+  tr[aria-current='true'] td {
+    background: #f6f0ee;
+    font-weight: 600;
+  }
+</style>

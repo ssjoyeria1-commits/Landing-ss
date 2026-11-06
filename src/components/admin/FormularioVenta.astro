@@ -8,13 +8,14 @@ interface Props {
   unidades: Pick<UnidadDetalle, 'id' | 'producto_id' | 'codigo' | 'producto' | 'categoria' | 'peso_gramos' | 'precio_cop'>[];
   aliados: { id: string; nombre: string }[];
   preciosAliado: Record<string, number>;
+  mediosPago: { id: string; nombre: string; comision_pct: number }[];
   paises: { codigo: string; nombre: string }[];
   hoy: string;
   aliadoInicial: string;
   tipoInicial: 'cliente' | 'aliado';
 }
 
-const { error, unidades, aliados, preciosAliado, paises, hoy, aliadoInicial, tipoInicial } = Astro.props;
+const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliadoInicial, tipoInicial } = Astro.props;
 ---
 
 <form method="post" id="venta" novalidate>
@@ -111,6 +112,30 @@ const { error, unidades, aliados, preciosAliado, paises, hoy, aliadoInicial, tip
         <input id="fecha" name="fecha" type="date" value={hoy} max={hoy} />
       </div>
     </div>
+    <div class="fila">
+      <div class="campo">
+        <label for="medio_pago_id">Medio de pago</label>
+        <select id="medio_pago_id" name="medio_pago_id">
+          <option value="">Sin definir</option>
+          {
+            mediosPago.map((m) => (
+              <option value={m.id} data-comision={m.comision_pct}>
+                {m.nombre}
+                {Number(m.comision_pct) > 0 && ` (${String(m.comision_pct).replace('.', ',')} %)`}
+              </option>
+            ))
+          }
+        </select>
+      </div>
+      <div class="campo">
+        <label for="domicilio_cobrado">Domicilio cobrado al cliente</label>
+        <input id="domicilio_cobrado" name="domicilio_cobrado" inputmode="numeric" autocomplete="off" placeholder="0" />
+      </div>
+      <div class="campo">
+        <label for="domicilio_pagado">Pagado al mensajero</label>
+        <input id="domicilio_pagado" name="domicilio_pagado" inputmode="numeric" autocomplete="off" placeholder="0" />
+      </div>
+    </div>
     <div class="campo">
       <label for="nota">Nota interna (opcional)</label>
       <textarea id="nota" name="nota" rows="2"></textarea>
@@ -124,7 +149,10 @@ const { error, unidades, aliados, preciosAliado, paises, hoy, aliadoInicial, tip
 
 <section class="tarjeta" aria-live="polite">
     <p style="margin: 0" id="totales">Agrega las piezas para ver el total.</p>
-    <p class="ayuda">El total de la venta es la suma de los precios de las piezas menos el descuento.</p>
+    <p class="ayuda">
+      El total de la venta es la suma de los precios de las piezas menos el descuento; el domicilio cobrado se suma a lo que
+      paga el cliente. El empaque (uno por caja), el mensajero y la comisión del medio de pago se restan en la utilidad.
+    </p>
   </section>
   <script type="application/json" id="inventario" set:html={JSON.stringify(unidades)} />
   <script type="application/json" id="precios-aliado" set:html={JSON.stringify(preciosAliado)} />
@@ -433,12 +461,23 @@ const { error, unidades, aliados, preciosAliado, paises, hoy, aliadoInicial, tip
         n += 1;
       }
     }
+    totales.textContent = textoTotales(n, subtotal);
+  }
+
+  /** "3 piezas · subtotal … · descuento … · total … · domicilio … · a cobrar …" */
+  const domicilio = document.querySelector<HTMLInputElement>('#domicilio_cobrado')!;
+  function textoTotales(n: number, subtotal: number, sufijo = '') {
+    if (!n) return 'Agrega las piezas para ver el total.';
     const d = monto(descuento.value);
+    const total = Math.max(subtotal - d, 0);
+    const envio = monto(domicilio.value);
     const partes = [`${n} ${n === 1 ? 'pieza' : 'piezas'}`, `subtotal ${pesos.format(subtotal)}`];
     if (d) partes.push(`descuento ${pesos.format(d)}`);
-    partes.push(`total ${pesos.format(Math.max(subtotal - d, 0))}`);
-    totales.textContent = n ? partes.join(' · ') : 'Agrega las piezas para ver el total.';
+    partes.push(`total ${pesos.format(total)}${sufijo}`);
+    if (envio) partes.push(`domicilio ${pesos.format(envio)}`, `a cobrar ${pesos.format(total + envio)}`);
+    return partes.join(' · ');
   }
+  domicilio.addEventListener('input', () => actualizarTotales());
   descuento.addEventListener('input', actualizarTotales);
   contenedor.addEventListener('input', actualizarTotales);
 
@@ -570,11 +609,7 @@ const { error, unidades, aliados, preciosAliado, paises, hoy, aliadoInicial, tip
       subtotal += cantidad * precio;
       n += cantidad;
     }
-    const d = monto(descuento.value);
-    const partes = [`${n} ${n === 1 ? 'pieza' : 'piezas'}`, `subtotal ${pesos.format(subtotal)}`];
-    if (d) partes.push(`descuento ${pesos.format(d)}`);
-    partes.push(`total ${pesos.format(Math.max(subtotal - d, 0))}`);
-    totales.textContent = n ? `${partes.join(' · ')} (precio de aliado)` : 'Agrega las piezas para ver el total.';
+    totales.textContent = textoTotales(n, subtotal, ' (precio de aliado)');
   }
 
   // Buscador de la pieza: se escribe parte del código, del nombre o de la categoría y se elige de la lista.

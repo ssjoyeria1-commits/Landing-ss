@@ -4,6 +4,7 @@ import { nombreCompleto, type ClienteCirculo } from './clientes';
 import { formatoWhatsapp } from './whatsapp';
 import type { PiezaVendida } from './informes';
 import type { UnidadDetalle } from './inventario';
+import type { Gasto, VentaContable } from './contabilidad';
 
 const LOTE = 1000; // máximo de filas que Supabase devuelve por consulta
 
@@ -223,6 +224,71 @@ export const EXPORTACIONES: Record<string, Exportacion> = {
     },
   },
 
+  'informe-contable': {
+    titulo: 'Contabilidad: utilidad por venta',
+    descripcion: 'Una fila por venta (también las anuladas, marcadas): ingresos, costos directos y utilidad.',
+    formato: 'excel',
+    async generar(supabase) {
+      const filas = await traerTodo<VentaContable>((d, h) =>
+        supabase.from('ventas_contables').select('*').order('fecha', { ascending: false }).order('id').range(d, h),
+      );
+      return {
+        encabezados: [
+          'Fecha', 'Tipo', 'Medio de pago', 'Piezas', 'Venta (COP)', 'Descuento (COP)', 'Domicilio cobrado (COP)', 'Ingresos (COP)',
+          'Costo de las piezas (COP)', 'Empaques', 'Costo de empaques (COP)', 'Mensajero (COP)', 'Comisión (%)', 'Comisión (COP)',
+          'Costos directos (COP)', 'Utilidad (COP)', 'Margen (%)', 'Pago del aliado', 'Estado',
+        ],
+        filas: filas.map((v) => [
+          v.fecha,
+          v.tipo === 'aliado' ? 'Aliado' : 'Cliente',
+          v.medio_pago ?? '',
+          v.piezas,
+          Number(v.monto_cop),
+          Number(v.descuento_cop),
+          Number(v.domicilio_cobrado_cop),
+          Number(v.ingresos_cop),
+          Number(v.costo_piezas_cop),
+          v.empaques,
+          Number(v.empaque_cop),
+          Number(v.domicilio_pagado_cop),
+          Number(v.comision_pct),
+          Number(v.comision_cop),
+          Number(v.costos_cop),
+          Number(v.utilidad_cop),
+          Number(v.ingresos_cop) ? redondear((Number(v.utilidad_cop) / Number(v.ingresos_cop)) * 100) : '',
+          v.tipo === 'aliado' ? (v.pagada_aliado_at ? 'Pagada' : 'Pendiente') : '',
+          v.anulada ? 'Anulada' : v.costo_completo ? 'Activa' : 'Activa, con piezas sin costo',
+        ]),
+      };
+    },
+  },
+
+  'informe-gastos': {
+    titulo: 'Gastos',
+    descripcion: 'Una fila por gasto, del más reciente al más antiguo, con su categoría.',
+    formato: 'excel',
+    async generar(supabase) {
+      const [gastos, medios] = await Promise.all([
+        traerTodo<Gasto>((d, h) =>
+          supabase.from('gastos').select('*, categorias_gasto(nombre)').order('fecha', { ascending: false }).order('id').range(d, h),
+        ),
+        traerTodo<{ id: string; nombre: string }>((d, h) => supabase.from('medios_pago').select('id, nombre').order('id').range(d, h)),
+      ]);
+      const medio = new Map(medios.map((m) => [m.id, m.nombre]));
+      return {
+        encabezados: ['Fecha', 'Categoría', 'Qué fue', 'Valor (COP)', 'Pagado con', 'Nota'],
+        filas: gastos.map((g) => [
+          g.fecha,
+          g.categorias_gasto?.nombre ?? '',
+          g.descripcion,
+          Number(g.monto_cop),
+          g.medio_pago_id ? (medio.get(g.medio_pago_id) ?? '') : '',
+          g.nota ?? '',
+        ]),
+      };
+    },
+  },
+
   'informe-clientes': {
     titulo: 'Clientes y Círculo SS',
     descripcion: 'Una fila por cliente, en orden alfabético, con su contador y premios.',
@@ -276,7 +342,11 @@ const RESPALDO: Record<string, { columnas: string[]; orden: string }> = {
     orden: 'created_at',
   },
   ventas: {
-    columnas: ['id', 'cliente_id', 'aliado_id', 'fecha', 'monto_cop', 'descuento_cop', 'nota', 'anulada', 'anulada_at', 'pagada_aliado_at', 'created_at'],
+    columnas: [
+      'id', 'cliente_id', 'aliado_id', 'fecha', 'monto_cop', 'descuento_cop', 'nota', 'anulada', 'anulada_at', 'pagada_aliado_at',
+      'medio_pago_id', 'comision_pct', 'comision_cop', 'empaques', 'empaque_unitario_cop', 'domicilio_cobrado_cop', 'domicilio_pagado_cop',
+      'created_at',
+    ],
     orden: 'created_at',
   },
   cajas: { columnas: ['id', 'venta_id', 'referencia', 'codigo_chip', 'es_regalo', 'nombre_destinatario', 'created_at'], orden: 'created_at' },
@@ -296,6 +366,10 @@ const RESPALDO: Record<string, { columnas: string[]; orden: string }> = {
   proveedores: { columnas: ['id', 'nombre', 'contacto', 'nota', 'activo', 'created_at'], orden: 'created_at' },
   lotes: { columnas: ['id', 'proveedor_id', 'fecha', 'oro_gramo_cop', 'nota', 'creado_por', 'created_at'], orden: 'created_at' },
   unidades: { columnas: ['id', 'lote_id', 'producto_id', 'peso_gramos', 'mano_obra_gramo_cop', 'estado', 'created_at'], orden: 'created_at' },
+  medios_pago: { columnas: ['id', 'nombre', 'comision_pct', 'activo', 'orden', 'created_at'], orden: 'created_at' },
+  costos_empaque: { columnas: ['id', 'desde', 'cantidad', 'total_cop', 'costo_unitario_cop', 'nota', 'created_at'], orden: 'created_at' },
+  categorias_gasto: { columnas: ['id', 'nombre', 'activa', 'created_at'], orden: 'created_at' },
+  gastos: { columnas: ['id', 'fecha', 'categoria_id', 'descripcion', 'monto_cop', 'medio_pago_id', 'nota', 'created_at'], orden: 'created_at' },
 };
 
 for (const [tabla, { columnas, orden }] of Object.entries(RESPALDO)) {

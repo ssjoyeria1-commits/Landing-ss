@@ -1,0 +1,263 @@
+---
+// Gastos del negocio por mes: registrar, corregir y borrar, con el total por categoría. La compra de
+// empaques va en Contabilidad → Ajustes y la de oro en los lotes del inventario (no son gastos).
+import Admin from '../../layouts/Admin.astro';
+import { fecha, hoyBogota, pesos } from '../../lib/formato';
+import { periodoDe, moverPeriodo, leerPeriodo, type Gasto } from '../../lib/contabilidad';
+import { leerMonto } from '../../lib/venta';
+
+const supabase = Astro.locals.supabase;
+const hoy = hoyBogota();
+const mes = leerPeriodo('mes', Astro.url.searchParams.get('mes'), hoy);
+let error = '';
+let aviso = '';
+let enviado: FormData | null = null;
+let editando = '';
+
+/** Lee el formulario de un gasto. */
+function leerGasto(form: FormData) {
+  const t = (c: string) => String(form.get(c) ?? '').trim();
+  const monto = leerMonto(t('monto'));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t('fecha')) || t('fecha') > hoy) return { error: 'Elige una fecha que no sea futura.' };
+  if (!t('categoria_id')) return { error: 'Elige la categoría del gasto.' };
+  if (!t('descripcion')) return { error: 'Escribe qué fue el gasto.' };
+  if (t('descripcion').length > 120) return { error: 'La descripción puede tener hasta 120 caracteres.' };
+  if (!Number.isSafeInteger(monto) || monto <= 0) return { error: 'Escribe el valor del gasto en pesos.' };
+  return {
+    datos: {
+      fecha: t('fecha'),
+      categoria_id: t('categoria_id'),
+      descripcion: t('descripcion'),
+      monto_cop: monto,
+      medio_pago_id: t('medio_pago_id') || null,
+      nota: t('nota') || null,
+    },
+  };
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = String(form.get('accion') ?? '');
+  const id = String(form.get('id') ?? '');
+  if (accion === 'crear' || accion === 'editar') {
+    const leido = leerGasto(form);
+    if ('error' in leido) {
+      error = leido.error!;
+      enviado = form;
+      editando = accion === 'editar' ? id : '';
+    } else {
+      const { error: fallo } =
+        accion === 'crear'
+          ? await supabase.from('gastos').insert(leido.datos)
+          : await supabase.from('gastos').update(leido.datos).eq('id', id);
+      if (fallo) {
+        error = fallo.message;
+        enviado = form;
+      } else {
+        aviso = accion === 'crear' ? `Gasto registrado: ${leido.datos.descripcion}, ${pesos(leido.datos.monto_cop)}.` : 'Gasto corregido.';
+        // Si se registró en otro mes, se muestra ese mes.
+        const mesGasto = leido.datos.fecha.slice(0, 7);
+        if (mesGasto !== mes.clave) return Astro.redirect(`/admin/gastos?mes=${mesGasto}`);
+      }
+    }
+  } else if (accion === 'borrar') {
+    const { error: fallo } = await supabase.from('gastos').delete().eq('id', id);
+    if (fallo) error = fallo.message;
+    else aviso = 'Gasto borrado.';
+  }
+}
+
+const [{ data: dataGastos, error: falloLista }, { data: dataCategorias }, { data: dataMedios }] = await Promise.all([
+  supabase
+    .from('gastos')
+    .select('*, categorias_gasto(nombre)')
+    .gte('fecha', mes.inicio)
+    .lte('fecha', mes.fin)
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false }),
+  supabase.from('categorias_gasto').select('id, nombre, activa').order('nombre'),
+  supabase.from('medios_pago').select('id, nombre, activo').order('orden').order('nombre'),
+]);
+const gastos = (dataGastos ?? []) as Gasto[];
+const categorias = (dataCategorias ?? []) as { id: string; nombre: string; activa: boolean }[];
+const medios = (dataMedios ?? []) as { id: string; nombre: string; activo: boolean }[];
+const nombreMedio = new Map(medios.map((m) => [m.id, m.nombre]));
+const total = gastos.reduce((s, g) => s + Number(g.monto_cop), 0);
+const porCategoria = [...gastos.reduce((m, g) => {
+  const c = g.categorias_gasto?.nombre ?? 'Sin categoría';
+  return m.set(c, (m.get(c) ?? 0) + Number(g.monto_cop));
+}, new Map<string, number>())].sort((a, b) => b[1] - a[1]);
+
+const anterior = moverPeriodo(mes, -1);
+const siguiente = moverPeriodo(mes, 1);
+const hayFuturo = siguiente.inicio <= hoy;
+const valor = (campo: string, defecto = '') => (enviado && !editando ? String(enviado.get(campo) ?? '') : defecto);
+const valorEdicion = (g: Gasto, campo: string, actual: string) => (editando === g.id && enviado ? String(enviado.get(campo) ?? '') : actual);
+const fechaNueva = mes.clave === periodoDe(hoy, 'mes').clave ? hoy : mes.fin;
+---
+
+<Admin title="Gastos">
+  {error && <p class="aviso error">{error}</p>}
+  {aviso && <p class="aviso ok">{aviso}</p>}
+  {falloLista && <p class="aviso error">No se pudo cargar la lista: {falloLista.message}</p>}
+
+  <section class="tarjeta">
+    <h2 style="margin-top: 0">Registrar gasto</h2>
+    <form method="post">
+      <input type="hidden" name="accion" value="crear" />
+      <div class="fila">
+        <div class="campo">
+          <label for="fecha">Fecha</label>
+          <input id="fecha" name="fecha" type="date" value={valor('fecha', fechaNueva)} max={hoy} required />
+        </div>
+        <div class="campo">
+          <label for="categoria_id">Categoría</label>
+          <select id="categoria_id" name="categoria_id" required>
+            <option value="">Elige…</option>
+            {categorias.filter((c) => c.activa).map((c) => <option value={c.id} selected={c.id === valor('categoria_id')}>{c.nombre}</option>)}
+          </select>
+        </div>
+        <div class="campo">
+          <label for="monto">Valor (COP)</label>
+          <input id="monto" name="monto" inputmode="numeric" value={valor('monto')} placeholder="250.000" required autocomplete="off" />
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo" style="grid-column: span 2">
+          <label for="descripcion">Qué fue</label>
+          <input id="descripcion" name="descripcion" maxlength="120" value={valor('descripcion')} placeholder="Pauta de Instagram de noviembre" required autocomplete="off" />
+        </div>
+        <div class="campo">
+          <label for="medio_pago_id">Pagado con (opcional)</label>
+          <select id="medio_pago_id" name="medio_pago_id">
+            <option value="">Sin definir</option>
+            {medios.filter((m) => m.activo).map((m) => <option value={m.id} selected={m.id === valor('medio_pago_id')}>{m.nombre}</option>)}
+          </select>
+        </div>
+      </div>
+      <div class="campo">
+        <label for="nota">Nota (opcional)</label>
+        <input id="nota" name="nota" value={valor('nota')} autocomplete="off" />
+      </div>
+      <button type="submit">Registrar gasto</button>
+      <p class="ayuda">
+        No van aquí: la compra de empaques (en <a href="/admin/contabilidad/ajustes">Contabilidad → Ajustes</a>, entra como costo de cada
+        venta) ni la compra de oro (en los lotes del inventario, entra como costo de cada pieza vendida). Así no se cuentan dos veces.
+      </p>
+    </form>
+  </section>
+
+  <div class="acciones" style="justify-content: space-between; margin: 1.5rem 0 0.75rem">
+    <a href={`/admin/gastos?mes=${anterior.clave}`}>← {anterior.etiqueta}</a>
+    <h2 style="margin: 0">{mes.etiqueta}</h2>
+    {hayFuturo ? <a href={`/admin/gastos?mes=${siguiente.clave}`}>{siguiente.etiqueta} →</a> : <span />}
+  </div>
+
+  {
+    gastos.length === 0 ? (
+      <p class="tarjeta">No hay gastos registrados en {mes.etiqueta.toLowerCase()}.</p>
+    ) : (
+      <>
+        <div class="tarjeta">
+          <p style="margin: 0 0 0.5rem"><strong>Total del mes:</strong> {pesos(total)}</p>
+          <p class="ayuda" style="margin: 0">
+            {porCategoria.map(([c, v], i) => <>{i > 0 && ' · '}{c}: {pesos(v)}</>)}
+          </p>
+        </div>
+        <div class="tabla">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Qué fue</th>
+                <th>Categoría</th>
+                <th class="num">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gastos.map((g) => (
+                <tr>
+                  <td>{fecha(g.fecha)}</td>
+                  <td>
+                    {g.descripcion}
+                    {(g.medio_pago_id || g.nota) && (
+                      <small class="ayuda" style="display: block">
+                        {[g.medio_pago_id && nombreMedio.get(g.medio_pago_id), g.nota].filter(Boolean).join(' · ')}
+                      </small>
+                    )}
+                    <details open={editando === g.id}>
+                      <summary class="ayuda">Corregir o borrar</summary>
+                      <form method="post" style="margin-top: 0.5rem">
+                        <input type="hidden" name="accion" value="editar" />
+                        <input type="hidden" name="id" value={g.id} />
+                        <div class="fila">
+                          <div class="campo">
+                            <label for={`fecha-${g.id}`}>Fecha</label>
+                            <input id={`fecha-${g.id}`} name="fecha" type="date" max={hoy} value={valorEdicion(g, 'fecha', g.fecha)} />
+                          </div>
+                          <div class="campo">
+                            <label for={`cat-${g.id}`}>Categoría</label>
+                            <select id={`cat-${g.id}`} name="categoria_id">
+                              {categorias
+                                .filter((c) => c.activa || c.id === g.categoria_id)
+                                .map((c) => <option value={c.id} selected={c.id === valorEdicion(g, 'categoria_id', g.categoria_id)}>{c.nombre}</option>)}
+                            </select>
+                          </div>
+                          <div class="campo">
+                            <label for={`monto-${g.id}`}>Valor</label>
+                            <input id={`monto-${g.id}`} name="monto" inputmode="numeric" value={valorEdicion(g, 'monto', String(g.monto_cop))} />
+                          </div>
+                        </div>
+                        <div class="fila">
+                          <div class="campo" style="grid-column: span 2">
+                            <label for={`desc-${g.id}`}>Qué fue</label>
+                            <input id={`desc-${g.id}`} name="descripcion" maxlength="120" value={valorEdicion(g, 'descripcion', g.descripcion)} />
+                          </div>
+                          <div class="campo">
+                            <label for={`medio-${g.id}`}>Pagado con</label>
+                            <select id={`medio-${g.id}`} name="medio_pago_id">
+                              <option value="">Sin definir</option>
+                              {medios
+                                .filter((m) => m.activo || m.id === g.medio_pago_id)
+                                .map((m) => <option value={m.id} selected={m.id === valorEdicion(g, 'medio_pago_id', g.medio_pago_id ?? '')}>{m.nombre}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div class="campo">
+                          <label for={`nota-${g.id}`}>Nota</label>
+                          <input id={`nota-${g.id}`} name="nota" value={valorEdicion(g, 'nota', g.nota ?? '')} />
+                        </div>
+                        <button type="submit" class="secundario">Guardar</button>
+                      </form>
+                      <form method="post" class="borrar" style="margin-top: 0.5rem">
+                        <input type="hidden" name="accion" value="borrar" />
+                        <input type="hidden" name="id" value={g.id} />
+                        <button type="submit" class="enlace">Borrar este gasto</button>
+                      </form>
+                    </details>
+                  </td>
+                  <td>{g.categorias_gasto?.nombre}</td>
+                  <td class="num">{pesos(g.monto_cop)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th colspan="3">Total</th>
+                <th class="num">{pesos(total)}</th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </>
+    )
+  }
+</Admin>
+
+<script>
+  for (const form of document.querySelectorAll<HTMLFormElement>('.borrar')) {
+    form.addEventListener('submit', (e) => {
+      if (!confirm('¿Borrar este gasto? No se puede deshacer.')) e.preventDefault();
+    });
+  }
+</script>

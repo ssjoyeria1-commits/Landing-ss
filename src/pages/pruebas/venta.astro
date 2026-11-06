@@ -5,7 +5,7 @@
 import Admin from '../../layouts/Admin.astro';
 import FormularioVenta from '../../components/admin/FormularioVenta.astro';
 import { hoyBogota } from '../../lib/formato';
-import { leerFormularioVenta, leerVentaAliado } from '../../lib/venta';
+import { leerCobro, leerFormularioVenta, leerVentaAliado } from '../../lib/venta';
 import { listaPaises } from '../../lib/whatsapp';
 
 if (import.meta.env.PROD) return new Response(null, { status: 404 });
@@ -13,7 +13,8 @@ if (import.meta.env.PROD) return new Response(null, { status: 404 });
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const leido = form.get('tipo') === 'aliado' ? leerVentaAliado(form) : leerFormularioVenta(form);
-  const error = 'error' in leido ? leido.error : `Prueba (no se guardó): ${JSON.stringify(leido.payload)}`;
+  const cobro = leerCobro(form);
+  const error = 'error' in leido ? leido.error : 'error' in cobro ? cobro.error : `Prueba (no se guardó): ${JSON.stringify({ ...leido.payload, cobro: cobro.cobro })}`;
   return Response.json({ ok: false, error }, { status: 422 });
 }
 
@@ -52,6 +53,11 @@ const aliadoInicial = aliados.find((a) => a.id === Astro.url.searchParams.get('a
     unidades={unidades}
     aliados={aliados}
     preciosAliado={preciosAliado}
+    mediosPago={[
+      { id: 'm1', nombre: 'Efectivo', comision_pct: 0 },
+      { id: 'm2', nombre: 'Transferencia', comision_pct: 0 },
+      { id: 'm3', nombre: 'Datáfono', comision_pct: 3 },
+    ]}
     paises={listaPaises()}
     hoy={hoyBogota()}
     aliadoInicial={aliadoInicial}

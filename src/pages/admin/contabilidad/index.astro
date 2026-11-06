@@ -1,0 +1,31 @@
+---
+// Contabilidad: estado de resultados por semana, mes o año (?vista=semana|mes|anio&p=clave).
+import Admin from '../../../layouts/Admin.astro';
+import InformeContable from '../../../components/admin/InformeContable.astro';
+import { hoyBogota } from '../../../lib/formato';
+import { armarInforme, leerMovimientos, leerPeriodo, rangoInforme, type Vista } from '../../../lib/contabilidad';
+
+const hoy = hoyBogota();
+const parametro = Astro.url.searchParams.get('vista');
+const vista: Vista = parametro === 'semana' || parametro === 'anio' ? parametro : 'mes';
+const periodo = leerPeriodo(vista, Astro.url.searchParams.get('p'), hoy);
+const rango = rangoInforme(periodo);
+
+let error = '';
+let informe: ReturnType<typeof armarInforme> | null = null;
+try {
+  const { ventas, gastos } = await leerMovimientos(Astro.locals.supabase, rango.inicio, rango.fin);
+  informe = armarInforme(ventas, gastos, periodo, hoy);
+} catch (e) {
+  error = e instanceof Error ? e.message : String(e);
+}
+---
+
+<Admin title="Contabilidad">
+  <div class="acciones" style="margin-bottom: 1rem">
+    <a class="boton" href="/admin/gastos">+ Registrar gasto</a>
+    <a class="boton secundario" href="/admin/contabilidad/ajustes">Ajustes (empaque, medios de pago, categorías)</a>
+  </div>
+  {error && <p class="aviso error">No se pudo cargar la contabilidad: {error}</p>}
+  {informe && <InformeContable base="/admin/contabilidad" {...informe} />}
+</Admin>

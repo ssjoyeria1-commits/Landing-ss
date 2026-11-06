@@ -4,6 +4,8 @@ import { SITIO } from '../../../config/sitio';
 import { nombreCompleto } from '../../../lib/clientes';
 import { fecha, pesos } from '../../../lib/formato';
 import { qrSvg } from '../../../lib/qr';
+import type { VentaContable } from '../../../lib/contabilidad';
+import { leerCobro } from '../../../lib/venta';
 
 const { id } = Astro.params;
 const supabase = Astro.locals.supabase;
@@ -24,6 +26,18 @@ if (Astro.request.method === 'POST') {
     else aviso = accion === 'anular' ? 'Venta anulada: ya no cuenta en el Círculo y sus chips dejaron de funcionar.' : 'Venta reactivada.';
   }
 
+  if (accion === 'cobro') {
+    const leido = leerCobro(form);
+    const empaques = Number(String(form.get('empaques') ?? '').trim() || '0');
+    if ('error' in leido) error = leido.error;
+    else if (!Number.isInteger(empaques) || empaques < 0 || empaques > 50) error = 'Los empaques deben ser un número entero.';
+    else {
+      const { error: fallo } = await supabase.from('ventas').update({ ...leido.cobro, empaques }).eq('id', id!);
+      if (fallo) error = fallo.message;
+      else aviso = 'Se guardaron el cobro y los costos de la venta.';
+    }
+  }
+
   if (accion === 'regenerar') {
     const { data, error: fallo } = await supabase.rpc('regenerar_chip', { p_caja_id: String(form.get('caja_id')) });
     if (fallo) error = fallo.message;
@@ -41,18 +55,24 @@ const { data: venta } = await supabase
 
 if (!venta) return new Response('Venta no encontrada', { status: 404 });
 
+// Resultado de la venta: ingresos, costos directos y utilidad (vista ventas_contables).
+const [{ data: dataContable }, { data: dataMedios }] = await Promise.all([
+  supabase.from('ventas_contables').select('*').eq('id', id!).maybeSingle(),
+  supabase.from('medios_pago').select('id, nombre, comision_pct, activo').order('orden').order('nombre'),
+]);
+const contable = dataContable as VentaContable | null;
+const medios = (dataMedios ?? []) as { id: string; nombre: string; comision_pct: number; activo: boolean }[];
+if (Astro.url.searchParams.get('cobro') === 'error') error = 'La venta se guardó, pero no el medio de pago ni el domicilio: escríbelos abajo, en Cobro y costos.';
+
 const cliente = venta.clientes as unknown as { id: string; nombre: string; apellido: string | null; codigo_referido: string } | null;
 // Venta a un aliado: sin cliente ni chip (su caja solo guarda las piezas).
 const aliado = venta.aliados as unknown as { id: string; nombre: string } | null;
 const cajas = [...venta.cajas].sort((a, b) => a.created_at.localeCompare(b.created_at));
 
-// Totales por pieza: subtotal, costo (solo de las piezas del inventario) y margen.
+// Subtotal de las piezas (antes del descuento); costos y utilidad salen de ventas_contables.
 const todas = cajas.flatMap((c) => c.piezas);
 const conPrecio = todas.length > 0 && todas.every((p) => p.precio_cop != null);
 const subtotal = todas.reduce((s, p) => s + Number(p.precio_cop ?? 0), 0);
-const costoCompleto = todas.length > 0 && todas.every((p) => p.costo_cop != null);
-const costo = todas.reduce((s, p) => s + Number(p.costo_cop ?? 0), 0);
-const margen = venta.monto_cop - costo;
 ---
 
 <Admin title={`Venta del ${fecha(venta.fecha)}`}>
@@ -88,16 +108,90 @@ const margen = venta.monto_cop - costo;
       )}
       <strong>Total:</strong>
       {pesos(venta.monto_cop)}<br />
-      {costo > 0 && (
-        <>
-          <strong>Costo:</strong> {pesos(costo)}{!costoCompleto && ' (solo de las piezas del inventario)'} · <strong>Margen:</strong>{' '}
-          {pesos(margen)} ({Math.round((margen / venta.monto_cop) * 100)} %)<br />
-        </>
-      )}
       {venta.nota && (<><strong>Nota:</strong> {venta.nota}<br /></>)}
       {venta.anulada && <span class="etiqueta alerta">Anulada el {new Date(venta.anulada_at!).toLocaleDateString('es-CO')}</span>}
     </p>
   </div>
+
+  {
+    contable && (
+      <section class="tarjeta">
+        <h2 style="margin-top: 0">Utilidad de la venta</h2>
+        <table class="resultado">
+          <tbody>
+            <tr><td>Piezas (total de la venta)</td><td class="num">{pesos(contable.monto_cop)}</td></tr>
+            {contable.domicilio_cobrado_cop > 0 && <tr><td>Domicilio cobrado</td><td class="num">{pesos(contable.domicilio_cobrado_cop)}</td></tr>}
+            <tr class="subtotal"><td>Ingresos</td><td class="num">{pesos(contable.ingresos_cop)}</td></tr>
+            <tr>
+              <td>Costo de las piezas{!contable.costo_completo && ' (solo las del inventario)'}</td>
+              <td class="num">− {pesos(contable.costo_piezas_cop)}</td>
+            </tr>
+            <tr>
+              <td>Empaque ({contable.empaques} × {pesos(contable.empaques ? contable.empaque_cop / contable.empaques : 0)})</td>
+              <td class="num">− {pesos(contable.empaque_cop)}</td>
+            </tr>
+            {contable.domicilio_pagado_cop > 0 && <tr><td>Mensajero</td><td class="num">− {pesos(contable.domicilio_pagado_cop)}</td></tr>}
+            {contable.comision_cop > 0 && (
+              <tr>
+                <td>Comisión {contable.medio_pago} ({String(contable.comision_pct).replace('.', ',')} %)</td>
+                <td class="num">− {pesos(contable.comision_cop)}</td>
+              </tr>
+            )}
+            <tr class="subtotal">
+              <td>Utilidad</td>
+              <td class="num">
+                {pesos(contable.utilidad_cop)}
+                {contable.ingresos_cop > 0 && <small> ({Math.round((contable.utilidad_cop / contable.ingresos_cop) * 100)} %)</small>}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        {contable.empaques > 0 && contable.empaque_cop === 0 && (
+          <p class="ayuda">
+            El empaque está en $ 0: registra su costo en <a href="/admin/contabilidad/ajustes">Contabilidad → Ajustes</a>.
+          </p>
+        )}
+
+        <details style="margin-top: 0.75rem">
+          <summary>Cobro y costos (medio de pago, domicilio, empaques)</summary>
+          <form method="post" style="margin-top: 0.75rem">
+            <input type="hidden" name="accion" value="cobro" />
+            <div class="fila">
+              <div class="campo">
+                <label for="medio_pago_id">Medio de pago</label>
+                <select id="medio_pago_id" name="medio_pago_id">
+                  <option value="">Sin definir</option>
+                  {medios
+                    .filter((m) => m.activo || m.id === contable.medio_pago_id)
+                    .map((m) => (
+                      <option value={m.id} selected={m.id === contable.medio_pago_id}>
+                        {m.nombre}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div class="campo">
+                <label for="empaques">Empaques</label>
+                <input id="empaques" name="empaques" type="number" min="0" max="50" step="1" value={contable.empaques} />
+              </div>
+            </div>
+            <div class="fila">
+              <div class="campo">
+                <label for="domicilio_cobrado">Domicilio cobrado al cliente</label>
+                <input id="domicilio_cobrado" name="domicilio_cobrado" inputmode="numeric" value={contable.domicilio_cobrado_cop || ''} placeholder="0" />
+              </div>
+              <div class="campo">
+                <label for="domicilio_pagado">Pagado al mensajero</label>
+                <input id="domicilio_pagado" name="domicilio_pagado" inputmode="numeric" value={contable.domicilio_pagado_cop || ''} placeholder="0" />
+              </div>
+            </div>
+            <p class="ayuda">Al cambiar el medio de pago se usa la comisión que ese medio tiene hoy.</p>
+            <button type="submit" class="secundario">Guardar</button>
+          </form>
+        </details>
+      </section>
+    )
+  }
 
   {
     cajas.map((caja, i) => {
@@ -173,6 +267,21 @@ const margen = venta.monto_cop - costo;
 </Admin>
 
 <style>
+  .resultado {
+    width: 100%;
+    max-width: 30rem;
+    border-collapse: collapse;
+  }
+
+  .resultado td {
+    padding: 0.3rem 0;
+  }
+
+  .resultado .subtotal td {
+    border-top: 1px solid var(--borde);
+    font-weight: 600;
+  }
+
   .qr-caja {
     width: 7.5rem;
     height: 7.5rem;

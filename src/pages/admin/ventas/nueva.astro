@@ -2,7 +2,7 @@
 import Admin from '../../../layouts/Admin.astro';
 import FormularioVenta from '../../../components/admin/FormularioVenta.astro';
 import { hoyBogota } from '../../../lib/formato';
-import { leerFormularioVenta, leerVentaAliado } from '../../../lib/venta';
+import { leerCobro, leerFormularioVenta, leerVentaAliado } from '../../../lib/venta';
 import { listaPaises } from '../../../lib/whatsapp';
 import { mensajeError, type UnidadDetalle } from '../../../lib/inventario';
 
@@ -14,9 +14,12 @@ if (Astro.request.method === 'POST') {
   // Venta a un aliado (a su precio, sin cliente, sin chip y pendiente de pago) o a un cliente.
   const esAliado = form.get('tipo') === 'aliado';
   const leido = esAliado ? leerVentaAliado(form) : leerFormularioVenta(form);
+  const cobro = leerCobro(form);
 
   if ('error' in leido) {
     error = leido.error;
+  } else if ('error' in cobro) {
+    error = cobro.error;
   } else {
     const { data, error: fallo } = esAliado
       ? await Astro.locals.supabase.rpc('registrar_venta_aliado', { p: leido.payload })
@@ -24,7 +27,10 @@ if (Astro.request.method === 'POST') {
     if (fallo) {
       error = esAliado ? mensajeError(fallo.message) : fallo.message;
     } else {
-      const destino = `/admin/ventas/${data.venta_id}?${esAliado ? 'aliado' : 'nueva'}=1`;
+      // Medio de pago y domicilio (la base calcula la comisión). Si fallara, la venta ya quedó
+      // guardada y estos datos se corrigen en su detalle.
+      const { error: falloCobro } = await Astro.locals.supabase.from('ventas').update(cobro.cobro).eq('id', data.venta_id);
+      const destino = `/admin/ventas/${data.venta_id}?${esAliado ? 'aliado' : 'nueva'}=1${falloCobro ? '&cobro=error' : ''}`;
       if (quiereJson) return Response.json({ ok: true, destino });
       return Astro.redirect(destino);
     }
@@ -33,7 +39,7 @@ if (Astro.request.method === 'POST') {
 }
 
 // Piezas disponibles del inventario, para elegirlas por producto y peso.
-const [{ data: dataUnidades }, { data: dataAliados }, { data: dataPrecios }] = await Promise.all([
+const [{ data: dataUnidades }, { data: dataAliados }, { data: dataPrecios }, { data: dataMedios }] = await Promise.all([
   Astro.locals.supabase
     .from('unidades_detalle')
     .select('id, producto_id, codigo, producto, categoria, peso_gramos, precio_cop')
@@ -45,7 +51,9 @@ const [{ data: dataUnidades }, { data: dataAliados }, { data: dataPrecios }] = a
     .order('created_at'),
   Astro.locals.supabase.from('aliados').select('id, nombre').eq('activo', true).order('nombre'),
   Astro.locals.supabase.from('productos_catalogo').select('id, precio_aliado_gramo_cop').not('precio_aliado_gramo_cop', 'is', null),
+  Astro.locals.supabase.from('medios_pago').select('id, nombre, comision_pct').eq('activo', true).order('orden').order('nombre'),
 ]);
+const mediosPago = (dataMedios ?? []) as { id: string; nombre: string; comision_pct: number }[];
 const unidades = (dataUnidades ?? []) as Pick<
   UnidadDetalle,
   'id' | 'producto_id' | 'codigo' | 'producto' | 'categoria' | 'peso_gramos' | 'precio_cop'
@@ -64,5 +72,5 @@ const tipoInicial: 'cliente' | 'aliado' = aliadoInicial || Astro.url.searchParam
 ---
 
 <Admin title="Registrar venta">
-  <FormularioVenta {error} {unidades} {aliados} {preciosAliado} {paises} {hoy} {aliadoInicial} tipoInicial={tipoInicial} />
+  <FormularioVenta {error} {unidades} {aliados} {preciosAliado} {mediosPago} {paises} {hoy} {aliadoInicial} tipoInicial={tipoInicial} />
 </Admin>

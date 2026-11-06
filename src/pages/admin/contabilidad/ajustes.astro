@@ -1,0 +1,233 @@
+---
+// Ajustes de la contabilidad: costo del empaque (cada compra de empaques fija el costo por unidad
+// desde una fecha), medios de pago con su comisión y categorías de gasto.
+import Admin from '../../../layouts/Admin.astro';
+import { fecha, hoyBogota, pesos } from '../../../lib/formato';
+import { leerMonto } from '../../../lib/venta';
+
+const supabase = Astro.locals.supabase;
+const hoy = hoyBogota();
+let error = '';
+let aviso = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const t = (c: string) => String(form.get(c) ?? '').trim();
+  const accion = t('accion');
+  const id = t('id');
+  const resultado = async (op: PromiseLike<{ error: { message: string } | null }>, ok: string) => {
+    const { error: fallo } = await op;
+    if (fallo) error = fallo.message.includes('duplicate') ? 'Ya existe uno con ese nombre.' : fallo.message;
+    else aviso = ok;
+  };
+  const comision = (v: string) => Number(v.replace(',', '.') || '0');
+
+  if (accion === 'empaque') {
+    const cantidad = Number(t('cantidad'));
+    const total = leerMonto(t('total'));
+    if (!Number.isInteger(cantidad) || cantidad <= 0) error = 'Escribe cuántos empaques compraron.';
+    else if (!Number.isSafeInteger(total) || total <= 0) error = 'Escribe cuánto pagaron en total.';
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(t('desde')) || t('desde') > hoy) error = 'Elige desde qué fecha aplica (no futura).';
+    else
+      await resultado(
+        supabase.from('costos_empaque').insert({ desde: t('desde'), cantidad, total_cop: total, nota: t('nota') || null }),
+        `Costo del empaque: ${pesos(Math.round(total / cantidad))} cada uno desde el ${fecha(t('desde'))}.`,
+      );
+  } else if (accion === 'medio-crear' || accion === 'medio-editar') {
+    const pct = comision(t('comision'));
+    if (!t('nombre')) error = 'Escribe el nombre del medio de pago.';
+    else if (!(pct >= 0 && pct <= 20)) error = 'La comisión debe estar entre 0 y 20 %.';
+    else if (accion === 'medio-crear')
+      await resultado(supabase.from('medios_pago').insert({ nombre: t('nombre'), comision_pct: pct, orden: 50 }), `Medio de pago ${t('nombre')} agregado.`);
+    else
+      await resultado(
+        supabase.from('medios_pago').update({ nombre: t('nombre'), comision_pct: pct, activo: form.get('activo') === 'on' }).eq('id', id),
+        `Medio de pago ${t('nombre')} guardado. Las ventas ya registradas conservan su comisión.`,
+      );
+  } else if (accion === 'categoria-crear') {
+    if (!t('nombre')) error = 'Escribe el nombre de la categoría.';
+    else await resultado(supabase.from('categorias_gasto').insert({ nombre: t('nombre') }), `Categoría ${t('nombre')} agregada.`);
+  } else if (accion === 'categoria-editar') {
+    if (!t('nombre')) error = 'Escribe el nombre de la categoría.';
+    else
+      await resultado(
+        supabase.from('categorias_gasto').update({ nombre: t('nombre'), activa: form.get('activa') === 'on' }).eq('id', id),
+        `Categoría ${t('nombre')} guardada.`,
+      );
+  }
+}
+
+const [{ data: dataEmpaque }, { data: dataMedios }, { data: dataCategorias }] = await Promise.all([
+  supabase.from('costos_empaque').select('*').order('desde', { ascending: false }).order('created_at', { ascending: false }),
+  supabase.from('medios_pago').select('*').order('orden').order('nombre'),
+  supabase.from('categorias_gasto').select('*').order('nombre'),
+]);
+type CostoEmpaque = { id: string; desde: string; cantidad: number; total_cop: number; costo_unitario_cop: number; nota: string | null };
+const empaques = (dataEmpaque ?? []) as CostoEmpaque[];
+const vigente = empaques.find((e) => e.desde <= hoy);
+const medios = (dataMedios ?? []) as { id: string; nombre: string; comision_pct: number; activo: boolean }[];
+const categorias = (dataCategorias ?? []) as { id: string; nombre: string; activa: boolean }[];
+---
+
+<Admin title="Ajustes de contabilidad">
+  <p><a href="/admin/contabilidad">← Contabilidad</a></p>
+  {error && <p class="aviso error">{error}</p>}
+  {aviso && <p class="aviso ok">{aviso}</p>}
+
+  <section class="tarjeta">
+    <h2 style="margin-top: 0">Costo del empaque</h2>
+    <p>
+      {
+        vigente ? (
+          <>Hoy: <strong>{pesos(vigente.costo_unitario_cop)}</strong> por empaque (desde el {fecha(vigente.desde)}). Cada caja de una venta usa un empaque.</>
+        ) : (
+          <>Todavía no hay costo de empaque: las ventas lo cuentan en $ 0. Registra la compra de empaques para que entre en la utilidad.</>
+        )
+      }
+    </p>
+    <form method="post">
+      <input type="hidden" name="accion" value="empaque" />
+      <div class="fila">
+        <div class="campo">
+          <label for="cantidad">Empaques comprados</label>
+          <input id="cantidad" name="cantidad" type="number" min="1" step="1" placeholder="300" required />
+        </div>
+        <div class="campo">
+          <label for="total">Total pagado (COP)</label>
+          <input id="total" name="total" inputmode="numeric" placeholder="900.000" required autocomplete="off" />
+        </div>
+        <div class="campo">
+          <label for="desde">Aplica desde</label>
+          <input id="desde" name="desde" type="date" value={hoy} max={hoy} required />
+        </div>
+      </div>
+      <div class="campo">
+        <label for="nota-empaque">Nota (opcional)</label>
+        <input id="nota-empaque" name="nota" placeholder="Proveedor, referencia del empaque…" autocomplete="off" />
+      </div>
+      <button type="submit">Registrar compra de empaques</button>
+      <p class="ayuda">
+        El costo por empaque es el total dividido entre la cantidad. Cada venta guarda el costo del día en que se registró; las ventas
+        desde esa fecha que todavía estaban en $ 0 toman este costo (así la primera compra cubre las ventas anteriores).
+      </p>
+    </form>
+    {
+      empaques.length > 0 && (
+        <div class="tabla" style="margin-top: 1rem">
+          <table>
+            <thead>
+              <tr><th>Desde</th><th class="num">Cantidad</th><th class="num">Total</th><th class="num">Por empaque</th><th>Nota</th></tr>
+            </thead>
+            <tbody>
+              {empaques.map((e) => (
+                <tr>
+                  <td>{fecha(e.desde)}</td>
+                  <td class="num">{e.cantidad}</td>
+                  <td class="num">{pesos(e.total_cop)}</td>
+                  <td class="num">{pesos(e.costo_unitario_cop)}</td>
+                  <td>{e.nota}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+  </section>
+
+  <section class="tarjeta">
+    <h2 style="margin-top: 0">Medios de pago</h2>
+    <p class="ayuda">
+      La comisión es el % que cobra el medio sobre lo que paga el cliente (piezas y domicilio). Al cambiarla, las ventas ya
+      registradas conservan la que tenían.
+    </p>
+    {
+      medios.map((m) => (
+        <form method="post" class="fila linea-ajuste">
+          <input type="hidden" name="accion" value="medio-editar" />
+          <input type="hidden" name="id" value={m.id} />
+          <div class="campo">
+            <label for={`medio-${m.id}`}>Nombre</label>
+            <input id={`medio-${m.id}`} name="nombre" value={m.nombre} maxlength="40" required />
+          </div>
+          <div class="campo">
+            <label for={`comision-${m.id}`}>Comisión (%)</label>
+            <input id={`comision-${m.id}`} name="comision" inputmode="decimal" value={String(m.comision_pct).replace('.', ',')} />
+          </div>
+          <div class="campo">
+            <label class="check"><input type="checkbox" name="activo" checked={m.activo} /> Activo</label>
+            <button type="submit" class="secundario">Guardar</button>
+          </div>
+        </form>
+      ))
+    }
+    <form method="post" class="fila linea-ajuste">
+      <input type="hidden" name="accion" value="medio-crear" />
+      <div class="campo">
+        <label for="medio-nuevo">Nuevo medio</label>
+        <input id="medio-nuevo" name="nombre" maxlength="40" placeholder="Bold, Wompi, Addi…" required />
+      </div>
+      <div class="campo">
+        <label for="comision-nuevo">Comisión (%)</label>
+        <input id="comision-nuevo" name="comision" inputmode="decimal" placeholder="0" />
+      </div>
+      <div class="campo" style="align-self: end">
+        <button type="submit" class="secundario">Agregar</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="tarjeta">
+    <h2 style="margin-top: 0">Categorías de gasto</h2>
+    {
+      categorias.map((c) => (
+        <form method="post" class="fila linea-ajuste">
+          <input type="hidden" name="accion" value="categoria-editar" />
+          <input type="hidden" name="id" value={c.id} />
+          <div class="campo" style="grid-column: span 2">
+            <label for={`cat-${c.id}`} class="visualmente-oculto">Nombre</label>
+            <input id={`cat-${c.id}`} name="nombre" value={c.nombre} maxlength="60" required />
+          </div>
+          <div class="campo">
+            <label class="check"><input type="checkbox" name="activa" checked={c.activa} /> Activa</label>
+            <button type="submit" class="secundario">Guardar</button>
+          </div>
+        </form>
+      ))
+    }
+    <form method="post" class="fila linea-ajuste">
+      <input type="hidden" name="accion" value="categoria-crear" />
+      <div class="campo" style="grid-column: span 2">
+        <label for="cat-nueva">Nueva categoría</label>
+        <input id="cat-nueva" name="nombre" maxlength="60" required />
+      </div>
+      <div class="campo" style="align-self: end">
+        <button type="submit" class="secundario">Agregar</button>
+      </div>
+    </form>
+  </section>
+</Admin>
+
+<style>
+  .linea-ajuste {
+    align-items: end;
+    border-top: 1px solid var(--borde);
+    padding-top: 0.6rem;
+    margin-top: 0.6rem;
+  }
+
+  .linea-ajuste .campo:last-child {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .visualmente-oculto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+</style>

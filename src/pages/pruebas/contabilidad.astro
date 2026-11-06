@@ -1,0 +1,83 @@
+---
+// SOLO DESARROLLO: el informe de contabilidad con ventas y gastos de ejemplo de los últimos meses,
+// sin sesión ni base de datos (?vista=semana|mes|anio&p=clave). En producción responde 404.
+import Admin from '../../layouts/Admin.astro';
+import InformeContable from '../../components/admin/InformeContable.astro';
+import { hoyBogota } from '../../lib/formato';
+import { armarInforme, leerPeriodo, type Gasto, type VentaContable, type Vista } from '../../lib/contabilidad';
+
+if (import.meta.env.PROD) return new Response(null, { status: 404 });
+
+const hoy = hoyBogota();
+const diasAtras = (n: number) => {
+  const d = new Date(`${hoy}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+};
+
+// Una venta cada 3 días durante ~7 meses, con medios y domicilios variados; una a aliado de cada 5.
+const medios = [
+  ['Efectivo', 0],
+  ['Transferencia', 0],
+  ['Nequi', 0],
+  ['Datáfono', 3],
+] as const;
+const ventas: VentaContable[] = Array.from({ length: 70 }, (_, i) => {
+  const aliado = i % 5 === 4;
+  const monto = aliado ? 1_800_000 : 600_000 + ((i * 337_000) % 2_400_000);
+  const costo = Math.round(monto * (aliado ? 0.82 : 0.68));
+  const [medio, pct] = medios[i % medios.length];
+  const domCobrado = !aliado && i % 3 === 0 ? 15_000 : 0;
+  const domPagado = domCobrado ? 12_000 : 0;
+  const empaques = 1 + (i % 7 === 0 ? 1 : 0);
+  const comision = Math.round(((monto + domCobrado) * pct) / 100);
+  const ingresos = monto + domCobrado;
+  const costos = costo + empaques * 3000 + domPagado + comision;
+  return {
+    id: `v${i}`,
+    fecha: diasAtras(i * 3),
+    anulada: false,
+    cliente_id: aliado ? null : 'c',
+    aliado_id: aliado ? 'a' : null,
+    tipo: aliado ? 'aliado' : 'cliente',
+    pagada_aliado_at: aliado && i > 10 ? '2026-01-01T00:00:00Z' : null,
+    medio_pago_id: 'm',
+    medio_pago: medio,
+    monto_cop: monto,
+    descuento_cop: i % 6 === 0 ? 50_000 : 0,
+    domicilio_cobrado_cop: domCobrado,
+    costo_piezas_cop: costo,
+    costo_completo: i !== 2,
+    piezas: 1 + (i % 3),
+    empaques,
+    empaque_cop: i === 1 ? 0 : empaques * 3000,
+    domicilio_pagado_cop: domPagado,
+    comision_pct: pct,
+    comision_cop: comision,
+    ingresos_cop: ingresos,
+    costos_cop: costos,
+    utilidad_cop: ingresos - costos,
+  };
+});
+
+const categorias = ['Arriendo', 'Publicidad y redes', 'Servicios públicos', 'Transporte', 'Software y suscripciones'];
+const gastos: Gasto[] = Array.from({ length: 40 }, (_, i) => ({
+  id: `g${i}`,
+  fecha: diasAtras(i * 5 + 1),
+  categoria_id: 'x',
+  descripcion: `Gasto ${i}`,
+  monto_cop: i % 6 === 0 ? 1_200_000 : 80_000 + ((i * 53_000) % 400_000),
+  medio_pago_id: null,
+  nota: null,
+  created_at: '',
+  categorias_gasto: { nombre: i % 6 === 0 ? 'Arriendo' : categorias[1 + (i % 4)] },
+}));
+
+const parametro = Astro.url.searchParams.get('vista');
+const vista: Vista = parametro === 'semana' || parametro === 'anio' ? parametro : 'mes';
+const informe = armarInforme(ventas, gastos, leerPeriodo(vista, Astro.url.searchParams.get('p'), hoy), hoy);
+---
+
+<Admin title="Contabilidad (prueba)">
+  <InformeContable base="/pruebas/contabilidad" {...informe} />
+</Admin>

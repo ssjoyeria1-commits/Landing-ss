@@ -17,6 +17,8 @@ const enlaces = [
   { href: '/admin/inventario', texto: 'Inventario' },
   { href: '/admin/aliados', texto: 'Aliados' },
   { href: '/admin/informes', texto: 'Informes' },
+  { href: '/admin/gastos', texto: 'Gastos' },
+  { href: '/admin/contabilidad', texto: 'Contabilidad' },
   { href: '/admin/exportar', texto: 'Exportar' },
 ];
 ---
@@ -32,7 +34,7 @@ const enlaces = [
           </a>
           <nav>
             {enlaces.map((e) => (
-              <a href={e.href} aria-current={ruta === e.href || (e.href === '/admin/inventario' && ruta.startsWith('/admin/inventario/')) ? 'page' : undefined}>
+              <a href={e.href} aria-current={ruta === e.href || (['/admin/inventario', '/admin/contabilidad'].includes(e.href) && ruta.startsWith(`${e.href}/`)) ? 'page' : undefined}>
                 {e.texto}
               </a>
             ))}

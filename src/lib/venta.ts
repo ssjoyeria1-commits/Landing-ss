@@ -166,3 +166,22 @@ export function leerVentaAliado(form: FormData): { payload: PayloadVentaAliado }
     },
   };
 }
+
+/** Cobro de la venta: medio de pago y domicilio (lo cobrado al cliente y lo pagado al mensajero). */
+export interface CobroVenta {
+  medio_pago_id: string | null;
+  domicilio_cobrado_cop: number;
+  domicilio_pagado_cop: number;
+}
+
+export function leerCobro(form: FormData): { cobro: CobroVenta } | { error: string } {
+  const valor = (campo: string) => {
+    const t = texto(form, campo);
+    return t ? leerMonto(t) : 0;
+  };
+  const cobrado = valor('domicilio_cobrado');
+  const pagado = valor('domicilio_pagado');
+  if (!Number.isSafeInteger(cobrado) || cobrado < 0) return { error: 'El domicilio cobrado no es un monto válido.' };
+  if (!Number.isSafeInteger(pagado) || pagado < 0) return { error: 'Lo pagado al mensajero no es un monto válido.' };
+  return { cobro: { medio_pago_id: texto(form, 'medio_pago_id') || null, domicilio_cobrado_cop: cobrado, domicilio_pagado_cop: pagado } };
+}

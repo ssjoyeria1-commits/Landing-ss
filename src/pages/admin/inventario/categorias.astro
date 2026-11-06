@@ -24,7 +24,7 @@ if (Astro.request.method === 'POST') {
 
 const { data, error: falloLista } = await supabase
   .from('categorias')
-  .select('id, nombre, mano_obra_gramo_cop, precio_gramo_cop, activa')
+  .select('id, nombre, mano_obra_gramo_cop, precio_gramo_cop, precio_aliado_gramo_cop, activa')
   .order('nombre');
 const categorias = (data ?? []) as Categoria[];
 const editar = Astro.url.searchParams.get('editar');
@@ -34,7 +34,8 @@ const editar = Astro.url.searchParams.get('editar');
   <p><a href="/admin/inventario">← Productos</a></p>
   <p class="ayuda" style="margin-bottom: 1rem">
     Cada categoría tiene su mano de obra y su precio de venta por gramo. El precio de cada pieza será su peso × el
-    precio por gramo, y su costo, su peso × (oro del lote + mano de obra por gramo).
+    precio por gramo, y su costo, su peso × (oro del lote + mano de obra por gramo). El precio para aliados es opcional:
+    sin él, la categoría no aparece en el catálogo de los aliados.
   </p>
 
   {error && <p class="aviso error">{error}</p>}
@@ -50,6 +51,7 @@ const editar = Astro.url.searchParams.get('editar');
               <th>Categoría</th>
               <th class="num">Mano de obra / g</th>
               <th class="num">Precio / g</th>
+              <th class="num">Aliados / g</th>
               <th>Estado</th>
               <th />
             </tr>
@@ -58,7 +60,7 @@ const editar = Astro.url.searchParams.get('editar');
             {categorias.map((c) =>
               editar === c.id ? (
                 <tr>
-                  <td colspan="5">
+                  <td colspan="6">
                     <form method="post" action="/admin/inventario/categorias">
                       <input type="hidden" name="id" value={c.id} />
                       <div class="fila">
@@ -73,6 +75,10 @@ const editar = Astro.url.searchParams.get('editar');
                         <div class="campo">
                           <label for={`precio-${c.id}`}>Precio de venta por gramo (COP)</label>
                           <input id={`precio-${c.id}`} name="precio_gramo" inputmode="numeric" value={c.precio_gramo_cop} required />
+                        </div>
+                        <div class="campo">
+                          <label for={`aliado-${c.id}`}>Precio para aliados por gramo (COP)</label>
+                          <input id={`aliado-${c.id}`} name="precio_aliado" inputmode="numeric" value={c.precio_aliado_gramo_cop ?? ''} placeholder="Opcional" />
                         </div>
                       </div>
                       <div class="acciones">
@@ -90,6 +96,7 @@ const editar = Astro.url.searchParams.get('editar');
                   <td>{c.nombre}</td>
                   <td class="num">{pesos(c.mano_obra_gramo_cop)}</td>
                   <td class="num">{pesos(c.precio_gramo_cop)}</td>
+                  <td class="num">{c.precio_aliado_gramo_cop ? pesos(c.precio_aliado_gramo_cop) : <span class="ayuda">—</span>}</td>
                   <td>{c.activa ? 'Activa' : <span class="etiqueta">Inactiva</span>}</td>
                   <td>
                     <a href={`/admin/inventario/categorias?editar=${c.id}`}>Editar</a>
@@ -118,6 +125,10 @@ const editar = Astro.url.searchParams.get('editar');
         <div class="campo">
           <label for="precio_gramo">Precio de venta por gramo (COP)</label>
           <input id="precio_gramo" name="precio_gramo" inputmode="numeric" placeholder="320.000" required />
+        </div>
+        <div class="campo">
+          <label for="precio_aliado">Precio para aliados por gramo (COP)</label>
+          <input id="precio_aliado" name="precio_aliado" inputmode="numeric" placeholder="Opcional" />
         </div>
       </div>
       <input type="hidden" name="activa" value="on" />

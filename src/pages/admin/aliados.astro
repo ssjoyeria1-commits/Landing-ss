@@ -1,0 +1,171 @@
+---
+// Aliados: crear, copiar o enviar su enlace privado, regenerarlo (el anterior deja de funcionar) y
+// activarlos o desactivarlos (un aliado inactivo no puede abrir su catálogo).
+import Admin from '../../layouts/Admin.astro';
+import { leerAliado, urlAliado, type Aliado } from '../../lib/aliados';
+import { fecha } from '../../lib/formato';
+import { enlaceWhatsApp, formatoWhatsapp } from '../../lib/whatsapp';
+import { MENSAJES } from '../../config/mensajes';
+
+const supabase = Astro.locals.supabase;
+let error = '';
+let ok = '';
+let enviado: FormData | null = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = String(form.get('accion') ?? '');
+  const id = String(form.get('id') ?? '');
+
+  if (accion === 'crear') {
+    const leido = leerAliado(form);
+    if ('error' in leido) {
+      error = leido.error;
+      enviado = form;
+    } else {
+      const { error: fallo } = await supabase.from('aliados').insert(leido.datos);
+      if (fallo) error = fallo.message;
+      else ok = `Se creó el aliado ${leido.datos.nombre}. Envíale su enlace.`;
+    }
+  } else if (accion === 'regenerar') {
+    const { error: fallo } = await supabase.rpc('regenerar_enlace_aliado', { p_aliado_id: id });
+    if (fallo) error = fallo.message;
+    else ok = 'Enlace nuevo generado: el anterior ya no funciona. Envíale el nuevo.';
+  } else if (accion === 'activar' || accion === 'desactivar') {
+    const { error: fallo } = await supabase.from('aliados').update({ activo: accion === 'activar' }).eq('id', id);
+    if (fallo) error = fallo.message;
+    else ok = accion === 'activar' ? 'Aliado activado: su enlace vuelve a funcionar.' : 'Aliado desactivado: su enlace ya no abre el catálogo.';
+  }
+}
+
+const { data, error: falloLista } = await supabase
+  .from('aliados')
+  .select('id, nombre, whatsapp, token, activo, nota, ultimo_acceso, created_at')
+  .order('activo', { ascending: false })
+  .order('nombre');
+const aliados = (data ?? []) as Aliado[];
+const origen = Astro.url.origin;
+const valor = (campo: string) => String(enviado?.get(campo) ?? '');
+---
+
+<Admin title="Aliados">
+  <p class="ayuda" style="margin-bottom: 1rem">
+    Cada aliado tiene un enlace privado a su catálogo: lo disponible con foto, su precio de aliado, el precio público
+    sugerido y cuántas piezas hay. Las categorías sin precio para aliados no aparecen (se fija en
+    <a href="/admin/inventario/categorias">Categorías</a>). Si un aliado comparte su enlace, regenéralo.
+  </p>
+
+  {error && <p class="aviso error">{error}</p>}
+  {ok && <p class="aviso ok">{ok}</p>}
+  {falloLista && <p class="aviso error">No se pudo cargar la lista: {falloLista.message}</p>}
+
+  {
+    aliados.length === 0 && !falloLista && <p class="tarjeta">Todavía no hay aliados. Crea el primero abajo.</p>
+  }
+
+  {
+    aliados.map((a) => {
+      const url = urlAliado(origen, a.token);
+      return (
+        <section class="tarjeta">
+          <div class="acciones" style="justify-content: space-between">
+            <h2 style="margin: 0">{a.nombre}</h2>
+            {a.activo ? <span class="etiqueta">Activo</span> : <span class="etiqueta alerta">Inactivo</span>}
+          </div>
+          <p class="ayuda">
+            {a.whatsapp ? formatoWhatsapp(a.whatsapp) : 'Sin WhatsApp'} ·{' '}
+            {a.ultimo_acceso ? `Abrió su catálogo el ${fecha(a.ultimo_acceso.slice(0, 10))}` : 'Aún no ha abierto su catálogo'}
+            {a.nota && <> · {a.nota}</>}
+          </p>
+          {a.activo && (
+            <>
+              <label>Enlace privado</label>
+              <div class="acciones">
+                <code>{url}</code>
+              </div>
+              <div class="acciones" style="margin-top: 0.6rem">
+                <button type="button" class="secundario copiar" data-texto={url}>
+                  Copiar enlace
+                </button>
+                {a.whatsapp && (
+                  <a
+                    class="boton"
+                    href={enlaceWhatsApp(a.whatsapp, MENSAJES.enlaceAliado(a.nombre.split(' ')[0], url))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Enviar por WhatsApp
+                  </a>
+                )}
+                <a href={url} target="_blank" rel="noopener">
+                  Ver como el aliado
+                </a>
+              </div>
+            </>
+          )}
+          <div class="acciones" style="margin-top: 0.75rem">
+            {a.activo && (
+              <form method="post" class="regenerar">
+                <input type="hidden" name="accion" value="regenerar" />
+                <input type="hidden" name="id" value={a.id} />
+                <button type="submit" class="enlace">
+                  Generar enlace nuevo
+                </button>
+              </form>
+            )}
+            <form method="post" class={a.activo ? 'desactivar' : ''}>
+              <input type="hidden" name="accion" value={a.activo ? 'desactivar' : 'activar'} />
+              <input type="hidden" name="id" value={a.id} />
+              <button type="submit" class="enlace">
+                {a.activo ? 'Desactivar' : 'Activar'}
+              </button>
+            </form>
+          </div>
+        </section>
+      );
+    })
+  }
+
+  <section class="tarjeta">
+    <h2 style="margin-top: 0">Nuevo aliado</h2>
+    <form method="post">
+      <input type="hidden" name="accion" value="crear" />
+      <div class="fila">
+        <div class="campo">
+          <label for="nombre">Nombre</label>
+          <input id="nombre" name="nombre" maxlength="80" value={valor('nombre')} required autocomplete="off" />
+        </div>
+        <div class="campo">
+          <label for="whatsapp">WhatsApp (opcional)</label>
+          <input id="whatsapp" name="whatsapp" inputmode="tel" value={valor('whatsapp')} placeholder="300 123 4567" autocomplete="off" />
+          <p class="ayuda">Para enviarle el enlace con un clic. Si no es de Colombia, con su indicativo (+…).</p>
+        </div>
+      </div>
+      <div class="campo">
+        <label for="nota">Nota (opcional)</label>
+        <input id="nota" name="nota" value={valor('nota')} placeholder="Ciudad, comisión acordada…" autocomplete="off" />
+      </div>
+      <button type="submit">Crear aliado</button>
+    </form>
+  </section>
+</Admin>
+
+<script>
+  for (const boton of document.querySelectorAll<HTMLButtonElement>('.copiar')) {
+    boton.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(boton.dataset.texto!);
+      boton.textContent = 'Copiado';
+      setTimeout(() => (boton.textContent = 'Copiar enlace'), 1500);
+    });
+  }
+  for (const form of document.querySelectorAll<HTMLFormElement>('.regenerar')) {
+    form.addEventListener('submit', (e) => {
+      if (!confirm('¿Generar un enlace nuevo? El enlace actual dejará de funcionar y tendrás que enviarle el nuevo.')) e.preventDefault();
+    });
+  }
+  for (const form of document.querySelectorAll<HTMLFormElement>('.desactivar')) {
+    form.addEventListener('submit', (e) => {
+      if (!confirm('¿Desactivar este aliado? Su enlace dejará de abrir el catálogo hasta que lo actives de nuevo.')) e.preventDefault();
+    });
+  }
+</script>

@@ -8,6 +8,8 @@ export interface Categoria {
   nombre: string;
   mano_obra_gramo_cop: number;
   precio_gramo_cop: number;
+  /** Precio por gramo para aliados (vendedores con comisión); sin él, la categoría no sale en su catálogo. */
+  precio_aliado_gramo_cop: number | null;
   activa: boolean;
 }
 
@@ -43,8 +45,23 @@ export function leerCategoria(
   if (!nombre) return { error: 'Escribe el nombre de la categoría.' };
   if (!Number.isSafeInteger(manoObra) || manoObra < 0) return { error: 'Escribe la mano de obra por gramo en pesos.' };
   if (!Number.isSafeInteger(precio) || precio <= 0) return { error: 'Escribe el precio de venta por gramo en pesos.' };
+  // Precio de aliado: opcional, y menor que el público (si no, el aliado no tendría margen).
+  const textoAliado = texto(form, 'precio_aliado');
+  const aliado = textoAliado ? leerMonto(textoAliado) : null;
+  if (aliado !== null && (!Number.isSafeInteger(aliado) || aliado <= 0)) {
+    return { error: 'El precio por gramo para aliados debe ser un monto en pesos (o déjalo vacío).' };
+  }
+  if (aliado !== null && aliado >= precio) {
+    return { error: 'El precio por gramo para aliados debe ser menor que el precio de venta por gramo.' };
+  }
   return {
-    datos: { nombre, mano_obra_gramo_cop: manoObra, precio_gramo_cop: precio, activa: form.get('activa') === 'on' },
+    datos: {
+      nombre,
+      mano_obra_gramo_cop: manoObra,
+      precio_gramo_cop: precio,
+      precio_aliado_gramo_cop: aliado,
+      activa: form.get('activa') === 'on',
+    },
   };
 }
 

@@ -30,7 +30,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 |---|---|
 | Servidor local | `npm run dev` (o `preview_start` con `astro-dev` de `.claude/launch.json`) → http://127.0.0.1:4321 |
 | Revisar tipos | `npx astro check` (debe dar 0 errores) |
-| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 49 pruebas) |
+| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 51 pruebas) |
 | Publicar | `npm run build` y luego `npx wrangler deploy` |
 | Tipos de las variables | `npm run types` (usa `--include-runtime=false`; ver abajo) |
 | Aplicar migraciones | `npx supabase db push --linked --dry-run`, luego sin `--dry-run` y con `--yes` |
@@ -78,7 +78,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   Cada sección es una tarjeta vino oscuro (`--franja`) con tres rombos del imagotipo arriba. Rojo solo
   para el botón principal y los rombos ganados del Círculo. Botones oscuros con filete marfil.
 - Datos de prueba de la página del chip sin base de datos: `/pruebas/casos?datos=demo|peor|cero|diez|regalo|regalo-sin-nombre|neutra|temporal`
-  (solo en desarrollo; en producción da 404). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. QR de respaldo: `/pruebas/qr`. Catálogo de aliado: `/pruebas/aliados`. Registrar venta (cliente o aliado, muestra el JSON sin guardar): `/pruebas/venta?aliado=a1`. Contabilidad con datos de ejemplo: `/pruebas/contabilidad?vista=semana|mes|anio`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
+  (solo en desarrollo; en producción da 404). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. QR de respaldo: `/pruebas/qr`. Catálogo de aliado: `/pruebas/aliados`. Registrar venta (cliente o aliado, muestra el JSON sin guardar): `/pruebas/venta?aliado=a1`. Contabilidad con datos de ejemplo: `/pruebas/contabilidad?vista=semana|mes|anio`; sus ajustes: `/pruebas/ajustes`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
   (`&ficha=CODIGO` para la ficha, `&whatsapp=1` para ver el botón con un número de ejemplo).
 - Nombres con mayúscula inicial (`capitalizar()` al guardar y al mostrar).
 - CSV "informes" para Excel en español: separador `;` y decimales con coma. Los de "respaldo técnico"
@@ -212,7 +212,9 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
       detalle, `/admin/gastos`, `/admin/contabilidad` (estado de resultados por semana, mes o año, frente al
       mismo tramo del periodo anterior si va en curso; `src/lib/contabilidad.ts`,
       `src/components/admin/InformeContable.astro`) y `/admin/contabilidad/ajustes`. La compra de empaques y
-      la de oro **no** son gastos (entran como costo de cada venta).
+      la de oro **no** son gastos (entran como costo de cada venta). Las compras de empaque se corrigen o borran
+      (migración `20261108120000_empaque_editable.sql`): el costo de cada venta es el de la compra vigente en su
+      fecha y se recalcula solo. Categorías de gasto: activar o desactivar varias a la vez.
 - [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.
       Con el dominio: guardar `/catalogo` en la caché de Cloudflare (Cache API, que no funciona en
       `workers.dev`) y agregar una regla de límite de intentos en el panel de Cloudflare.

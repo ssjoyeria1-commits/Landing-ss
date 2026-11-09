@@ -34,6 +34,7 @@ const lineas: Linea[] = [
   { texto: 'Domicilios cobrados', a: actual.domicilioCobrado, b: previo.domicilioCobrado },
   { texto: 'Ingresos', a: actual.ingresos, b: previo.ingresos, tipo: 'total' },
   { texto: 'Costo de las piezas', a: actual.costoPiezas, b: previo.costoPiezas, tipo: 'resta' },
+  { texto: 'Empaques', a: actual.empaques, b: previo.empaques, tipo: 'resta' },
   { texto: 'Mensajeros', a: actual.mensajeros, b: previo.mensajeros, tipo: 'resta' },
   { texto: 'Comisiones de medios de pago', a: actual.comisiones, b: previo.comisiones, tipo: 'resta' },
   { texto: 'Utilidad bruta', a: actual.utilidadBruta, b: previo.utilidadBruta, tipo: 'total', margen: [actual.utilidadBruta, actual.ingresos] },
@@ -84,7 +85,7 @@ const medios = [...actual.porMedio].sort((x, y) => y[1].ingresos - x[1].ingresos
 </div>
 
 {
-  (actual.porCobrarAliados > 0 || actual.ventasSinCosto > 0) && (
+  (actual.porCobrarAliados > 0 || actual.ventasSinCosto > 0 || actual.empaquesSinCosto > 0 || actual.comprasEmpaque > 0) && (
     <div class="tarjeta avisos">
       {actual.porCobrarAliados > 0 && (
         <p>
@@ -96,6 +97,18 @@ const medios = [...actual.porMedio].sort((x, y) => y[1].ingresos - x[1].ingresos
         <p>
           {actual.ventasSinCosto} {actual.ventasSinCosto === 1 ? 'venta tiene' : 'ventas tienen'} piezas escritas a mano sin costo: su utilidad
           sale más alta de lo real.
+        </p>
+      )}
+      {actual.empaquesSinCosto > 0 && (
+        <p>
+          {actual.empaquesSinCosto} {actual.empaquesSinCosto === 1 ? 'venta tiene' : 'ventas tienen'} el empaque en $ 0: no hay una compra de empaques con fecha igual o anterior. Regístrala en{' '}
+          <a href="/admin/gastos">Gastos</a> (categoría Empaques, con la cantidad).
+        </p>
+      )}
+      {actual.comprasEmpaque > 0 && (
+        <p>
+          <strong>Compras de empaques:</strong> {pesos(actual.comprasEmpaque)} en este periodo. No se suman a los gastos: entran como
+          costo de cada venta (un empaque por caja).
         </p>
       )}
     </div>
@@ -234,7 +247,7 @@ const medios = [...actual.porMedio].sort((x, y) => y[1].ingresos - x[1].ingresos
 
 <p class="ayuda">
   Ingresos = ventas (ya con descuento) + domicilios cobrados. Utilidad bruta = ingresos − costos directos de cada venta (piezas,
-  mensajero y comisión). Utilidad neta = utilidad bruta − gastos (la compra de empaques es un gasto). Las ventas a aliados cuentan el día de la venta aunque
+  empaque, mensajero y comisión). Utilidad neta = utilidad bruta − gastos (sin la compra de empaques, que ya está en cada venta). Las ventas a aliados cuentan el día de la venta aunque
   estén por cobrar. Descargas para Excel en <a href="/admin/exportar">Exportar</a>.
 </p>
 

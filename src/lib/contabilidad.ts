@@ -19,6 +19,8 @@ export interface VentaContable {
   costo_piezas_cop: number;
   costo_completo: boolean;
   piezas: number;
+  empaques: number;
+  empaque_cop: number;
   domicilio_pagado_cop: number;
   comision_pct: number;
   comision_cop: number;
@@ -36,7 +38,8 @@ export interface Gasto {
   medio_pago_id: string | null;
   nota: string | null;
   created_at: string;
-  categorias_gasto: { nombre: string } | null;
+  cantidad: number | null;
+  categorias_gasto: { nombre: string; es_empaque: boolean } | null;
 }
 
 // ----- Periodos -----
@@ -125,7 +128,7 @@ export async function leerMovimientos(supabase: Supabase, inicio: string, fin: s
       supabase.from('ventas_contables').select('*').eq('anulada', false).gte('fecha', inicio).lte('fecha', fin).order('fecha').order('id').range(d, h),
     ),
     todas<Gasto>((d, h) =>
-      supabase.from('gastos').select('*, categorias_gasto(nombre)').gte('fecha', inicio).lte('fecha', fin).order('fecha').order('id').range(d, h),
+      supabase.from('gastos').select('*, categorias_gasto(nombre, es_empaque)').gte('fecha', inicio).lte('fecha', fin).order('fecha').order('id').range(d, h),
     ),
   ]);
   return { ventas, gastos };
@@ -145,6 +148,7 @@ export interface Resumen {
   domicilioCobrado: number;
   ingresos: number;
   costoPiezas: number;
+  empaques: number;
   mensajeros: number;
   comisiones: number;
   costosDirectos: number;
@@ -157,15 +161,18 @@ export interface Resumen {
   /** Ventas con piezas escritas a mano sin costo: su utilidad está sobrestimada. */
   ventasSinCosto: number;
   porMedio: Map<string, { ventas: number; ingresos: number; comisiones: number }>;
+  empaquesSinCosto: number;
+  /** Compras de empaques del periodo (informativo: ya entran como costo de cada venta). */
+  comprasEmpaque: number;
 }
 
 export function resumir(ventas: VentaContable[], gastos: Gasto[]): Resumen {
   const n = (v: unknown) => Number(v ?? 0);
   const r: Resumen = {
     ventas: 0, ventasClientes: 0, ventasAliados: 0, piezas: 0, piezasClientesCop: 0, piezasAliadosCop: 0, descuentos: 0,
-    domicilioCobrado: 0, ingresos: 0, costoPiezas: 0, mensajeros: 0, comisiones: 0, costosDirectos: 0,
+    domicilioCobrado: 0, ingresos: 0, costoPiezas: 0, empaques: 0, mensajeros: 0, comisiones: 0, costosDirectos: 0,
     utilidadBruta: 0, gastos: 0, gastosPorCategoria: new Map(), utilidadNeta: 0, porCobrarAliados: 0, ventasSinCosto: 0,
-    porMedio: new Map(),
+    porMedio: new Map(), empaquesSinCosto: 0, comprasEmpaque: 0,
   };
   for (const v of ventas) {
     if (v.anulada) continue;
@@ -183,11 +190,13 @@ export function resumir(ventas: VentaContable[], gastos: Gasto[]): Resumen {
     r.domicilioCobrado += n(v.domicilio_cobrado_cop);
     r.ingresos += n(v.ingresos_cop);
     r.costoPiezas += n(v.costo_piezas_cop);
+    r.empaques += n(v.empaque_cop);
     r.mensajeros += n(v.domicilio_pagado_cop);
     r.comisiones += n(v.comision_cop);
     r.costosDirectos += n(v.costos_cop);
     r.utilidadBruta += n(v.utilidad_cop);
     if (!v.costo_completo) r.ventasSinCosto += 1;
+    if (n(v.empaques) > 0 && n(v.empaque_cop) === 0) r.empaquesSinCosto += 1;
     const medio = v.medio_pago ?? 'Sin definir';
     const m = r.porMedio.get(medio) ?? { ventas: 0, ingresos: 0, comisiones: 0 };
     m.ventas += 1;
@@ -196,6 +205,11 @@ export function resumir(ventas: VentaContable[], gastos: Gasto[]): Resumen {
     r.porMedio.set(medio, m);
   }
   for (const g of gastos) {
+    // La compra de empaques no se suma como gasto: entra como costo de cada venta (empaque por caja).
+    if (g.categorias_gasto?.es_empaque) {
+      r.comprasEmpaque += n(g.monto_cop);
+      continue;
+    }
     r.gastos += n(g.monto_cop);
     const cat = g.categorias_gasto?.nombre ?? 'Sin categoría';
     r.gastosPorCategoria.set(cat, (r.gastosPorCategoria.get(cat) ?? 0) + n(g.monto_cop));

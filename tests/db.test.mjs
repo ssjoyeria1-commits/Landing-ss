@@ -946,22 +946,42 @@ async function contable(db, ventaId) {
   return como(db, 'authenticated', ADMIN, () => uno(db, 'select * from public.ventas_contables where id = $1', [ventaId]));
 }
 
-test('contabilidad: la compra de empaques es un gasto y la venta no resta empaque', async () => {
-  const db = await nuevaBase();
-  const r = await venta(db, { cajas: [{ es_regalo: false, piezas: [pieza()] }, { es_regalo: true, piezas: [pieza('Dije')] }] });
-  await como(db, 'authenticated', ADMIN, () =>
-    db.query(
-      "insert into public.gastos (fecha, categoria_id, descripcion, monto_cop) select privado.hoy() - 3, id, 'Compra de 300 empaques', 1748400 from public.categorias_gasto where nombre = 'Empaques'",
+async function compraEmpaques(db, dias, cantidad, total) {
+  return como(db, 'authenticated', ADMIN, () =>
+    uno(
+      db,
+      "insert into public.gastos (fecha, categoria_id, descripcion, monto_cop, cantidad) select privado.hoy() + $1::int, id, 'Compra de empaques', $3, $2 from public.categorias_gasto where es_empaque returning id",
+      [dias, cantidad, total],
     ),
   );
-  const c = await contable(db, r.venta_id);
-  assert.equal(Number(c.costos_cop), Number(c.costo_piezas_cop) + Number(c.domicilio_pagado_cop) + Number(c.comision_cop));
-  assert.equal('empaque_cop' in c, false, 'la vista ya no tiene costo de empaque');
-  const g = await como(db, 'authenticated', ADMIN, () =>
-    uno(db, "select g.monto_cop, cg.nombre from public.gastos g join public.categorias_gasto cg on cg.id = g.categoria_id"),
+}
+
+test('contabilidad: la compra de empaques es un gasto y de ahí sale el costo por caja de cada venta', async () => {
+  const db = await nuevaBase();
+  const r = await venta(db, { cajas: [{ es_regalo: false, piezas: [pieza()] }, { es_regalo: true, piezas: [pieza('Dije')] }] });
+  let c = await contable(db, r.venta_id);
+  assert.equal(c.empaques, 2, 'uno por caja');
+  assert.equal(Number(c.empaque_cop), 0, 'sin compra de empaques');
+
+  // Registrada con fecha posterior a la venta: no aplica.
+  const compra = await compraEmpaques(db, 2, 300, 900000);
+  assert.equal(Number((await contable(db, r.venta_id)).empaque_cop), 0);
+  // Se corrige la fecha: 900.000 / 300 = 3.000 por caja.
+  await como(db, 'authenticated', ADMIN, () => db.query('update public.gastos set fecha = privado.hoy() - 5 where id = $1', [compra.id]));
+  c = await contable(db, r.venta_id);
+  assert.equal(Number(c.empaque_cop), 6000);
+  assert.equal(Number(c.utilidad_cop), Number(c.ingresos_cop) - Number(c.costo_piezas_cop) - 6000 - Number(c.comision_cop) - Number(c.domicilio_pagado_cop));
+  // Una compra más nueva (desde hoy) cambia el costo de las ventas desde su fecha.
+  await compraEmpaques(db, 0, 100, 500000);
+  assert.equal(Number((await contable(db, r.venta_id)).empaque_cop), 10000);
+  // Borrar compras devuelve el costo a la anterior.
+  await como(db, 'authenticated', ADMIN, () => db.query('delete from public.gastos where cantidad = 100'));
+  assert.equal(Number((await contable(db, r.venta_id)).empaque_cop), 6000);
+  // Solo hay una categoría de empaques.
+  await assert.rejects(
+    como(db, 'authenticated', ADMIN, () => db.query("update public.categorias_gasto set es_empaque = true where nombre = 'Otros'")),
+    /duplicate|unique/,
   );
-  assert.equal(Number(g.monto_cop), 1748400);
-  assert.equal(g.nombre, 'Empaques');
 });
 
 test('contabilidad: desactivar varias categorías de gasto a la vez', async () => {

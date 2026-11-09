@@ -28,9 +28,11 @@ if (Astro.request.method === 'POST') {
 
   if (accion === 'cobro') {
     const leido = leerCobro(form);
+    const empaques = Number(String(form.get('empaques') ?? '').trim() || '0');
     if ('error' in leido) error = leido.error;
+    else if (!Number.isInteger(empaques) || empaques < 0 || empaques > 50) error = 'Los empaques deben ser un número entero.';
     else {
-      const { error: fallo } = await supabase.from('ventas').update(leido.cobro).eq('id', id!);
+      const { error: fallo } = await supabase.from('ventas').update({ ...leido.cobro, empaques }).eq('id', id!);
       if (fallo) error = fallo.message;
       else aviso = 'Se guardaron el cobro y los costos de la venta.';
     }
@@ -124,6 +126,10 @@ const subtotal = todas.reduce((s, p) => s + Number(p.precio_cop ?? 0), 0);
               <td>Costo de las piezas{!contable.costo_completo && ' (solo las del inventario)'}</td>
               <td class="num">− {pesos(contable.costo_piezas_cop)}</td>
             </tr>
+            <tr>
+              <td>Empaque ({contable.empaques} × {pesos(contable.empaques ? contable.empaque_cop / contable.empaques : 0)})</td>
+              <td class="num">− {pesos(contable.empaque_cop)}</td>
+            </tr>
             {contable.domicilio_pagado_cop > 0 && <tr><td>Mensajero</td><td class="num">− {pesos(contable.domicilio_pagado_cop)}</td></tr>}
             {contable.comision_cop > 0 && (
               <tr>
@@ -140,9 +146,14 @@ const subtotal = todas.reduce((s, p) => s + Number(p.precio_cop ?? 0), 0);
             </tr>
           </tbody>
         </table>
+        {contable.empaques > 0 && contable.empaque_cop === 0 && (
+          <p class="ayuda">
+            El empaque está en $ 0: no hay una compra de empaques con fecha igual o anterior a la venta. Regístrala en <a href="/admin/gastos">Gastos</a> (categoría Empaques, con la cantidad).
+          </p>
+        )}
 
         <details style="margin-top: 0.75rem">
-          <summary>Cobro y costos (medio de pago y domicilio)</summary>
+          <summary>Cobro y costos (medio de pago, domicilio, empaques)</summary>
           <form method="post" style="margin-top: 0.75rem">
             <input type="hidden" name="accion" value="cobro" />
             <div class="fila">
@@ -158,6 +169,10 @@ const subtotal = todas.reduce((s, p) => s + Number(p.precio_cop ?? 0), 0);
                       </option>
                     ))}
                 </select>
+              </div>
+              <div class="campo">
+                <label for="empaques">Empaques</label>
+                <input id="empaques" name="empaques" type="number" min="0" max="50" step="1" value={contable.empaques} />
               </div>
             </div>
             <div class="fila">

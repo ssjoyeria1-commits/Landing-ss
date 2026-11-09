@@ -1,6 +1,7 @@
 ---
 // Gastos del negocio por mes: registrar, corregir y borrar, con el total por categoría. La compra de
-// empaques es un gasto (categoría Empaques); la de oro va en los lotes del inventario (no es gasto).
+// empaques va aquí (categoría de empaques, con la cantidad): de ella sale el costo por caja de cada venta y
+// el informe no la suma como gasto. La de oro va en los lotes del inventario (no es gasto).
 import Admin from '../../layouts/Admin.astro';
 import { fecha, hoyBogota, pesos } from '../../lib/formato';
 import { periodoDe, moverPeriodo, leerPeriodo, type Gasto } from '../../lib/contabilidad';
@@ -14,6 +15,11 @@ let aviso = '';
 let enviado: FormData | null = null;
 let editando = '';
 
+// Las categorías se leen antes del formulario: la de empaques pide la cantidad.
+const { data: dataCategorias } = await supabase.from('categorias_gasto').select('id, nombre, activa, es_empaque').order('nombre');
+const categorias = (dataCategorias ?? []) as { id: string; nombre: string; activa: boolean; es_empaque: boolean }[];
+const empaque = categorias.find((c) => c.es_empaque);
+
 /** Lee el formulario de un gasto. */
 function leerGasto(form: FormData) {
   const t = (c: string) => String(form.get(c) ?? '').trim();
@@ -23,12 +29,17 @@ function leerGasto(form: FormData) {
   if (!t('descripcion')) return { error: 'Escribe qué fue el gasto.' };
   if (t('descripcion').length > 120) return { error: 'La descripción puede tener hasta 120 caracteres.' };
   if (!Number.isSafeInteger(monto) || monto <= 0) return { error: 'Escribe el valor del gasto en pesos.' };
+  const esEmpaque = t('categoria_id') === empaque?.id;
+  const cantidad = Number(t('cantidad'));
+  if (esEmpaque && (!Number.isInteger(cantidad) || cantidad <= 0 || cantidad > 100000))
+    return { error: 'Escribe cuántos empaques compraron: con eso se calcula el costo por caja de cada venta.' };
   return {
     datos: {
       fecha: t('fecha'),
       categoria_id: t('categoria_id'),
       descripcion: t('descripcion'),
       monto_cop: monto,
+      cantidad: esEmpaque ? cantidad : null,
       medio_pago_id: t('medio_pago_id') || null,
       nota: t('nota') || null,
     },
@@ -67,19 +78,17 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const [{ data: dataGastos, error: falloLista }, { data: dataCategorias }, { data: dataMedios }] = await Promise.all([
+const [{ data: dataGastos, error: falloLista }, { data: dataMedios }] = await Promise.all([
   supabase
     .from('gastos')
-    .select('*, categorias_gasto(nombre)')
+    .select('*, categorias_gasto(nombre, es_empaque)')
     .gte('fecha', mes.inicio)
     .lte('fecha', mes.fin)
     .order('fecha', { ascending: false })
     .order('created_at', { ascending: false }),
-  supabase.from('categorias_gasto').select('id, nombre, activa').order('nombre'),
   supabase.from('medios_pago').select('id, nombre, activo').order('orden').order('nombre'),
 ]);
 const gastos = (dataGastos ?? []) as Gasto[];
-const categorias = (dataCategorias ?? []) as { id: string; nombre: string; activa: boolean }[];
 const medios = (dataMedios ?? []) as { id: string; nombre: string; activo: boolean }[];
 const nombreMedio = new Map(medios.map((m) => [m.id, m.nombre]));
 const total = gastos.reduce((s, g) => s + Number(g.monto_cop), 0);
@@ -114,7 +123,7 @@ const fechaNueva = mes.clave === periodoDe(hoy, 'mes').clave ? hoy : mes.fin;
           <label for="categoria_id">Categoría</label>
           <select id="categoria_id" name="categoria_id" required>
             <option value="">Elige…</option>
-            {categorias.filter((c) => c.activa).map((c) => <option value={c.id} selected={c.id === valor('categoria_id')}>{c.nombre}</option>)}
+            {categorias.filter((c) => c.activa).map((c) => <option value={c.id} data-empaque={c.es_empaque ? 'si' : undefined} selected={c.id === valor('categoria_id')}>{c.nombre}</option>)}
           </select>
         </div>
         <div class="campo">
@@ -135,14 +144,19 @@ const fechaNueva = mes.clave === periodoDe(hoy, 'mes').clave ? hoy : mes.fin;
           </select>
         </div>
       </div>
+      <div class="campo campo-cantidad">
+        <label for="cantidad">Cantidad de empaques (solo para {empaque?.nombre ?? 'Empaques'})</label>
+        <input id="cantidad" name="cantidad" type="number" min="1" step="1" value={valor('cantidad')} placeholder="300" />
+      </div>
       <div class="campo">
         <label for="nota">Nota (opcional)</label>
         <input id="nota" name="nota" value={valor('nota')} autocomplete="off" />
       </div>
       <button type="submit">Registrar gasto</button>
       <p class="ayuda">
-        La compra de empaques sí va aquí, en la categoría Empaques, con la fecha de la compra. No va la compra de oro (en los
-        lotes del inventario, entra como costo de cada pieza vendida): así no se cuenta dos veces.
+        La compra de empaques va aquí, en la categoría {empaque?.nombre ?? 'Empaques'}, con la fecha y la cantidad: de ahí sale el
+        costo por caja de cada venta desde esa fecha, y el informe no la suma otra vez como gasto. La compra de oro no va aquí (en
+        los lotes del inventario, entra como costo de cada pieza vendida).
       </p>
     </form>
   </section>
@@ -180,9 +194,15 @@ const fechaNueva = mes.clave === periodoDe(hoy, 'mes').clave ? hoy : mes.fin;
                   <td>{fecha(g.fecha)}</td>
                   <td>
                     {g.descripcion}
-                    {(g.medio_pago_id || g.nota) && (
+                    {(g.medio_pago_id || g.nota || g.cantidad) && (
                       <small class="ayuda" style="display: block">
-                        {[g.medio_pago_id && nombreMedio.get(g.medio_pago_id), g.nota].filter(Boolean).join(' · ')}
+                        {[
+                          g.cantidad && `${g.cantidad} empaques · ${pesos(Math.round(Number(g.monto_cop) / g.cantidad))} c/u`,
+                          g.medio_pago_id && nombreMedio.get(g.medio_pago_id),
+                          g.nota,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </small>
                     )}
                     <details open={editando === g.id}>
@@ -200,7 +220,7 @@ const fechaNueva = mes.clave === periodoDe(hoy, 'mes').clave ? hoy : mes.fin;
                             <select id={`cat-${g.id}`} name="categoria_id">
                               {categorias
                                 .filter((c) => c.activa || c.id === g.categoria_id)
-                                .map((c) => <option value={c.id} selected={c.id === valorEdicion(g, 'categoria_id', g.categoria_id)}>{c.nombre}</option>)}
+                                .map((c) => <option value={c.id} data-empaque={c.es_empaque ? 'si' : undefined} selected={c.id === valorEdicion(g, 'categoria_id', g.categoria_id)}>{c.nombre}</option>)}
                             </select>
                           </div>
                           <div class="campo">
@@ -222,6 +242,10 @@ const fechaNueva = mes.clave === periodoDe(hoy, 'mes').clave ? hoy : mes.fin;
                                 .map((m) => <option value={m.id} selected={m.id === valorEdicion(g, 'medio_pago_id', g.medio_pago_id ?? '')}>{m.nombre}</option>)}
                             </select>
                           </div>
+                        </div>
+                        <div class="campo campo-cantidad">
+                          <label for={`cantidad-${g.id}`}>Cantidad de empaques</label>
+                          <input id={`cantidad-${g.id}`} name="cantidad" type="number" min="1" step="1" value={valorEdicion(g, 'cantidad', g.cantidad ? String(g.cantidad) : '')} />
                         </div>
                         <div class="campo">
                           <label for={`nota-${g.id}`}>Nota</label>
@@ -255,9 +279,29 @@ const fechaNueva = mes.clave === periodoDe(hoy, 'mes').clave ? hoy : mes.fin;
 </Admin>
 
 <script>
+  // La cantidad solo se pide para la categoría de empaques.
+  for (const form of document.querySelectorAll('form')) {
+    const select = form.querySelector<HTMLSelectElement>('select[name=categoria_id]');
+    const campo = form.querySelector<HTMLElement>('.campo-cantidad');
+    if (!select || !campo) continue;
+    const ver = () => {
+      const es = select.selectedOptions[0]?.dataset.empaque === 'si';
+      campo.hidden = !es;
+      campo.querySelector('input')!.required = es;
+    };
+    select.addEventListener('change', ver);
+    ver();
+  }
+
   for (const form of document.querySelectorAll<HTMLFormElement>('.borrar')) {
     form.addEventListener('submit', (e) => {
       if (!confirm('¿Borrar este gasto? No se puede deshacer.')) e.preventDefault();
     });
   }
 </script>
+
+<style>
+  .campo-cantidad[hidden] {
+    display: none;
+  }
+</style>

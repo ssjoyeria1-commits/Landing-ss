@@ -235,7 +235,7 @@ export const EXPORTACIONES: Record<string, Exportacion> = {
       return {
         encabezados: [
           'Fecha', 'Tipo', 'Medio de pago', 'Piezas', 'Venta (COP)', 'Descuento (COP)', 'Domicilio cobrado (COP)', 'Ingresos (COP)',
-          'Costo de las piezas (COP)', 'Mensajero (COP)', 'Comisión (%)', 'Comisión (COP)',
+          'Costo de las piezas (COP)', 'Empaques', 'Costo de empaques (COP)', 'Mensajero (COP)', 'Comisión (%)', 'Comisión (COP)',
           'Costos directos (COP)', 'Utilidad (COP)', 'Margen (%)', 'Pago del aliado', 'Estado',
         ],
         filas: filas.map((v) => [
@@ -248,6 +248,8 @@ export const EXPORTACIONES: Record<string, Exportacion> = {
           Number(v.domicilio_cobrado_cop),
           Number(v.ingresos_cop),
           Number(v.costo_piezas_cop),
+          v.empaques,
+          Number(v.empaque_cop),
           Number(v.domicilio_pagado_cop),
           Number(v.comision_pct),
           Number(v.comision_cop),
@@ -274,12 +276,13 @@ export const EXPORTACIONES: Record<string, Exportacion> = {
       ]);
       const medio = new Map(medios.map((m) => [m.id, m.nombre]));
       return {
-        encabezados: ['Fecha', 'Categoría', 'Qué fue', 'Valor (COP)', 'Pagado con', 'Nota'],
+        encabezados: ['Fecha', 'Categoría', 'Qué fue', 'Valor (COP)', 'Cantidad (empaques)', 'Pagado con', 'Nota'],
         filas: gastos.map((g) => [
           g.fecha,
           g.categorias_gasto?.nombre ?? '',
           g.descripcion,
           Number(g.monto_cop),
+          g.cantidad ?? '',
           g.medio_pago_id ? (medio.get(g.medio_pago_id) ?? '') : '',
           g.nota ?? '',
         ]),
@@ -342,7 +345,7 @@ const RESPALDO: Record<string, { columnas: string[]; orden: string }> = {
   ventas: {
     columnas: [
       'id', 'cliente_id', 'aliado_id', 'fecha', 'monto_cop', 'descuento_cop', 'nota', 'anulada', 'anulada_at', 'pagada_aliado_at',
-      'medio_pago_id', 'comision_pct', 'comision_cop', 'domicilio_cobrado_cop', 'domicilio_pagado_cop',
+      'medio_pago_id', 'comision_pct', 'comision_cop', 'empaques', 'domicilio_cobrado_cop', 'domicilio_pagado_cop',
       'created_at',
     ],
     orden: 'created_at',
@@ -365,8 +368,8 @@ const RESPALDO: Record<string, { columnas: string[]; orden: string }> = {
   lotes: { columnas: ['id', 'proveedor_id', 'fecha', 'oro_gramo_cop', 'nota', 'creado_por', 'created_at'], orden: 'created_at' },
   unidades: { columnas: ['id', 'lote_id', 'producto_id', 'peso_gramos', 'mano_obra_gramo_cop', 'estado', 'created_at'], orden: 'created_at' },
   medios_pago: { columnas: ['id', 'nombre', 'comision_pct', 'activo', 'orden', 'created_at'], orden: 'created_at' },
-  categorias_gasto: { columnas: ['id', 'nombre', 'activa', 'created_at'], orden: 'created_at' },
-  gastos: { columnas: ['id', 'fecha', 'categoria_id', 'descripcion', 'monto_cop', 'medio_pago_id', 'nota', 'created_at'], orden: 'created_at' },
+  categorias_gasto: { columnas: ['id', 'nombre', 'activa', 'es_empaque', 'created_at'], orden: 'created_at' },
+  gastos: { columnas: ['id', 'fecha', 'categoria_id', 'descripcion', 'monto_cop', 'cantidad', 'medio_pago_id', 'nota', 'created_at'], orden: 'created_at' },
 };
 
 for (const [tabla, { columnas, orden }] of Object.entries(RESPALDO)) {

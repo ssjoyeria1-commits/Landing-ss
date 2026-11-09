@@ -211,10 +211,11 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
       (estado de resultados por semana, mes o año, frente al mismo tramo del periodo anterior si va en curso;
       `src/lib/contabilidad.ts`, `src/components/admin/InformeContable.astro`) y `/admin/contabilidad/ajustes`
       (medios de pago; categorías de gasto, activar o desactivar varias a la vez).
-      **Empaques = gasto** (decisión posterior; migración `20261108130000_empaque_como_gasto.sql`): la compra
-      se registra en Gastos, categoría "Empaques", con la fecha de la compra; las ventas ya no restan empaque
-      (se quitaron `costos_empaque` y las columnas `empaques`/`empaque_unitario_cop`). La compra de oro **no**
-      es gasto (entra como costo de cada pieza vendida).
+      **Empaques** (decisión del 9 nov; migración `20261109120000_empaque_gasto_y_costo.sql`): la compra se
+      registra en Gastos, en la categoría con `es_empaque`, con fecha y `gastos.cantidad`. De ahí sale el costo
+      por caja: `ventas_contables` toma la compra más reciente con fecha ≤ la venta (total ÷ cantidad) y lo
+      multiplica por `ventas.empaques` (uno por caja, corregible en el detalle). El informe **no** suma esa
+      compra como gasto (la muestra como aviso). La compra de oro **no** es gasto (costo de cada pieza vendida).
 - [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.
       Con el dominio: guardar `/catalogo` en la caché de Cloudflare (Cache API, que no funciona en
       `workers.dev`) y agregar una regla de límite de intentos en el panel de Cloudflare.

@@ -274,6 +274,14 @@ test('página de compra propia: solo datos públicos, mismo contador en todas la
   assert.equal(otra.circulo.interacciones, p.circulo.interacciones);
 
   assert.equal((await uno(db, 'select count(*)::int as n from public.escaneos')).n, 2);
+
+  // El certificado lee los mismos datos sin sumar escaneo, con la fecha de la compra.
+  const cert = await como(db, 'anon', null, async () =>
+    (await uno(db, 'select public.pagina_caja($1, false) as p', [r.cajas[0].codigo_chip])).p,
+  );
+  assert.equal(cert.referencia, p.referencia);
+  assert.match(cert.fecha, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal((await uno(db, 'select count(*)::int as n from public.escaneos')).n, 2, 'el certificado no suma escaneo');
 });
 
 test('página de regalo: nombres y código del comprador, sin contador', async () => {

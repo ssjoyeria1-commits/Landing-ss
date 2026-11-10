@@ -1,7 +1,7 @@
 ---
-import PaginaCaja from '../../components/caja/PaginaCaja.astro';
-import { obtenerCaja, type CajaPublica } from '../../lib/caja';
-import { dentroDelLimite } from '../../lib/limite';
+import PaginaCaja from '../../../components/caja/PaginaCaja.astro';
+import { obtenerCaja, type CajaPublica } from '../../../lib/caja';
+import { dentroDelLimite } from '../../../lib/limite';
 
 // Página privada de cada caja: fuera de buscadores, sin caché (el contador cambia y cada visita
 // cuenta como escaneo) y sin enviar la URL con el código a los sitios que se abran desde aquí.
@@ -29,4 +29,4 @@ if (limitado) {
 if (!caja) Astro.response.status = limitado ? 429 : temporal ? 503 : 404;
 ---
 
-<PaginaCaja caja={caja} temporal={temporal} />
+<PaginaCaja caja={caja} temporal={temporal} enlaceCertificado={`/c/${Astro.params.codigo}/certificado`} />

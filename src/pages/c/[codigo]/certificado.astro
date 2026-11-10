@@ -1,0 +1,31 @@
+---
+import Certificado from '../../../components/caja/Certificado.astro';
+import { obtenerCaja, type CajaPublica } from '../../../lib/caja';
+import { dentroDelLimite } from '../../../lib/limite';
+
+// Certificado de la caja: mismos datos públicos que la página del chip, pero abrirlo no suma escaneo.
+// Igual de privado: fuera de buscadores, sin caché y sin enviar la URL con el código a otros sitios.
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+
+const codigo = Astro.params.codigo ?? '';
+let caja: CajaPublica | null = null;
+let temporal = false;
+const limitado = !(await dentroDelLimite('chip', Astro.request));
+if (limitado) {
+  temporal = true;
+  Astro.response.headers.set('Retry-After', '60');
+} else {
+  try {
+    caja = await obtenerCaja(codigo, false);
+  } catch (e) {
+    console.error('pagina_caja (certificado)', e);
+    temporal = true;
+  }
+}
+
+if (!caja) Astro.response.status = limitado ? 429 : temporal ? 503 : 404;
+---
+
+<Certificado caja={caja} temporal={temporal} enlaceCaja={`/c/${codigo}`} />

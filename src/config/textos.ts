@@ -1,10 +1,6 @@
 // Textos de la página del chip. Los marcados como PENDIENTE los entregan los socios.
 
 export const TEXTOS = {
-  /** Resumen corto de la garantía. PENDIENTE: plazos y respuesta concreta. */
-  garantiaResumen:
-    'Tu pieza está respaldada por SS Joyería. Si notas algún defecto, escríbenos y te decimos cómo hacer válida tu garantía.',
-
   circuloIntro:
     'Cada compra desde $600.000 y cada persona que nos recomiendes y haga su primera compra suma una interacción. Al llegar a 3, 5 y 10 recibes un premio.',
 

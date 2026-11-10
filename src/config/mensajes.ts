@@ -19,9 +19,9 @@ export const MENSAJES = {
   enlaceAliado: (nombre: string, url: string) =>
     `Hola ${nombre}, este es tu catálogo de SS Joyería con tus precios de aliado y lo disponible hoy: ${url}\nEs solo para ti: no lo compartas con tus clientes (para ellos, comparte las fotos desde ahí).`,
 
-  /** Reclamo o consulta de garantía. */
+  /** Reclamo de garantía desde el certificado de la caja. */
   garantia: (referenciaCaja: string) =>
-    `Hola, tengo una consulta sobre la garantía de mi pieza. Referencia de la caja: ${referenciaCaja}`,
+    `Hola, quiero reclamar la garantía de mi pieza. Referencia de la caja: ${referenciaCaja}`,
 
   /** Aviso al comprador desde el panel, con el estado de su contador. */
   avisoComprador: (c: { nombre: string; interacciones: number; proximoHito: number | null; codigoReferido: string }) => {

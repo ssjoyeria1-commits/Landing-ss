@@ -1,9 +1,10 @@
 ---
 // Cuerpo de la página del chip: compra propia, regalo o página neutra. Lo usan /c/[codigo] y la
 // página de datos de prueba (/pruebas/casos), para que las dos muestren exactamente lo mismo.
+// La garantía no va aquí: las piezas llevan al certificado (/c/[codigo]/certificado) y, debajo del
+// Círculo, un botón lleva a los términos (/garantia).
 import Publica from '../../layouts/Publica.astro';
 import Piezas from './Piezas.astro';
-import Garantia from './Garantia.astro';
 import Circulo from './Circulo.astro';
 import CirculoRegalo from './CirculoRegalo.astro';
 import Cuidado from './Cuidado.astro';
@@ -15,9 +16,11 @@ interface Props {
   caja: CajaPublica | null;
   /** Sin caja por un fallo temporal (no porque el código no exista). */
   temporal?: boolean;
+  /** Enlace al certificado de esta caja. */
+  enlaceCertificado?: string;
 }
 
-const { caja, temporal = false } = Astro.props;
+const { caja, temporal = false, enlaceCertificado = '' } = Astro.props;
 ---
 
 <Publica noindex>
@@ -40,17 +43,26 @@ const { caja, temporal = false } = Astro.props;
   {
     caja ? (
       <>
-        {/* Orden: las piezas (protagonistas), el Círculo, la garantía y el cuidado. */}
+        {/* Orden: las piezas (protagonistas) con su certificado, el Círculo y el cuidado. */}
         <section class="seccion destacada">
           <h2>{caja.piezas.length === 1 ? 'Tu pieza' : 'Tus piezas'}</h2>
           <Piezas piezas={caja.piezas} />
+          {enlaceCertificado && (
+            <a class="boton boton-certificado" href={enlaceCertificado}>
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M12 2.5 19.5 10 12 17.5 4.5 10Z" />
+                <path d="M8.5 15.5 7 21.5l5-2.5 5 2.5-1.5-6" stroke-linejoin="round" />
+              </svg>
+              Ver tu certificado
+            </a>
+          )}
         </section>
         {caja.tipo === 'propia' ? (
           <Circulo circulo={caja.circulo} />
         ) : (
           <CirculoRegalo comprador={capitalizar(caja.nombre_comprador)} codigoReferido={caja.codigo_referido_comprador} />
         )}
-        <Garantia referencia={caja.referencia} />
+        <a class="boton boton-terminos aparece" href="/garantia">Ver términos de garantía</a>
         <Cuidado />
       </>
     ) : (
@@ -58,3 +70,27 @@ const { caja, temporal = false } = Astro.props;
     )
   }
 </Publica>
+
+<style>
+  /* El certificado es la puerta a algo de valor: filete dorado en vez de marfil. */
+  .boton.boton-certificado {
+    max-width: 20rem;
+    margin: 2.5rem auto 0;
+    font-family: var(--display);
+    font-size: 1.2rem;
+    letter-spacing: 0.02em;
+    color: #f3dc9a;
+    background: rgb(0 0 0 / 0.35);
+    box-shadow: inset 0 0 0 1px rgb(217 180 90 / 0.65);
+  }
+
+  /* Debajo del Círculo, discreto: lleva a los términos de la garantía. */
+  .boton.boton-terminos {
+    margin-top: -0.5rem;
+    min-height: 2.75rem;
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--gris);
+    background: transparent;
+  }
+</style>

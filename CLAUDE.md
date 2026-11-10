@@ -51,8 +51,11 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 - `src/middleware.ts` — protege `/admin/*`: exige sesión y estar en la tabla `admins`.
 - `src/pages/catalogo.astro` y `catalogo/[codigo].astro` — catálogo público (lee `catalogo_publico()`,
   fotos del bucket `catalogo`, `src/lib/catalogo.ts`).
-- `src/pages/c/[codigo].astro` — página del chip; su cuerpo (propia, regalo o neutra) está en
-  `src/components/caja/PaginaCaja.astro`. `/garantia` y `/datos` leen `src/config/legal.ts`.
+- `src/pages/c/[codigo]/index.astro` — página del chip; su cuerpo (propia, regalo o neutra) está en
+  `src/components/caja/PaginaCaja.astro`. Debajo de las piezas, "Ver tu certificado" lleva a
+  `/c/[codigo]/certificado` (`Certificado.astro`: tarjeta 18K con luz dorada y reclamo de garantía por
+  WhatsApp; lee `pagina_caja(codigo, false)`, que **no** suma escaneo). La garantía ya no va en la página
+  del chip: debajo del Círculo, "Ver términos de garantía" lleva a `/garantia`. `/garantia` y `/datos` leen `src/config/legal.ts`.
   `src/pages/admin/` — panel.
 - `src/components/Logo.astro` — símbolo de los 7 rombos redibujado en SVG (medidas del logo original).
 - `.claude/skills/` — skills de diseño instaladas (origen y qué ejecutan: `.claude/skills-fuentes/FUENTES.md`).
@@ -78,7 +81,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   Cada sección es una tarjeta vino oscuro (`--franja`) con tres rombos del imagotipo arriba. Rojo solo
   para el botón principal y los rombos ganados del Círculo. Botones oscuros con filete marfil.
 - Datos de prueba de la página del chip sin base de datos: `/pruebas/casos?datos=demo|peor|cero|diez|regalo|regalo-sin-nombre|neutra|temporal`
-  (solo en desarrollo; en producción da 404). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. QR de respaldo: `/pruebas/qr`. Catálogo de aliado: `/pruebas/aliados`. Registrar venta (cliente o aliado, muestra el JSON sin guardar): `/pruebas/venta?aliado=a1`. Contabilidad con datos de ejemplo: `/pruebas/contabilidad?vista=semana|mes|anio`; sus ajustes: `/pruebas/ajustes`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
+  (solo en desarrollo; en producción da 404; sus datos están en `src/pages/pruebas/_casos.ts`). Certificado: `/pruebas/certificado?datos=…` (mismos casos). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. QR de respaldo: `/pruebas/qr`. Catálogo de aliado: `/pruebas/aliados`. Registrar venta (cliente o aliado, muestra el JSON sin guardar): `/pruebas/venta?aliado=a1`. Contabilidad con datos de ejemplo: `/pruebas/contabilidad?vista=semana|mes|anio`; sus ajustes: `/pruebas/ajustes`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
   (`&ficha=CODIGO` para la ficha, `&whatsapp=1` para ver el botón con un número de ejemplo).
 - Nombres con mayúscula inicial (`capitalizar()` al guardar y al mostrar).
 - CSV "informes" para Excel en español: separador `;` y decimales con coma. Los de "respaldo técnico"
@@ -225,6 +228,6 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 
 - Número de WhatsApp de atención (`src/config/sitio.ts`). Instagram y TikTok ya están (5 nov 2026).
 - Premios de los niveles 3, 5 y 10 (`src/config/circulo.ts`).
-- Resumen y términos de la garantía; texto de la política de datos (habeas data), en `src/config/legal.ts`.
+- Términos de la garantía y texto de la política de datos (habeas data), en `src/config/legal.ts`.
 - Revisar los consejos de cuidado (`src/config/textos.ts`).
 - Fuente tipográfica original del logo, si quieren usarla en lugar de la serif del sistema.

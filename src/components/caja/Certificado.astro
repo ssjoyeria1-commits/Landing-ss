@@ -1,0 +1,358 @@
+---
+// Certificado de la caja (/c/[codigo]/certificado y su prueba /pruebas/certificado): una tarjeta que
+// entra y que cruza una luz dorada de izquierda a derecha, y debajo, pequeño, el reclamo de garantía
+// por WhatsApp. Si el código no existe o la venta se anuló, la página neutra.
+import Publica from '../../layouts/Publica.astro';
+import Logo from '../Logo.astro';
+import Neutra from './Neutra.astro';
+import { MENSAJES } from '../../config/mensajes';
+import { SITIO } from '../../config/sitio';
+import { peso, type CajaPublica } from '../../lib/caja';
+import { capitalizar, fecha, primerNombre } from '../../lib/formato';
+import { enlaceWhatsApp } from '../../lib/whatsapp';
+
+interface Props {
+  caja: CajaPublica | null;
+  temporal?: boolean;
+  /** Enlace para volver a la página de la caja. */
+  enlaceCaja: string;
+}
+
+const { caja, temporal = false, enlaceCaja } = Astro.props;
+
+// El sello grande dice 18K solo si todas las piezas lo son (si alguna no, cada una muestra su ley).
+const todas18 = caja ? caja.piezas.every((p) => /18/.test(p.ley)) : false;
+const titular = !caja
+  ? null
+  : caja.tipo === 'propia'
+    ? capitalizar(caja.nombre)
+    : caja.nombre_destinatario
+      ? capitalizar(primerNombre(caja.nombre_destinatario))
+      : null;
+---
+
+<Publica title="Tu certificado · SS Joyería" noindex portada={false}>
+  {
+    caja ? (
+      <div class="certificado-pagina">
+        <article class="tarjeta-cert" aria-labelledby="titulo-cert">
+          <div class="marco">
+            <div class="marca">
+              <Logo variante="simbolo" alto="2.6rem" />
+              <span>SS Joyería</span>
+            </div>
+            <h1 id="titulo-cert">Certificado de autenticidad</h1>
+            <p class="sello">{todas18 ? '18K' : 'Oro'}</p>
+            <p class="lema">
+              {todas18 ? 'Oro de 18 quilates' : 'Oro certificado'}
+              <span>100% garantizado</span>
+            </p>
+            <ul class="lista">
+              {caja.piezas.map((p) => (
+                <li>
+                  <span class="nombre">{p.descripcion}</span>
+                  <span class="dato">
+                    {peso(p.peso_gramos)}
+                    {!todas18 && ` · ${p.ley}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <dl class="datos">
+              {titular && (
+                <div>
+                  <dt>Titular</dt>
+                  <dd>{titular}</dd>
+                </div>
+              )}
+              <div>
+                <dt>Fecha</dt>
+                <dd>{fecha(caja.fecha)}</dd>
+              </div>
+              <div>
+                <dt>Referencia</dt>
+                <dd>{caja.referencia}</dd>
+              </div>
+            </dl>
+          </div>
+          <span class="luz" aria-hidden="true"></span>
+        </article>
+
+        <div class="reclamo">
+          <p>¿Tienes un problema con tu prenda?</p>
+          <a
+            class="reclamar"
+            href={enlaceWhatsApp(SITIO.whatsappNegocio, MENSAJES.garantia(caja.referencia))}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+              <path
+                d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.2-.2-.5-.3Z"
+              ></path>
+            </svg>
+            Reclamar garantía
+          </a>
+        </div>
+
+        <p class="volver"><a href={enlaceCaja}>← Volver a tu caja</a></p>
+      </div>
+    ) : (
+      <Neutra temporal={temporal} />
+    )
+  }
+</Publica>
+
+<style>
+  .certificado-pagina {
+    --oro: #d9b45a;
+    --oro-claro: #f3dc9a;
+    padding: 1.5rem 0 1rem;
+    text-align: center;
+  }
+
+  /* La tarjeta: vino casi negro, filete dorado y un segundo marco fino por dentro, como un
+     certificado impreso. Entra subiendo y la luz la cruza al terminar de entrar. */
+  .tarjeta-cert {
+    position: relative;
+    overflow: hidden;
+    max-width: 24rem;
+    margin: 0 auto;
+    padding: 0.6rem;
+    border-radius: 14px;
+    /* Cifras rectas: en la fuente de la marca el "1" antiguo parece una I ("I8K"). */
+    font-variant-numeric: lining-nums;
+    background:
+      radial-gradient(120% 70% at 50% 0%, rgb(217 180 90 / 0.12), transparent 60%),
+      linear-gradient(160deg, #2a080d 0%, #120708 55%, #1f0507 100%);
+    box-shadow:
+      inset 0 0 0 1px rgb(217 180 90 / 0.6),
+      0 2rem 3.5rem -1.5rem #000,
+      0 0 0 1px #000;
+    animation: cert-entrar 900ms cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards;
+  }
+
+  .marco {
+    padding: 1.75rem 1.25rem 1.5rem;
+    border-radius: 9px;
+    box-shadow: inset 0 0 0 1px rgb(217 180 90 / 0.25);
+  }
+
+  .marca {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--oro);
+    font-family: var(--display);
+    font-size: 0.8rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+  }
+
+  /* En la tarjeta el símbolo va en dorado, como un sello. */
+  .marca :global(.logo) {
+    color: var(--oro);
+  }
+
+  h1 {
+    margin: 1.25rem 0 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--tinta);
+  }
+
+  /* El sello: grande, en dorado (degradado fijo, como metal). */
+  .sello {
+    margin: 0.5rem 0 0;
+    font-family: var(--display);
+    font-size: 5.5rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: var(--oro);
+  }
+
+  @supports ((background-clip: text) or (-webkit-background-clip: text)) {
+    .sello {
+      color: transparent;
+      background: linear-gradient(180deg, #fff1c2 0%, var(--oro) 45%, #a07a2c 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+  }
+
+  .lema {
+    margin: 0.4rem 0 0;
+    font-family: var(--display);
+    font-size: 1.35rem;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .lema span {
+    display: block;
+    color: var(--oro-claro);
+  }
+
+  .lista {
+    list-style: none;
+    margin: 1.5rem 0 0;
+    padding: 1.25rem 0 0;
+    border-top: 1px solid rgb(217 180 90 / 0.25);
+  }
+
+  .lista li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .lista li + li {
+    margin-top: 0.75rem;
+  }
+
+  .nombre {
+    font-family: var(--display);
+    font-size: 1.2rem;
+    font-weight: 600;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .dato {
+    color: var(--gris);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .datos {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem 1.5rem;
+    margin: 1.5rem 0 0;
+    padding-top: 1.25rem;
+    border-top: 1px solid rgb(217 180 90 / 0.25);
+  }
+
+  .datos dt {
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gris);
+  }
+
+  .datos dd {
+    margin: 0.1rem 0 0;
+    font-family: var(--display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* La luz: una banda dorada inclinada que cruza la tarjeta de izquierda a derecha. Primero al
+     terminar de entrar y luego cada 7 s. Solo mueve transform (no repinta la tarjeta). */
+  .luz {
+    position: absolute;
+    top: -10%;
+    bottom: -10%;
+    left: 0;
+    width: 55%;
+    pointer-events: none;
+    background: linear-gradient(
+      100deg,
+      transparent 0%,
+      rgb(217 160 50 / 0.1) 28%,
+      rgb(240 190 80 / 0.32) 44%,
+      rgb(255 228 150 / 0.5) 50%,
+      rgb(240 190 80 / 0.32) 56%,
+      rgb(217 160 50 / 0.1) 72%,
+      transparent 100%
+    );
+    mix-blend-mode: screen;
+    transform: translateX(-120%) skewX(-12deg);
+    animation: cert-luz 7s cubic-bezier(0.45, 0, 0.25, 1) 900ms infinite;
+  }
+
+  @keyframes cert-entrar {
+    from {
+      opacity: 0;
+      transform: translateY(1.5rem) scale(0.96);
+    }
+  }
+
+  /* Cruza en ~1,8 s (25 % de 7 s) y descansa el resto. */
+  @keyframes cert-luz {
+    0% {
+      transform: translateX(-120%) skewX(-12deg);
+    }
+    25%,
+    100% {
+      transform: translateX(220%) skewX(-12deg);
+    }
+  }
+
+  /* El reclamo: pequeño y discreto, para no quitarle protagonismo a la tarjeta. */
+  .reclamo {
+    margin-top: 2.25rem;
+    animation: cert-aparecer 600ms ease-out 900ms backwards;
+  }
+
+  .reclamo p {
+    margin: 0 0 0.6rem;
+    color: var(--gris);
+    font-size: 0.95rem;
+  }
+
+  .reclamar {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2.5rem;
+    padding: 0.45rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--tinta);
+    background: var(--superficie);
+    box-shadow: var(--filete);
+    transition: transform 160ms var(--ease-out);
+  }
+
+  .reclamar:active {
+    transform: scale(0.97);
+  }
+
+  .volver {
+    margin: 2rem 0 0;
+    font-size: 0.9rem;
+  }
+
+  .volver a {
+    color: var(--gris);
+  }
+
+  @keyframes cert-aparecer {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tarjeta-cert {
+      animation: cert-aparecer 200ms ease-out backwards;
+    }
+
+    .luz {
+      display: none;
+    }
+
+    .reclamo {
+      animation: none;
+    }
+  }
+</style>

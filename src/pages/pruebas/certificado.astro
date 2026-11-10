@@ -1,0 +1,48 @@
+---
+// SOLO DESARROLLO: el certificado de la caja con datos de prueba (?datos=demo|peor|cero|diez|regalo|regalo-sin-nombre|neutra|temporal).
+// No consulta la base. En producción responde 404.
+import Certificado from '../../components/caja/Certificado.astro';
+import { casos } from './_casos';
+
+if (import.meta.env.PROD) return new Response(null, { status: 404 });
+
+const clave = Astro.url.searchParams.get('datos') ?? 'demo';
+const caso = casos[clave] ?? casos.demo;
+---
+
+<Certificado caja={typeof caso === 'object' ? caso : null} temporal={caso === 'temporal'} enlaceCaja={`/pruebas/casos?datos=${clave}`} />
+<nav class="datos-prueba" aria-label="Datos de prueba">
+  {Object.keys(casos).map((k) => <a href={`?datos=${k}`} aria-current={k === clave ? 'page' : undefined}>{k}</a>)}
+</nav>
+
+<style>
+  .datos-prueba {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: max-content;
+    max-width: calc(100vw - 16px);
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    background: #e5e5e5;
+    font: 12px/1 system-ui, sans-serif;
+  }
+
+  .datos-prueba a {
+    padding: 6px 9px;
+    border-radius: 999px;
+    color: #333;
+    text-decoration: none;
+  }
+
+  .datos-prueba a[aria-current] {
+    background: #fff;
+    color: #000;
+  }
+</style>

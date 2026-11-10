@@ -6,10 +6,12 @@ export { ContadorIntentos } from './lib/contador';
 
 export default {
   fetch(request: Request, env: unknown, ctx: unknown) {
-    // www.ssjoyeria.com → ssjoyeria.com (misma ruta y consulta), para que haya una sola dirección.
+    // Una sola dirección: www.ssjoyeria.com → ssjoyeria.com y http → https (misma ruta y consulta).
     const url = new URL(request.url);
-    if (url.hostname === 'www.ssjoyeria.com') {
+    const enDominio = url.hostname === 'ssjoyeria.com' || url.hostname === 'www.ssjoyeria.com';
+    if (enDominio && (url.hostname !== 'ssjoyeria.com' || url.protocol === 'http:')) {
       url.hostname = 'ssjoyeria.com';
+      url.protocol = 'https:';
       return Response.redirect(url.toString(), 301);
     }
     return (handle as (r: Request, e: unknown, c: unknown) => Promise<Response>)(request, env, ctx);

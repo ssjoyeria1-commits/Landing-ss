@@ -14,10 +14,13 @@ dos socios. Todo en **español de Colombia**, mobile-first, carga rápida en 4G.
 - **Supabase** (Postgres + Auth), proyecto `dtwlwoyvpcpbaswbkanx`, región São Paulo. Cuenta de Cloudflare
   y de GitHub del negocio (usuario de GitHub `ssjoyeria1-commits`; el correo lo tienen los socios). El
   repositorio es **público** por ahora: no escribir correos, teléfonos ni datos de clientes en él.
-- Publicado (temporal): https://ss-joyeria-landing.ss-joyeria-landing.workers.dev
+- Publicado: **https://ssjoyeria.com** (conectado el 10 nov 2026; `routes` con `custom_domain` en `wrangler.jsonc`).
+  www y http redirigen a https://ssjoyeria.com desde `src/worker.ts`, salvo las páginas fijas (`/`, `/garantia`,
+  `/datos`), que Cloudflare sirve antes del Worker. También sigue activa
+  https://ss-joyeria-landing.ss-joyeria-landing.workers.dev (los enlaces de aliados ya enviados la usan).
 - Repositorio: https://github.com/ssjoyeria1-commits/Landing-ss (rama `main`).
-- Dominio definitivo `ssjoyeria.com`: **aún sin comprar**. Las URLs de los chips ya usan ese dominio
-  (`src/config/sitio.ts`). **No grabar stickers reales hasta tener el dominio apuntando al Worker.**
+- Dominio `ssjoyeria.com`: comprado y en la cuenta de Cloudflare del negocio (zona con DNS de Cloudflare). Las URLs
+  de los chips usan ese dominio (`src/config/sitio.ts`) y ya abren la página.
 - `SUPABASE_URL` y `SUPABASE_PUBLISHABLE_KEY` van en `wrangler.jsonc` (`vars`): no son secretos, la
   protección la dan las políticas RLS. Nunca usar ni pedir la clave secreta (`sb_secret_…`).
 
@@ -227,7 +230,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
       por caja: `ventas_contables` toma la compra más reciente con fecha ≤ la venta (total ÷ cantidad) y lo
       multiplica por `ventas.empaques` (uno por caja, corregible en el detalle). El informe **no** suma esa
       compra como gasto (la muestra como aviso). La compra de oro **no** es gasto (costo de cada pieza vendida).
-- [ ] Fase 6 — dominio `ssjoyeria.com`, prueba con sticker real sobre la caja real, lanzamiento.
+- [ ] Fase 6 — [x] dominio `ssjoyeria.com` conectado (10 nov 2026); [ ] prueba con sticker real sobre la caja real; [ ] lanzamiento.
       Con el dominio: guardar `/catalogo` en la caché de Cloudflare (Cache API, que no funciona en
       `workers.dev`) y agregar una regla de límite de intentos en el panel de Cloudflare.
       Mantenimiento: `npm audit` avisa de `undici` (lo usa `wrangler`, solo en desarrollo).

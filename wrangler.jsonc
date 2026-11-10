@@ -6,6 +6,13 @@
   "observability": { "enabled": true },
   // Entrada propia: la de Astro más el contador de intentos (src/worker.ts).
   "main": "./src/worker.ts",
+  // Dominio del negocio (zona en Cloudflare). www redirige a ssjoyeria.com (src/worker.ts). La dirección
+  // de workers.dev sigue activa: los enlaces de aliados ya enviados la usan.
+  "routes": [
+    { "pattern": "ssjoyeria.com", "custom_domain": true },
+    { "pattern": "www.ssjoyeria.com", "custom_domain": true }
+  ],
+  "workers_dev": true,
   // Límite de intentos por IP (src/lib/limite.ts): un Durable Object por visitante, con
   // almacenamiento SQLite (el que permite el plan gratis).
   "durable_objects": {

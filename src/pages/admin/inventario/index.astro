@@ -16,10 +16,13 @@ if (categoria) consulta = consulta.eq('categoria_id', categoria);
 if (!inactivos) consulta = consulta.eq('activo', true);
 if (bajos) consulta = consulta.eq('bajo_minimo', true);
 
-const [{ data, error }, { data: dataCategorias }] = await Promise.all([
+const [{ data, error }, { data: dataCategorias }, { data: dataFijos }] = await Promise.all([
   consulta,
   supabase.from('categorias').select('id, nombre').order('nombre'),
+  supabase.from('productos').select('id, precio_unitario_cop').not('precio_unitario_cop', 'is', null),
 ]);
+// Referencias con precio fijo por unidad (no se calculan por gramo).
+const precioFijo = new Map(((dataFijos ?? []) as { id: string; precio_unitario_cop: number }[]).map((p) => [p.id, Number(p.precio_unitario_cop)]));
 const productos = (data ?? []) as Existencia[];
 const total = productos.reduce(
   (t, p) => ({ piezas: t.piezas + p.disponibles, costo: t.costo + Number(p.costo_cop), valor: t.valor + Number(p.valor_cop) }),
@@ -137,7 +140,7 @@ if (productos.length > 0) {
                       {x.hay > 1 && <small> ×{x.hay}</small>}
                     </span>
                   ))}
-                  <small class="ayuda">{pesos(p.precio_gramo_cop)} por gramo</small>
+                  <small class="ayuda">{precioFijo.has(p.id) ? 'Precio fijo por unidad' : `${pesos(p.precio_gramo_cop)} por gramo`}</small>
                 </td>
                 <td>{p.categoria}</td>
                 <td class="num">

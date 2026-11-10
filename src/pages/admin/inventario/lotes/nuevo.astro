@@ -6,12 +6,12 @@ import { leerLote, mensajeError, type ProductoCatalogo, type Proveedor } from '.
 const supabase = Astro.locals.supabase;
 
 const [{ data: dataProductos }, { data: dataProveedores }] = await Promise.all([
-  supabase.from('productos_catalogo').select('id, codigo, nombre, mano_obra_gramo_cop, precio_gramo_cop').eq('activo', true).order('codigo'),
+  supabase.from('productos_catalogo').select('id, codigo, nombre, mano_obra_gramo_cop, precio_gramo_cop, precio_unitario_cop').eq('activo', true).order('codigo'),
   supabase.from('proveedores').select('id, nombre').eq('activo', true).order('nombre'),
 ]);
 const productos = (dataProductos ?? []) as Pick<
   ProductoCatalogo,
-  'id' | 'codigo' | 'nombre' | 'mano_obra_gramo_cop' | 'precio_gramo_cop'
+  'id' | 'codigo' | 'nombre' | 'mano_obra_gramo_cop' | 'precio_gramo_cop' | 'precio_unitario_cop'
 >[];
 const proveedores = (dataProveedores ?? []) as Pick<Proveedor, 'id' | 'nombre'>[];
 
@@ -128,7 +128,7 @@ if (enviado) {
         <select data-campo="producto">
           <option value="">Elige…</option>
           {productos.map((p) => (
-            <option value={p.id} data-mano={p.mano_obra_gramo_cop} data-precio={p.precio_gramo_cop} data-codigo={p.codigo}>
+            <option value={p.id} data-mano={p.mano_obra_gramo_cop} data-precio={p.precio_gramo_cop} data-fijo={p.precio_unitario_cop ?? undefined} data-codigo={p.codigo}>
               {p.codigo} · {p.nombre}
             </option>
           ))}
@@ -220,7 +220,11 @@ if (enviado) {
         return;
       }
       const totalGramos = grupos.reduce((s, p) => s + p.gramos * p.cantidad, 0);
-      const precio = grupos.reduce((s, p) => s + p.gramos * p.cantidad * Number(p.opcion.dataset.precio), 0);
+      // Con precio fijo por unidad, cada pieza vale eso; si no, peso × precio por gramo.
+      const precio = grupos.reduce(
+        (s, p) => s + p.cantidad * (p.opcion.dataset.fijo ? Number(p.opcion.dataset.fijo) : p.gramos * Number(p.opcion.dataset.precio)),
+        0,
+      );
       const costo =
         oroGramo > 0
           ? grupos.reduce((s, p) => s + p.gramos * p.cantidad * (oroGramo + Number(p.opcion.dataset.mano)), 0)

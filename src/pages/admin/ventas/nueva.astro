@@ -39,10 +39,10 @@ if (Astro.request.method === 'POST') {
 }
 
 // Piezas disponibles del inventario, para elegirlas por producto y peso.
-const [{ data: dataUnidades }, { data: dataAliados }, { data: dataPrecios }, { data: dataMedios }] = await Promise.all([
+const [{ data: dataUnidades }, { data: dataAliados }, { data: dataMedios }] = await Promise.all([
   Astro.locals.supabase
     .from('unidades_detalle')
-    .select('id, producto_id, codigo, producto, categoria, peso_gramos, precio_cop')
+    .select('id, producto_id, codigo, producto, categoria, peso_gramos, precio_cop, precio_aliado_cop')
     .eq('estado', 'disponible')
     .order('codigo')
     .order('peso_gramos')
@@ -50,19 +50,14 @@ const [{ data: dataUnidades }, { data: dataAliados }, { data: dataPrecios }, { d
     .order('lote_fecha')
     .order('created_at'),
   Astro.locals.supabase.from('aliados').select('id, nombre').eq('activo', true).order('nombre'),
-  Astro.locals.supabase.from('productos_catalogo').select('id, precio_aliado_gramo_cop').not('precio_aliado_gramo_cop', 'is', null),
   Astro.locals.supabase.from('medios_pago').select('id, nombre, comision_pct').eq('activo', true).order('orden').order('nombre'),
 ]);
 const mediosPago = (dataMedios ?? []) as { id: string; nombre: string; comision_pct: number }[];
 const unidades = (dataUnidades ?? []) as Pick<
   UnidadDetalle,
-  'id' | 'producto_id' | 'codigo' | 'producto' | 'categoria' | 'peso_gramos' | 'precio_cop'
+  'id' | 'producto_id' | 'codigo' | 'producto' | 'categoria' | 'peso_gramos' | 'precio_cop' | 'precio_aliado_cop'
 >[];
 const aliados = (dataAliados ?? []) as { id: string; nombre: string }[];
-// Precio de aliado por gramo de cada producto (el de su categoría); sin él no se vende a aliados.
-const preciosAliado = Object.fromEntries(
-  ((dataPrecios ?? []) as { id: string; precio_aliado_gramo_cop: number }[]).map((p) => [p.id, Number(p.precio_aliado_gramo_cop)]),
-);
 
 const paises = listaPaises();
 const hoy = hoyBogota();
@@ -72,5 +67,5 @@ const tipoInicial: 'cliente' | 'aliado' = aliadoInicial || Astro.url.searchParam
 ---
 
 <Admin title="Registrar venta">
-  <FormularioVenta {error} {unidades} {aliados} {preciosAliado} {mediosPago} {paises} {hoy} {aliadoInicial} tipoInicial={tipoInicial} />
+  <FormularioVenta {error} {unidades} {aliados} {mediosPago} {paises} {hoy} {aliadoInicial} tipoInicial={tipoInicial} />
 </Admin>

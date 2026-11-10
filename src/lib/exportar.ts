@@ -363,7 +363,7 @@ const RESPALDO: Record<string, { columnas: string[]; orden: string }> = {
   },
   // Sin el token: el enlace privado no sale en los archivos (se puede generar uno nuevo).
   aliados: { columnas: ['id', 'nombre', 'whatsapp', 'activo', 'nota', 'ultimo_acceso', 'created_at'], orden: 'created_at' },
-  productos: { columnas: ['id', 'codigo', 'nombre', 'categoria_id', 'stock_minimo', 'activo', 'nota', 'created_at'], orden: 'created_at' },
+  productos: { columnas: ['id', 'codigo', 'nombre', 'categoria_id', 'stock_minimo', 'activo', 'nota', 'publicado', 'descripcion_publica', 'precio_unitario_cop', 'precio_aliado_unitario_cop', 'created_at'], orden: 'created_at' },
   proveedores: { columnas: ['id', 'nombre', 'contacto', 'nota', 'activo', 'created_at'], orden: 'created_at' },
   lotes: { columnas: ['id', 'proveedor_id', 'fecha', 'oro_gramo_cop', 'nota', 'creado_por', 'created_at'], orden: 'created_at' },
   unidades: { columnas: ['id', 'lote_id', 'producto_id', 'peso_gramos', 'mano_obra_gramo_cop', 'estado', 'created_at'], orden: 'created_at' },

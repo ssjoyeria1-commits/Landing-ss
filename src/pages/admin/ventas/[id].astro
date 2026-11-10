@@ -89,6 +89,20 @@ const cajas = [...venta.cajas].sort((a, b) => a.created_at.localeCompare(b.creat
 const todas = cajas.flatMap((c) => c.piezas);
 const conPrecio = todas.length > 0 && todas.every((p) => p.precio_cop != null);
 const subtotal = todas.reduce((s, p) => s + Number(p.precio_cop ?? 0), 0);
+
+// Piezas iguales seguidas (misma descripción, peso, precio, costo y origen) en una sola fila: "50 × Balin #3".
+function agruparIguales<T extends { descripcion: string; peso_gramos: number; precio_cop: number | null; costo_cop: number | null; unidad_id: string | null }>(
+  piezas: T[],
+) {
+  const grupos: { pieza: T; n: number }[] = [];
+  const clave = (p: T) => [p.descripcion, Number(p.peso_gramos), p.precio_cop, p.costo_cop, p.unidad_id == null].join('|');
+  for (const p of piezas) {
+    const ultimo = grupos.at(-1);
+    if (ultimo && clave(ultimo.pieza) === clave(p)) ultimo.n += 1;
+    else grupos.push({ pieza: p, n: 1 });
+  }
+  return grupos;
+}
 ---
 
 <Admin title={`Venta del ${fecha(venta.fecha)}`}>
@@ -238,16 +252,15 @@ const subtotal = todas.reduce((s, p) => s + Number(p.precio_cop ?? 0), 0);
           )}
 
           <ul>
-            {[...caja.piezas]
-              .sort((a, b) => a.orden - b.orden)
-              .map((p) => (
+            {agruparIguales([...caja.piezas].sort((a, b) => a.orden - b.orden)).map(({ pieza: p, n }) => (
                 <li>
+                  {n > 1 && <strong>{n} × </strong>}
                   {p.descripcion} · {Number(p.peso_gramos).toLocaleString('es-CO')} g · {p.ley}
-                  {p.precio_cop != null && <> · {pesos(p.precio_cop)}</>}
-                  {p.costo_cop != null && <span class="ayuda"> (costo {pesos(p.costo_cop)})</span>}
+                  {p.precio_cop != null && <> · {pesos(p.precio_cop)}{n > 1 && <> c/u = {pesos(p.precio_cop * n)}</>}</>}
+                  {p.costo_cop != null && <span class="ayuda"> (costo {pesos(p.costo_cop)}{n > 1 && ' c/u'})</span>}
                   {p.unidad_id == null && p.precio_cop != null && <span class="etiqueta">Fuera del inventario</span>}
                 </li>
-              ))}
+            ))}
           </ul>
           {!aliado && <p class="ayuda">Escaneos: {escaneos}</p>}
 

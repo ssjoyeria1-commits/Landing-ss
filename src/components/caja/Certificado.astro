@@ -7,7 +7,7 @@ import Logo from '../Logo.astro';
 import Neutra from './Neutra.astro';
 import { MENSAJES } from '../../config/mensajes';
 import { SITIO } from '../../config/sitio';
-import { peso, type CajaPublica } from '../../lib/caja';
+import { agruparPiezas, peso, type CajaPublica } from '../../lib/caja';
 import { capitalizar, fecha, primerNombre } from '../../lib/formato';
 import { enlaceWhatsApp } from '../../lib/whatsapp';
 
@@ -48,10 +48,11 @@ const titular = !caja
               <span>100% garantizado</span>
             </p>
             <ul class="lista">
-              {caja.piezas.map((p) => (
+              {agruparPiezas(caja.piezas).map((p) => (
                 <li>
                   <span class="nombre">{p.descripcion}</span>
                   <span class="dato">
+                    {p.cantidad > 1 && `${p.cantidad} × `}
                     {peso(p.peso_gramos)}
                     {!todas18 && ` · ${p.ley}`}
                   </span>

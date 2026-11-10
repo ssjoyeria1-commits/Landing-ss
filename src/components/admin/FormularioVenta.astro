@@ -5,9 +5,8 @@ import type { UnidadDetalle } from '../../lib/inventario';
 
 interface Props {
   error: string;
-  unidades: Pick<UnidadDetalle, 'id' | 'producto_id' | 'codigo' | 'producto' | 'categoria' | 'peso_gramos' | 'precio_cop'>[];
+  unidades: Pick<UnidadDetalle, 'id' | 'producto_id' | 'codigo' | 'producto' | 'categoria' | 'peso_gramos' | 'precio_cop' | 'precio_aliado_cop'>[];
   aliados: { id: string; nombre: string }[];
-  preciosAliado: Record<string, number>;
   mediosPago: { id: string; nombre: string; comision_pct: number }[];
   paises: { codigo: string; nombre: string }[];
   hoy: string;
@@ -15,7 +14,7 @@ interface Props {
   tipoInicial: 'cliente' | 'aliado';
 }
 
-const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliadoInicial, tipoInicial } = Astro.props;
+const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoInicial } = Astro.props;
 ---
 
 <form method="post" id="venta" novalidate>
@@ -155,7 +154,6 @@ const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliado
     </p>
   </section>
   <script type="application/json" id="inventario" set:html={JSON.stringify(unidades)} />
-  <script type="application/json" id="precios-aliado" set:html={JSON.stringify(preciosAliado)} />
 
 <p><button type="submit" id="guardar">{tipoInicial === 'aliado' ? 'Guardar venta al aliado' : 'Guardar venta y generar códigos'}</button></p>
 </form>
@@ -237,16 +235,20 @@ const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliado
     <div class="fila del-inventario">
       <div class="campo" style="grid-column: span 2">
         <label>Producto</label>
-        <select data-producto>
+        <select data-producto data-campo="producto">
           <option value="">Elige…</option>
         </select>
       </div>
       <div class="campo">
         <label>Peso de la pieza</label>
-        <select data-peso>
+        <select data-peso data-campo="clave">
           <option value="">Elige el producto</option>
         </select>
-        <input type="hidden" data-campo="unidad" />
+        <input type="hidden" data-unidad />
+      </div>
+      <div class="campo">
+        <label>Cantidad</label>
+        <input data-campo="cantidad" type="number" min="1" step="1" value="1" inputmode="numeric" />
       </div>
     </div>
     <div class="fila manual" hidden>
@@ -383,7 +385,16 @@ const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliado
 
   // Inventario disponible: productos, y dentro de cada uno sus piezas agrupadas por peso. En la lista
   // se elige el peso (con cuántas hay); la pieza concreta la asigna el formulario, la del lote más antiguo.
-  type Unidad = { id: string; producto_id: string; codigo: string; producto: string; categoria: string; peso_gramos: number; precio_cop: number };
+  type Unidad = {
+    id: string;
+    producto_id: string;
+    codigo: string;
+    producto: string;
+    categoria: string;
+    peso_gramos: number;
+    precio_cop: number;
+    precio_aliado_cop: number | null;
+  };
   const unidades = JSON.parse(document.querySelector('#inventario')!.textContent || '[]') as Unidad[];
   const clavePeso = (g: number) => Number(g).toFixed(2);
   const productos = new Map<string, { nombre: string; total: number; pesos: Map<string, Unidad[]> }>();
@@ -402,40 +413,46 @@ const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliado
   const gramos = (g: number) => `${Number(g).toLocaleString('es-CO', { maximumFractionDigits: 2 })} g`;
   const monto = (v: string) => Number(v.replace(/\D/g, '')) || 0;
 
-  /** Piezas ya asignadas en otras filas: no se usan dos veces. */
-  function usadas(excepto: HTMLElement) {
-    return new Set(
-      [...contenedor.querySelectorAll<HTMLElement>('.pieza')]
-        .filter((p) => p !== excepto)
-        .map((p) => p.querySelector<HTMLInputElement>('[data-campo="unidad"]')!.value)
-        .filter(Boolean),
-    );
+  const cantidadDe = (pieza: HTMLElement) =>
+    Math.max(1, Math.floor(Number(pieza.querySelector<HTMLInputElement>('[data-campo="cantidad"]')!.value) || 1));
+
+  /** Cuántas piezas de ese producto y peso piden las otras filas del inventario. */
+  function pedidasEnOtrasPiezas(excepto: HTMLElement, producto: string, clave: string) {
+    let n = 0;
+    for (const p of contenedor.querySelectorAll<HTMLElement>('.pieza')) {
+      if (p === excepto || p.querySelector<HTMLSelectElement>('[data-campo="origen"]')!.value === 'manual') continue;
+      if (p.querySelector<HTMLSelectElement>('[data-producto]')!.value !== producto) continue;
+      if (p.querySelector<HTMLSelectElement>('[data-peso]')!.value !== clave) continue;
+      n += cantidadDe(p);
+    }
+    return n;
   }
 
-  /** Llena la lista de pesos de la fila (con cuántas quedan libres) y asigna la pieza del peso elegido. */
+  /**
+   * Llena la lista de pesos de la fila (con cuántas quedan, descontando las que piden las otras filas)
+   * y limita la cantidad a las que quedan. La base toma las piezas del lote más antiguo al guardar.
+   */
   function llenarPesos(pieza: HTMLElement) {
     const producto = pieza.querySelector<HTMLSelectElement>('[data-producto]')!;
     const peso = pieza.querySelector<HTMLSelectElement>('[data-peso]')!;
-    const unidad = pieza.querySelector<HTMLInputElement>('[data-campo="unidad"]')!;
-    const ocupadas = usadas(pieza);
+    const unidad = pieza.querySelector<HTMLInputElement>('[data-unidad]')!;
+    const cantidad = pieza.querySelector<HTMLInputElement>('[data-campo="cantidad"]')!;
     const actual = peso.value;
     peso.replaceChildren(new Option(producto.value ? 'Elige…' : 'Elige el producto', ''));
     for (const [k, grupo] of productos.get(producto.value)?.pesos ?? []) {
-      const libres = grupo.filter((u) => !ocupadas.has(u.id));
-      if (libres.length === 0) continue;
-      const etiqueta = `${gramos(grupo[0].peso_gramos)} · ${pesos.format(grupo[0].precio_cop)} · ${libres.length} ${
-        libres.length === 1 ? 'disponible' : 'disponibles'
-      }`;
+      const libres = grupo.length - pedidasEnOtrasPiezas(pieza, producto.value, k);
+      if (libres <= 0 && k !== actual) continue;
+      const n = Math.max(libres, 0);
+      const etiqueta = `${gramos(grupo[0].peso_gramos)} · ${pesos.format(grupo[0].precio_cop)} · ${n} ${n === 1 ? 'disponible' : 'disponibles'}`;
       peso.append(new Option(etiqueta, k, false, k === actual));
     }
     // Con un solo peso disponible, se elige solo.
     if (!peso.value && peso.options.length === 2) peso.selectedIndex = 1;
 
-    // Se conserva la pieza asignada si sigue siendo de ese peso y nadie más la usa; si no, la siguiente libre.
+    // Una pieza de ese peso para mostrar el precio (todas las de un peso valen lo mismo).
     const grupo = productos.get(producto.value)?.pesos.get(peso.value) ?? [];
-    if (!grupo.some((u) => u.id === unidad.value) || ocupadas.has(unidad.value)) {
-      unidad.value = grupo.find((u) => !ocupadas.has(u.id))?.id ?? '';
-    }
+    unidad.value = grupo[0]?.id ?? '';
+    cantidad.max = String(Math.max(grupo.length - pedidasEnOtrasPiezas(pieza, producto.value, peso.value), 1));
   }
 
   function refrescarPesos() {
@@ -457,14 +474,16 @@ const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliado
     let n = 0;
     for (const pieza of contenedor.querySelectorAll<HTMLElement>('.pieza')) {
       const manual = pieza.querySelector<HTMLSelectElement>('[data-campo="origen"]')!.value === 'manual';
-      const elegida = manual ? undefined : porId.get(pieza.querySelector<HTMLInputElement>('[data-campo="unidad"]')!.value);
+      const elegida = manual ? undefined : porId.get(pieza.querySelector<HTMLInputElement>('[data-unidad]')!.value);
+      const cantidad = manual ? 1 : cantidadDe(pieza);
       const precio = manual ? monto(pieza.querySelector<HTMLInputElement>('[data-campo="precio"]')!.value) : (elegida?.precio_cop ?? 0);
+      const varias = cantidad > 1 ? ` · ${cantidad} × ${pesos.format(precio)} = ${pesos.format(precio * cantidad)}` : '';
       pieza.querySelector<HTMLElement>('.precio-pieza')!.textContent = elegida
-        ? `${elegida.producto} · ${gramos(elegida.peso_gramos)} · 18k · ${pesos.format(elegida.precio_cop)}`
+        ? `${elegida.producto} · ${gramos(elegida.peso_gramos)} · 18k · ${pesos.format(elegida.precio_cop)}${varias}`
         : '';
       if (precio) {
-        subtotal += precio;
-        n += 1;
+        subtotal += precio * cantidad;
+        n += cantidad;
       }
     }
     totales.textContent = textoTotales(n, subtotal);
@@ -526,9 +545,9 @@ const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliado
     // Al cambiar producto o peso se asigna la pieza y se actualizan las cantidades libres de las demás filas.
     if (pieza && input.hasAttribute('data-producto')) {
       pieza.querySelector<HTMLSelectElement>('[data-peso]')!.value = '';
-      pieza.querySelector<HTMLInputElement>('[data-campo="unidad"]')!.value = '';
+      pieza.querySelector<HTMLInputElement>('[data-unidad]')!.value = '';
     }
-    if (pieza && (input.hasAttribute('data-producto') || input.hasAttribute('data-peso'))) {
+    if (pieza && (input.hasAttribute('data-producto') || input.hasAttribute('data-peso') || input.dataset.campo === 'cantidad')) {
       llenarPesos(pieza);
       for (const otra of contenedor.querySelectorAll<HTMLElement>('.pieza')) if (otra !== pieza) llenarPesos(otra);
     }
@@ -539,13 +558,15 @@ const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliado
 
   // ----- Venta a un aliado -----
   // Productos con precio de aliado y sus pesos disponibles (con cuántas hay de cada uno).
-  const preciosAliado = JSON.parse(document.querySelector('#precios-aliado')!.textContent || '{}') as Record<string, number>;
+  // Precio de aliado de cada producto y peso, tal como lo trae el inventario.
+  const precioAliadoDe = new Map<string, number>();
   const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   type ProductoAliado = { id: string; codigo: string; nombre: string; categoria: string; busca: string; total: number; pesos: Map<string, number> };
   const deAliado = new Map<string, ProductoAliado>();
   for (const u of unidades) {
-    const precio = preciosAliado[u.producto_id];
+    const precio = u.precio_aliado_cop;
     if (!precio) continue;
+    precioAliadoDe.set(`${u.producto_id}|${Number(u.peso_gramos)}`, Number(precio));
     let p = deAliado.get(u.producto_id);
     if (!p) {
       const cat = u.categoria ?? '';
@@ -557,7 +578,7 @@ const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliado
     p.total += 1;
   }
   const listaAliado = [...deAliado.values()];
-  const precioAliado = (productoId: string, peso: string) => Math.round(Number(peso) * (preciosAliado[productoId] ?? 0));
+  const precioAliado = (productoId: string, peso: string) => precioAliadoDe.get(`${productoId}|${Number(peso)}`) ?? 0;
 
   const lineas = document.querySelector<HTMLElement>('#lineas')!;
   const tplLinea = document.querySelector<HTMLTemplateElement>('#tpl-linea')!;

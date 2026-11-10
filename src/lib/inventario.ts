@@ -27,6 +27,9 @@ export interface ProductoCatalogo {
   nota: string | null;
   publicado: boolean;
   descripcion_publica: string | null;
+  precio_aliado_gramo_cop: number | null;
+  precio_unitario_cop: number | null;
+  precio_aliado_unitario_cop: number | null;
 }
 
 const texto = (form: FormData, campo: string) => String(form.get(campo) ?? '').trim();
@@ -74,6 +77,10 @@ export interface ProductoForm {
   nota: string | null;
   publicado: boolean;
   descripcion_publica: string | null;
+  /** Precio fijo por unidad: reemplaza peso × precio por gramo de la categoría (p. ej. balinería). */
+  precio_unitario_cop: number | null;
+  /** Precio fijo por unidad para aliados. */
+  precio_aliado_unitario_cop: number | null;
 }
 
 export function leerProducto(form: FormData): { datos: ProductoForm } | { error: string } {
@@ -89,6 +96,15 @@ export function leerProducto(form: FormData): { datos: ProductoForm } | { error:
   if (!Number.isInteger(minimo) || minimo < 0) return { error: 'El stock mínimo debe ser un número entero.' };
   const descripcion = texto(form, 'descripcion_publica');
   if (descripcion.length > 400) return { error: 'La descripción para el catálogo puede tener hasta 400 caracteres.' };
+  const fijo = texto(form, 'precio_unitario') ? leerMonto(texto(form, 'precio_unitario')) : null;
+  const fijoAliado = texto(form, 'precio_aliado_unitario') ? leerMonto(texto(form, 'precio_aliado_unitario')) : null;
+  if (fijo !== null && (!Number.isSafeInteger(fijo) || fijo <= 0)) return { error: 'El precio fijo por unidad debe ser un monto en pesos (o déjalo vacío).' };
+  if (fijoAliado !== null && (!Number.isSafeInteger(fijoAliado) || fijoAliado <= 0)) {
+    return { error: 'El precio fijo para aliados debe ser un monto en pesos (o déjalo vacío).' };
+  }
+  if (fijo !== null && fijoAliado !== null && fijoAliado >= fijo) {
+    return { error: 'El precio fijo para aliados debe ser menor que el precio fijo por unidad.' };
+  }
   return {
     datos: {
       codigo,
@@ -99,6 +115,8 @@ export function leerProducto(form: FormData): { datos: ProductoForm } | { error:
       nota: texto(form, 'nota') || null,
       publicado: form.get('publicado') === 'on',
       descripcion_publica: descripcion || null,
+      precio_unitario_cop: fijo,
+      precio_aliado_unitario_cop: fijoAliado,
     },
   };
 }
@@ -143,6 +161,8 @@ export interface UnidadDetalle {
   mano_obra_gramo_cop: number;
   costo_cop: number;
   precio_cop: number;
+  /** Precio para aliados (fijo de la referencia o peso × precio de aliado por gramo); null si no tiene. */
+  precio_aliado_cop: number | null;
 }
 
 /** Fila de la vista lotes_resumen. */

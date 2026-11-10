@@ -19,6 +19,10 @@ if (Astro.request.method === 'POST') {
 }
 
 let n = 0;
+// Precio de aliado por gramo de cada producto de ejemplo (sin él no se vende a aliados).
+const aliadoGramo: Record<string, number> = { p1: 330000, p2: 330000, p3: 330000, p4: 345000, p5: 330000 };
+// Balinería de ejemplo con precio fijo por unidad (público y de aliado).
+const fijo: Record<string, [number, number]> = { p7: [20000, 15000] };
 const u = (producto_id: string, codigo: string, producto: string, categoria: string, peso_gramos: number, gramo: number) => ({
   id: `u${++n}`,
   producto_id,
@@ -26,7 +30,8 @@ const u = (producto_id: string, codigo: string, producto: string, categoria: str
   producto,
   categoria,
   peso_gramos,
-  precio_cop: Math.round(peso_gramos * gramo),
+  precio_cop: fijo[producto_id]?.[0] ?? Math.round(peso_gramos * gramo),
+  precio_aliado_cop: fijo[producto_id]?.[1] ?? (aliadoGramo[producto_id] ? Math.round(peso_gramos * aliadoGramo[producto_id]) : null),
 });
 const unidades = [
   u('p1', 'CGC-001', 'Cadena tejido GC 55cm', 'Cadenas Nacionales', 6.38, 415000),
@@ -38,8 +43,8 @@ const unidades = [
   u('p4', 'AN-014', 'Anillo solitario corazón', 'Anillos', 2.05, 430000),
   u('p5', 'PU-003', 'Pulsera eslabón italiano con nombre muy largo para probar', 'Pulseras', 9.4, 415000),
   u('p6', 'DJ-001', 'Dije sin precio de aliado', 'Dijes', 1.5, 450000),
+  ...Array.from({ length: 40 }, () => u('p7', 'BL-003', 'Balin #3', 'Balineria', 0.03, 415000)),
 ];
-const preciosAliado = { p1: 330000, p2: 330000, p3: 330000, p4: 345000, p5: 330000 };
 const aliados = [
   { id: 'a1', nombre: 'Laura Restrepo' },
   { id: 'a2', nombre: 'Pedro Gómez' },
@@ -52,7 +57,6 @@ const aliadoInicial = aliados.find((a) => a.id === Astro.url.searchParams.get('a
     error=""
     unidades={unidades}
     aliados={aliados}
-    preciosAliado={preciosAliado}
     mediosPago={[
       { id: 'm1', nombre: 'Efectivo', comision_pct: 0 },
       { id: 'm2', nombre: 'Transferencia', comision_pct: 0 },

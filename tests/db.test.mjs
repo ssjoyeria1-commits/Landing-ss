@@ -1071,3 +1071,67 @@ test('contabilidad: gastos y medios de pago solo para admins', async () => {
     ),
   );
 });
+
+// ---------------------------------------------------------------------------
+// Precio fijo por unidad y venta por cantidad (balinería)
+// ---------------------------------------------------------------------------
+
+test('precio fijo por unidad: reemplaza peso × precio por gramo en la venta, el inventario y los catálogos', async () => {
+  const db = await nuevaBase();
+  const [u2a, , u15] = await inventarioConAliado(db, [2, 2, 1.5]);
+  const p = (await uno(db, "select id from public.productos where codigo = 'AN-014'")).id;
+  await como(db, 'authenticated', ADMIN, () =>
+    db.query('update public.productos set precio_unitario_cop = 20000, precio_aliado_unitario_cop = 15000, publicado = true where id = $1', [p]),
+  );
+  const d = await como(db, 'authenticated', ADMIN, () => uno(db, 'select precio_cop, precio_aliado_cop from public.unidades_detalle where id = $1', [u15]));
+  assert.deepEqual([Number(d.precio_cop), Number(d.precio_aliado_cop)], [20000, 15000], 'mismo precio sin importar el peso');
+  const ex = await como(db, 'authenticated', ADMIN, () => uno(db, 'select valor_cop from public.existencias where id = $1', [p]));
+  assert.equal(Number(ex.valor_cop), 60000);
+
+  const [item] = await catalogo(db);
+  assert.deepEqual(item.opciones.map((o) => Number(o.precio_cop)), [20000, 20000]);
+  const a = await aliado(db);
+  const ca = await catalogoAliado(db, a.token);
+  assert.deepEqual(ca.productos[0].opciones.map((o) => [Number(o.precio_cop), Number(o.precio_publico_cop)]), [[15000, 20000], [15000, 20000]]);
+
+  const r = await venta(db, { cajas: [{ es_regalo: false, piezas: [{ unidad_id: u2a }] }] });
+  assert.equal(Number(r.monto_cop), 20000);
+  const va = await ventaAliado(db, a.id, [{ producto_id: p, peso_gramos: 1.5, cantidad: 1 }]);
+  assert.equal(Number(va.monto_cop), 15000);
+
+  // Sin precio fijo de aliado ni precio de aliado en la categoría, no se le vende ni sale en su catálogo.
+  await como(db, 'authenticated', ADMIN, async () => {
+    await db.query('update public.productos set precio_aliado_unitario_cop = null where id = $1', [p]);
+    await db.query("update public.categorias set precio_aliado_gramo_cop = null where nombre = 'Anillos'");
+  });
+  assert.equal((await catalogoAliado(db, a.token)).productos.length, 0);
+});
+
+test('venta por cantidad: toma esa cantidad de piezas del lote más antiguo y no deja vender más de las que hay', async () => {
+  const db = await nuevaBase();
+  await inventario(db, [0.03, 0.03, 0.03, 0.06]);
+  const p = (await uno(db, "select id from public.productos where codigo = 'AN-014'")).id;
+  await como(db, 'authenticated', ADMIN, () => db.query('update public.productos set precio_unitario_cop = 20000 where id = $1', [p]));
+
+  const r = await venta(db, {
+    cajas: [{ es_regalo: false, piezas: [{ producto_id: p, peso_gramos: 0.03, cantidad: 2 }, { producto_id: p, peso_gramos: 0.06, cantidad: 1 }] }],
+  });
+  assert.equal(Number(r.monto_cop), 60000);
+  const vendidas = await como(db, 'authenticated', ADMIN, () =>
+    uno(db, "select count(*) filter (where estado = 'vendida')::int as v, count(*) filter (where estado = 'disponible')::int as d from public.unidades"),
+  );
+  assert.deepEqual(vendidas, { v: 3, d: 1 });
+  assert.equal((await pagina(db, r.cajas[0].codigo_chip)).piezas.length, 3, 'una fila por pieza física');
+
+  await assert.rejects(
+    venta(db, { cajas: [{ es_regalo: false, piezas: [{ producto_id: p, peso_gramos: 0.03, cantidad: 2 }] }] }),
+    /No hay 2 piezas disponibles/,
+  );
+  // La que sí está elegida a mano no se repite al pedir por cantidad.
+  const libre = (await uno(db, "select id from public.unidades where estado = 'disponible'")).id;
+  await assert.rejects(
+    venta(db, { cajas: [{ es_regalo: false, piezas: [{ unidad_id: libre }, { producto_id: p, peso_gramos: 0.03, cantidad: 1 }] }] }),
+    /No hay 1 piezas disponibles/,
+  );
+  assert.equal(await estadoUnidad(db, libre), 'disponible', 'un error no deja nada a medias');
+});

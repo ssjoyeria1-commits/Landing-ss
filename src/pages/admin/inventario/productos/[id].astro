@@ -189,6 +189,25 @@ const valor = (campo: string, original: string | number | null | undefined) =>
           </div>
         </div>
         <p class="ayuda">El peso no va aquí: cada pieza tiene el suyo y se anota al registrar su lote.</p>
+        <fieldset class="catalogo">
+          <legend>Precio fijo por unidad (opcional)</legend>
+          <p class="ayuda" style="margin-top: 0">
+            Para referencias que no se venden por peso, como la balinería. Si lo escribes, cada pieza vale esto sin importar su
+            peso (en ventas, catálogo e inventario) en lugar del precio por gramo de la categoría. Vacío: se calcula por peso.
+            Las ventas ya registradas no cambian.
+          </p>
+          <div class="fila">
+            <div class="campo">
+              <label for="precio_unitario">Precio por unidad (COP)</label>
+              <input id="precio_unitario" name="precio_unitario" inputmode="numeric" value={valor('precio_unitario', producto?.precio_unitario_cop ?? '')} placeholder="20.000" autocomplete="off" />
+            </div>
+            <div class="campo">
+              <label for="precio_aliado_unitario">Precio por unidad para aliados (COP)</label>
+              <input id="precio_aliado_unitario" name="precio_aliado_unitario" inputmode="numeric" value={valor('precio_aliado_unitario', producto?.precio_aliado_unitario_cop ?? '')} placeholder="Opcional" autocomplete="off" />
+              <p class="ayuda">Vacío: usa el precio de aliado por gramo de la categoría; si la categoría tampoco tiene, no se les vende.</p>
+            </div>
+          </div>
+        </fieldset>
         <div class="campo" style="margin-top: 0.9rem">
           <label for="nota">Nota (opcional)</label>
           <textarea id="nota" name="nota" rows="2">{valor('nota', producto?.nota)}</textarea>

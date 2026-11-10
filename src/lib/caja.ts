@@ -52,6 +52,23 @@ export async function obtenerCaja(codigo: string, contar = true): Promise<CajaPu
   return data as CajaPublica | null;
 }
 
+/** Pieza con cuántas iguales hay (misma descripción, peso y ley), p. ej. 50 balines en una caja. */
+export interface PiezaAgrupada extends PiezaPublica {
+  cantidad: number;
+}
+
+/** Junta las piezas iguales de una caja en una sola fila con su cantidad, en el orden en que aparecen. */
+export function agruparPiezas(piezas: PiezaPublica[]): PiezaAgrupada[] {
+  const grupos = new Map<string, PiezaAgrupada>();
+  for (const p of piezas) {
+    const clave = `${p.descripcion}|${Number(p.peso_gramos)}|${p.ley}`;
+    const g = grupos.get(clave);
+    if (g) g.cantidad += 1;
+    else grupos.set(clave, { ...p, cantidad: 1 });
+  }
+  return [...grupos.values()];
+}
+
 export function peso(gramos: number): string {
   return `${Number(gramos).toLocaleString('es-CO', { maximumFractionDigits: 2 })} g`;
 }

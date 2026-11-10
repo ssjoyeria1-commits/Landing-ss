@@ -1,5 +1,5 @@
 ---
-import { peso, type PiezaPublica } from '../../lib/caja';
+import { agruparPiezas, peso, type PiezaPublica } from '../../lib/caja';
 
 interface Props {
   piezas: PiezaPublica[];
@@ -10,11 +10,11 @@ const { piezas } = Astro.props;
 
 <ul class="piezas">
   {
-    piezas.map((p) => (
+    agruparPiezas(piezas).map((p) => (
       <li>
         <span class:list={["descripcion", { larga: p.descripcion.length > 40 }]}>{p.descripcion}</span>
         <span class="detalle">
-          {peso(p.peso_gramos)} · {p.ley}
+          {p.cantidad > 1 && `${p.cantidad} × `}{peso(p.peso_gramos)} · {p.ley}
         </span>
       </li>
     ))

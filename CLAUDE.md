@@ -30,7 +30,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 |---|---|
 | Servidor local | `npm run dev` (o `preview_start` con `astro-dev` de `.claude/launch.json`) → http://127.0.0.1:4321 |
 | Revisar tipos | `npx astro check` (debe dar 0 errores) |
-| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 51 pruebas) |
+| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 53 pruebas) |
 | Publicar | `npm run build` y luego `npx wrangler deploy` |
 | Tipos de las variables | `npm run types` (usa `--include-runtime=false`; ver abajo) |
 | Aplicar migraciones | `npx supabase db push --linked --dry-run`, luego sin `--dry-run` y con `--yes` |
@@ -81,7 +81,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   Cada sección es una tarjeta vino oscuro (`--franja`) con tres rombos del imagotipo arriba. Rojo solo
   para el botón principal y los rombos ganados del Círculo. Botones oscuros con filete marfil.
 - Datos de prueba de la página del chip sin base de datos: `/pruebas/casos?datos=demo|peor|cero|diez|regalo|regalo-sin-nombre|neutra|temporal`
-  (solo en desarrollo; en producción da 404; sus datos están en `src/pages/pruebas/_casos.ts`). Certificado: `/pruebas/certificado?datos=…` (mismos casos). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. QR de respaldo: `/pruebas/qr`. Catálogo de aliado: `/pruebas/aliados`. Registrar venta (cliente o aliado, muestra el JSON sin guardar): `/pruebas/venta?aliado=a1`. Contabilidad con datos de ejemplo: `/pruebas/contabilidad?vista=semana|mes|anio`; sus ajustes: `/pruebas/ajustes`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
+  (solo en desarrollo; en producción da 404; sus datos están en `src/pages/pruebas/_casos.ts`). Certificado: `/pruebas/certificado?datos=…` (mismos casos). Fotos del producto sin sesión ni Storage: `/pruebas/fotos`. QR de respaldo: `/pruebas/qr`. Catálogo de aliado: `/pruebas/aliados`. Caso con 25 balines: `/pruebas/casos?datos=balines`. Registrar venta (cliente o aliado, muestra el JSON sin guardar): `/pruebas/venta?aliado=a1`. Contabilidad con datos de ejemplo: `/pruebas/contabilidad?vista=semana|mes|anio`; sus ajustes: `/pruebas/ajustes`. Catálogo: `/pruebas/catalogo?datos=demo|peor|uno|vacio|temporal`
   (`&ficha=CODIGO` para la ficha, `&whatsapp=1` para ver el botón con un número de ejemplo).
 - Nombres con mayúscula inicial (`capitalizar()` al guardar y al mostrar).
 - CSV "informes" para Excel en español: separador `;` y decimales con coma. Los de "respaldo técnico"
@@ -144,6 +144,13 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
         y publicada; también acepta piezas "fuera del inventario" con precio escrito a mano): se elige la pieza física del inventario (trae su peso),
         la marca `vendida` (las vendidas no se borran ni cambian), guarda precio y costo del momento; el monto total = suma − descuento (lo usa el Círculo); la venta descuenta inventario y
         la anulación lo devuelve. Precios y costos nunca llegan a `pagina_caja`.
+  - [x] **Precio fijo y venta por cantidad** (decisión 10 nov 2026, balinería; migración
+        `20261111120000_precio_fijo_y_cantidad.sql`): `productos.precio_unitario_cop` (y `precio_aliado_unitario_cop`)
+        reemplaza peso × precio por gramo en `unidades_detalle` (`precio_cop`, `precio_aliado_cop`), catálogos y
+        venta a aliados; se edita en la ficha del producto. `registrar_venta` acepta piezas
+        `{producto_id, peso_gramos, cantidad}` y toma esa cantidad del lote más antiguo (el formulario de venta
+        a cliente ya manda así cada fila del inventario). Piezas iguales salen agrupadas ("25 × 0,03 g") en la
+        página del chip, el certificado y el detalle de la venta (`agruparPiezas` en `src/lib/caja.ts`).
   - [x] 4D — informes cruzados (`/admin/informes`, vista `piezas_vendidas` con el descuento repartido
         por pieza): ventas y margen por mes, categoría y producto, inventario valorizado, productos sin
         ventas y piezas con más de 90 días; CSV para Excel de ventas por pieza e inventario disponible.

@@ -16,6 +16,8 @@ export function limpiarMensajeRegalo(valor: string): string | null {
 /** Pieza del inventario (peso, precio y costo salen de ahí) o escrita a mano con su precio. */
 export type PiezaForm =
   | { unidad_id: string }
+  /** Varias piezas iguales del inventario: la base toma esa cantidad del lote más antiguo. */
+  | { producto_id: string; peso_gramos: number; cantidad: number }
   | { descripcion: string; peso_gramos: number; ley: string; precio_cop: number };
 
 export interface CajaForm {
@@ -55,7 +57,7 @@ export function leerPeso(valor: string): number {
   return Number(valor.replace(',', '.'));
 }
 
-type CampoPieza = 'origen' | 'unidad' | 'descripcion' | 'peso' | 'precio';
+type CampoPieza = 'origen' | 'unidad' | 'producto' | 'clave' | 'cantidad' | 'descripcion' | 'peso' | 'precio';
 
 /**
  * Arma el JSON de registrar_venta a partir del formulario. Los nombres de las cajas y piezas
@@ -88,7 +90,7 @@ export function leerFormularioVenta(form: FormData): { payload: PayloadVenta } |
       else c.nombre_destinatario = valor ? capitalizar(valor) : null;
       continue;
     }
-    m = clave.match(/^caja-(\d+)-pieza-(\d+)-(origen|unidad|descripcion|peso|precio)$/);
+    m = clave.match(/^caja-(\d+)-pieza-(\d+)-(origen|unidad|producto|clave|cantidad|descripcion|peso|precio)$/);
     if (m) {
       caja(Number(m[1]));
       const id = `${m[1]}-${m[2]}`;
@@ -99,6 +101,15 @@ export function leerFormularioVenta(form: FormData): { payload: PayloadVenta } |
   for (const [id, p] of piezas) {
     const [i] = id.split('-').map(Number);
     if (p.origen === 'inventario') {
+      // Por producto, peso y cantidad (la base elige las piezas); o una pieza concreta (formularios viejos).
+      if (p.producto && p.clave) {
+        const cantidad = Number(p.cantidad || '1');
+        if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 1000) {
+          return { error: `Caja ${i + 1}: la cantidad debe ser un número entero entre 1 y 1000.` };
+        }
+        caja(i).piezas.push({ producto_id: p.producto, peso_gramos: Number(p.clave), cantidad });
+        continue;
+      }
       if (!p.unidad) continue; // fila sin elegir
       caja(i).piezas.push({ unidad_id: p.unidad });
       continue;

@@ -48,6 +48,11 @@ export const casos: Record<string, CajaPublica | 'neutra' | 'temporal'> = {
   demo,
   peor,
   cero: { ...demo, nombre: 'jo', piezas: [demo.piezas[0]], circulo: { interacciones: 0, hitos: [3, 5, 10], proximo_hito: 3, codigo_referido: 'JO-0042' } },
+  // Venta por cantidad: 25 balines iguales salen en una sola fila.
+  balines: {
+    ...demo,
+    piezas: [demo.piezas[0], ...Array.from({ length: 25 }, () => ({ descripcion: 'Balin #3', peso_gramos: 0.03, ley: '18k' }))],
+  },
   diez: { ...demo, circulo: { interacciones: 10, hitos: [3, 5, 10], proximo_hito: null, codigo_referido: 'VALENTINA-8310' } },
   regalo,
   // Peor caso del mensaje: casi 300 caracteres y un salto de párrafo.

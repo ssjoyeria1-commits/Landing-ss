@@ -4,6 +4,15 @@ import { normalizarWhatsapp } from './whatsapp';
 /** Todas las piezas de SS Joyería son de oro de 18 quilates: el formulario ya no pregunta la ley. */
 export const LEY = '18k';
 
+/** Largo máximo del mensaje del regalo (igual que en la base de datos). */
+export const MAX_MENSAJE_REGALO = 300;
+
+/** Mensaje del regalo tal como se guarda: sin espacios de sobra, saltos de línea simples, null si vacío. */
+export function limpiarMensajeRegalo(valor: string): string | null {
+  const limpio = valor.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  return limpio || null;
+}
+
 /** Pieza del inventario (peso, precio y costo salen de ahí) o escrita a mano con su precio. */
 export type PiezaForm =
   | { unidad_id: string }
@@ -12,6 +21,8 @@ export type PiezaForm =
 export interface CajaForm {
   es_regalo: boolean;
   nombre_destinatario: string | null;
+  /** Mensaje del comprador que se ve en la bienvenida del regalo. */
+  mensaje_regalo: string | null;
   piezas: PiezaForm[];
 }
 
@@ -48,7 +59,7 @@ type CampoPieza = 'origen' | 'unidad' | 'descripcion' | 'peso' | 'precio';
 
 /**
  * Arma el JSON de registrar_venta a partir del formulario. Los nombres de las cajas y piezas
- * siguen el patrón caja-{i}-regalo, caja-{i}-destinatario y caja-{i}-pieza-{j}-{campo}.
+ * siguen el patrón caja-{i}-regalo, caja-{i}-destinatario, caja-{i}-mensaje y caja-{i}-pieza-{j}-{campo}.
  * Cada pieza es del inventario (campo unidad) o escrita a mano (descripción, peso y precio).
  * Valida lo que la base de datos no puede explicar bien; el resto lo valida registrar_venta.
  */
@@ -62,17 +73,18 @@ export function leerFormularioVenta(form: FormData): { payload: PayloadVenta } |
 
   const cajas = new Map<number, CajaForm>();
   const caja = (i: number) => {
-    if (!cajas.has(i)) cajas.set(i, { es_regalo: false, nombre_destinatario: null, piezas: [] });
+    if (!cajas.has(i)) cajas.set(i, { es_regalo: false, nombre_destinatario: null, mensaje_regalo: null, piezas: [] });
     return cajas.get(i)!;
   };
   const piezas = new Map<string, Partial<Record<CampoPieza, string>>>();
 
   for (const [clave, valorBruto] of form.entries()) {
     const valor = String(valorBruto).trim();
-    let m = clave.match(/^caja-(\d+)-(regalo|destinatario)$/);
+    let m = clave.match(/^caja-(\d+)-(regalo|destinatario|mensaje)$/);
     if (m) {
       const c = caja(Number(m[1]));
       if (m[2] === 'regalo') c.es_regalo = valor === 'on';
+      else if (m[2] === 'mensaje') c.mensaje_regalo = limpiarMensajeRegalo(valor);
       else c.nombre_destinatario = valor ? capitalizar(valor) : null;
       continue;
     }
@@ -101,7 +113,14 @@ export function leerFormularioVenta(form: FormData): { payload: PayloadVenta } |
   }
 
   const listaCajas = [...cajas.entries()].sort(([a], [b]) => a - b).map(([, c]) => c);
-  for (const c of listaCajas) if (!c.es_regalo) c.nombre_destinatario = null;
+  for (const [i, c] of listaCajas.entries()) {
+    if (!c.es_regalo) {
+      c.nombre_destinatario = null;
+      c.mensaje_regalo = null;
+    } else if (c.mensaje_regalo && c.mensaje_regalo.length > MAX_MENSAJE_REGALO) {
+      return { error: `Caja ${i + 1}: el mensaje del regalo puede tener hasta ${MAX_MENSAJE_REGALO} caracteres.` };
+    }
+  }
 
   return {
     payload: {

@@ -5,7 +5,7 @@ import { nombreCompleto } from '../../../lib/clientes';
 import { fecha, pesos } from '../../../lib/formato';
 import { qrSvg } from '../../../lib/qr';
 import type { VentaContable } from '../../../lib/contabilidad';
-import { leerCobro } from '../../../lib/venta';
+import { leerCobro, limpiarMensajeRegalo, MAX_MENSAJE_REGALO } from '../../../lib/venta';
 
 const { id } = Astro.params;
 const supabase = Astro.locals.supabase;
@@ -43,12 +43,28 @@ if (Astro.request.method === 'POST') {
     if (fallo) error = fallo.message;
     else aviso = `Código nuevo generado (${data}). El sticker anterior ya no funciona: graba la nueva URL.`;
   }
+
+  // Mensaje del regalo: se puede escribir o cambiar después de la venta sin tocar el chip.
+  if (accion === 'mensaje') {
+    const mensaje = limpiarMensajeRegalo(String(form.get('mensaje') ?? ''));
+    if (mensaje && mensaje.length > MAX_MENSAJE_REGALO) error = `El mensaje puede tener hasta ${MAX_MENSAJE_REGALO} caracteres.`;
+    else {
+      const { error: fallo } = await supabase
+        .from('cajas')
+        .update({ mensaje_regalo: mensaje })
+        .eq('id', String(form.get('caja_id')))
+        .eq('venta_id', id!)
+        .eq('es_regalo', true);
+      if (fallo) error = fallo.message;
+      else aviso = mensaje ? 'Mensaje del regalo guardado: ya se ve en la página del chip.' : 'Mensaje del regalo quitado.';
+    }
+  }
 }
 
 const { data: venta } = await supabase
   .from('ventas')
   .select(
-    'id, fecha, monto_cop, descuento_cop, nota, anulada, anulada_at, pagada_aliado_at, aliados(id, nombre), clientes(id, nombre, apellido, codigo_referido), cajas(id, codigo_chip, referencia, es_regalo, nombre_destinatario, created_at, piezas(descripcion, peso_gramos, ley, orden, precio_cop, costo_cop, unidad_id), escaneos(count))',
+    'id, fecha, monto_cop, descuento_cop, nota, anulada, anulada_at, pagada_aliado_at, aliados(id, nombre), clientes(id, nombre, apellido, codigo_referido), cajas(id, codigo_chip, referencia, es_regalo, nombre_destinatario, mensaje_regalo, created_at, piezas(descripcion, peso_gramos, ley, orden, precio_cop, costo_cop, unidad_id), escaneos(count))',
   )
   .eq('id', id!)
   .maybeSingle();
@@ -235,6 +251,25 @@ const subtotal = todas.reduce((s, p) => s + Number(p.precio_cop ?? 0), 0);
           </ul>
           {!aliado && <p class="ayuda">Escaneos: {escaneos}</p>}
 
+          {caja.es_regalo && (
+            <div class="mensaje-regalo">
+              <strong>Mensaje del regalo</strong>
+              {caja.mensaje_regalo ? <blockquote>{caja.mensaje_regalo}</blockquote> : <p class="ayuda">Sin mensaje.</p>}
+              <details>
+                <summary class="ayuda">{caja.mensaje_regalo ? 'Cambiar o quitar el mensaje' : 'Escribir un mensaje'}</summary>
+                <form method="post" style="margin-top: 0.5rem">
+                  <input type="hidden" name="accion" value="mensaje" />
+                  <input type="hidden" name="caja_id" value={caja.id} />
+                  <textarea id={`mensaje-${caja.id}`} aria-label="Mensaje para quien recibe" name="mensaje" maxlength={MAX_MENSAJE_REGALO} rows="3">{caja.mensaje_regalo ?? ''}</textarea>
+                  <p class="ayuda" style="margin: 0.25rem 0 0.5rem">
+                    Sale en la página del chip, debajo del nombre de quien recibe. Hasta {MAX_MENSAJE_REGALO} caracteres; déjalo vacío para quitarlo.
+                  </p>
+                  <button type="submit" class="secundario">Guardar mensaje</button>
+                </form>
+              </details>
+            </div>
+          )}
+
           {!venta.anulada && !aliado && (
             <form method="post" class="regenerar">
               <input type="hidden" name="accion" value="regenerar" />
@@ -280,6 +315,24 @@ const subtotal = todas.reduce((s, p) => s + Number(p.precio_cop ?? 0), 0);
   .resultado .subtotal td {
     border-top: 1px solid var(--borde);
     font-weight: 600;
+  }
+
+  .mensaje-regalo {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--borde);
+  }
+
+  .mensaje-regalo blockquote {
+    margin: 0.4rem 0;
+    padding-left: 0.75rem;
+    border-left: 3px solid var(--rojo);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  .mensaje-regalo textarea {
+    width: 100%;
   }
 
   .qr-caja {

@@ -305,6 +305,26 @@ test('página de regalo: nombres y código del comprador, sin contador', async (
   assert.equal((await pagina(db, r.cajas[1].codigo_chip)).nombre_destinatario, null);
 });
 
+test('mensaje del regalo: se guarda en cajas de regalo, se edita después y la página lo muestra', async () => {
+  const db = await nuevaBase();
+  const r = await venta(db, {
+    cajas: [
+      { es_regalo: true, nombre_destinatario: 'Laura', mensaje_regalo: '  Feliz cumpleaños, mi amor  ', piezas: [pieza()] },
+      { es_regalo: false, mensaje_regalo: 'No debe guardarse', piezas: [pieza()] },
+    ],
+  });
+  assert.equal((await pagina(db, r.cajas[0].codigo_chip)).mensaje, 'Feliz cumpleaños, mi amor');
+  const propia = await pagina(db, r.cajas[1].codigo_chip);
+  assert.equal(propia.mensaje, undefined, 'la compra propia no lleva mensaje');
+  // Se corrige desde el panel; una caja que no es regalo no puede tenerlo; máximo 300 caracteres.
+  await como(db, 'authenticated', ADMIN, async () => {
+    await db.query("update public.cajas set mensaje_regalo = 'Con cariño' where id = $1", [r.cajas[0].id]);
+    await assert.rejects(db.query("update public.cajas set mensaje_regalo = 'x' where id = $1", [r.cajas[1].id]), /cajas_mensaje_solo_regalo/);
+    await assert.rejects(db.query('update public.cajas set mensaje_regalo = $1 where id = $2', ['a'.repeat(301), r.cajas[0].id]));
+  });
+  assert.equal((await pagina(db, r.cajas[0].codigo_chip)).mensaje, 'Con cariño');
+});
+
 test('códigos inexistentes o mal formados devuelven null y no registran escaneo', async () => {
   const db = await nuevaBase();
   await venta(db);

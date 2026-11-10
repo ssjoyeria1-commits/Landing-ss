@@ -38,6 +38,7 @@ const regalo: CajaRegalo = {
   referencia: 'SS-7RTPA',
   fecha: '2026-11-06',
   nombre_destinatario: 'laura maría gómez',
+  mensaje: 'Feliz cumpleaños, mi amor. Para que la lleves siempre contigo.',
   nombre_comprador: 'andrés',
   codigo_referido_comprador: 'ANDRES-5521',
   piezas: [{ descripcion: 'Aretes candonga lisos', peso_gramos: 2.1, ley: '18k' }],
@@ -49,7 +50,15 @@ export const casos: Record<string, CajaPublica | 'neutra' | 'temporal'> = {
   cero: { ...demo, nombre: 'jo', piezas: [demo.piezas[0]], circulo: { interacciones: 0, hitos: [3, 5, 10], proximo_hito: 3, codigo_referido: 'JO-0042' } },
   diez: { ...demo, circulo: { interacciones: 10, hitos: [3, 5, 10], proximo_hito: null, codigo_referido: 'VALENTINA-8310' } },
   regalo,
-  'regalo-sin-nombre': { ...regalo, nombre_destinatario: null, nombre_comprador: 'maximiliano-alejandro', piezas: peor.piezas },
+  // Peor caso del mensaje: casi 300 caracteres y un salto de párrafo.
+  'regalo-sin-nombre': {
+    ...regalo,
+    nombre_destinatario: null,
+    mensaje:
+      'Laura: no encontré mejor forma de decirte gracias por estos diez años.\n\nCada vez que la veas, acuérdate de que aquí estoy, de las noches de risa, de los viajes que nos faltan y de todo lo que todavía vamos a vivir juntos. Te quiero más de lo que sé escribir en una tarjeta. Feliz aniversario.',
+    nombre_comprador: 'maximiliano-alejandro',
+    piezas: peor.piezas,
+  },
   neutra: 'neutra',
   temporal: 'temporal',
 };

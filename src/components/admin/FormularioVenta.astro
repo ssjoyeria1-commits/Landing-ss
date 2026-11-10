@@ -210,6 +210,11 @@ const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliado
         <input data-campo="destinatario" maxlength="60" autocomplete="off" />
       </div>
     </div>
+    <div class="campo destinatario mensaje-regalo" hidden>
+      <label>Mensaje para quien recibe (opcional)</label>
+      <textarea data-campo="mensaje" maxlength="300" rows="3" placeholder="Feliz cumpleaños. Que la lleves siempre contigo."></textarea>
+      <small class="ayuda">Sale en la página del chip, debajo del nombre. Hasta 300 caracteres; se puede cambiar después en el detalle de la venta.</small>
+    </div>
     <div class="piezas"></div>
     <button type="button" class="enlace agregar-pieza">+ Agregar pieza</button>
   </section>
@@ -365,6 +370,7 @@ const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliado
       caja.querySelector<HTMLElement>('.quitar-caja')!.hidden = cajas.length === 1;
       caja.querySelector<HTMLInputElement>('[data-campo="regalo"]')!.name = `caja-${i}-regalo`;
       caja.querySelector<HTMLInputElement>('[data-campo="destinatario"]')!.name = `caja-${i}-destinatario`;
+      caja.querySelector<HTMLTextAreaElement>('[data-campo="mensaje"]')!.name = `caja-${i}-mensaje`;
       const piezas = [...caja.querySelectorAll<HTMLElement>('.pieza')];
       piezas.forEach((pieza, j) => {
         pieza.querySelector<HTMLElement>('.quitar-pieza')!.hidden = piezas.length === 1;
@@ -513,7 +519,7 @@ const { error, unidades, aliados, preciosAliado, mediosPago, paises, hoy, aliado
   contenedor.addEventListener('change', (e) => {
     const input = e.target as HTMLInputElement;
     if (input.dataset.campo === 'regalo') {
-      input.closest('.caja')!.querySelector<HTMLElement>('.destinatario')!.hidden = !input.checked;
+      for (const campo of input.closest('.caja')!.querySelectorAll<HTMLElement>('.destinatario')) campo.hidden = !input.checked;
     }
     const pieza = input.closest<HTMLElement>('.pieza');
     if (pieza && input.dataset.campo === 'origen') mostrarOrigen(pieza);

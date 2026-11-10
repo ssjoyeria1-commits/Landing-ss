@@ -36,6 +36,7 @@ const { caja, temporal = false, enlaceCertificado = '' } = Astro.props;
     caja?.tipo === 'regalo' && (
       <Fragment slot="saludo">
         <h1>{caja.nombre_destinatario ? `Hola, ${capitalizar(primerNombre(caja.nombre_destinatario))}` : 'Hola'}</h1>
+        {caja.mensaje && <p class="mensaje-regalo">{caja.mensaje}</p>}
         <p>Te lo regala {capitalizar(caja.nombre_comprador)}.</p>
       </Fragment>
     )
@@ -72,6 +73,27 @@ const { caja, temporal = false, enlaceCertificado = '' } = Astro.props;
 </Publica>
 
 <style>
+  /* Mensaje del comprador en la bienvenida del regalo: en la letra de la marca, en cursiva y entre
+     comillas, como una tarjeta escrita a mano; respeta los saltos de línea que escribió. */
+  :global(.saludo) p.mensaje-regalo {
+    max-width: 24rem;
+    margin: 0.4rem auto 1.1rem;
+    font-style: italic;
+    font-size: 1.5rem;
+    line-height: 1.35;
+    color: var(--tinta);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  :global(.saludo) p.mensaje-regalo::before {
+    content: '“';
+  }
+
+  :global(.saludo) p.mensaje-regalo::after {
+    content: '”';
+  }
+
   /* El certificado es la puerta a algo de valor: filete dorado en vez de marfil. */
   .boton.boton-certificado {
     max-width: 20rem;

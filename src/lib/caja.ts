@@ -27,6 +27,8 @@ export interface CajaRegalo {
   referencia: string;
   fecha: string;
   nombre_destinatario: string | null;
+  /** Mensaje del comprador para quien recibe (null si no dejó). */
+  mensaje: string | null;
   nombre_comprador: string;
   codigo_referido_comprador: string;
   piezas: PiezaPublica[];

@@ -60,6 +60,8 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   WhatsApp; lee `pagina_caja(codigo, false)`, que **no** suma escaneo). La garantía ya no va en la página
   del chip: debajo del Círculo, "Ver términos de garantía" lleva a `/garantia`. `/garantia` y `/datos` leen `src/config/legal.ts`.
   `src/pages/admin/` — panel.
+- `src/pages/index.astro` — inicio (fija): portada, franja destacada al catálogo, tarjetas a `/garantia` y `/datos`
+  y la sección que explica el Círculo SS (premios de `src/config/circulo.ts`).
 - `src/components/Logo.astro` — símbolo de los 7 rombos redibujado en SVG (medidas del logo original).
 - `.claude/skills/` — skills de diseño instaladas (origen y qué ejecutan: `.claude/skills-fuentes/FUENTES.md`).
   `impeccable` descarga un ejecutable la primera vez; sus hooks están apagados.

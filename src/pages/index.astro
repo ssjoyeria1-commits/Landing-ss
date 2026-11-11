@@ -1,12 +1,365 @@
 ---
+// Página de inicio: la portada con el logo, accesos a las páginas de interés (el catálogo destacado
+// sobre la garantía y la política de datos) y una sección que explica el Círculo SS. Página fija
+// (se genera al publicar): las reglas y los premios salen de src/config.
 import Publica from '../layouts/Publica.astro';
+import { PREMIOS, TOPE } from '../config/circulo';
 
 export const prerender = true;
+
+const HITOS = [3, 5, 10];
+const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
 ---
 
-<Publica>
-  <section class="seccion">
-    <h2>Muy pronto</h2>
-    <p>Estamos preparando nuestra página.</p>
+<Publica title="SS Joyería · Joyas en oro de 18k">
+  <Fragment slot="saludo">
+    <h1>Joyas en oro de 18k</h1>
+    <p>Cada pieza, con su certificado y su garantía.</p>
+  </Fragment>
+
+  {/* El catálogo es el acceso principal: franja de borde a borde, con la luz dorada de la marca. */}
+  <section class="seccion destacada inicio-catalogo">
+    <p class="antetitulo">Disponible hoy</p>
+    <h2><span class="luz-dorada">Visita el catálogo</span></h2>
+    <p class="bajada">Anillos, cadenas, dijes y más en oro de 18k. Cada pieza con su peso y su precio.</p>
+    <a class="boton boton-catalogo" href="/catalogo">
+      Ver el catálogo
+      <span aria-hidden="true">→</span>
+    </a>
+  </section>
+
+  <nav class="accesos aparece" aria-label="Más información">
+    <a class="acceso" href="/garantia">
+      <span class="rombo" aria-hidden="true"></span>
+      <strong>Garantía</strong>
+      <span>Qué cubre y cómo reclamarla</span>
+    </a>
+    <a class="acceso" href="/datos">
+      <span class="rombo" aria-hidden="true"></span>
+      <strong>Tus datos</strong>
+      <span>Política de tratamiento de datos</span>
+    </a>
+  </nav>
+
+  <section class="bloque">
+    <h2 class="titulo-fuera">El Círculo SS</h2>
+    <div class="seccion circulo-inicio">
+      <p class="intro">
+        Nuestro programa para quienes nos eligen: mientras más nos acompañas, más ganas.
+      </p>
+
+      <h3>Cómo sumas</h3>
+      <ol class="formas">
+        <li>
+          <span class="n">1</span>
+          <p><strong>Con tus compras.</strong> Cada compra tuya desde $600.000 suma una interacción.</p>
+        </li>
+        <li>
+          <span class="n">2</span>
+          <p>
+            <strong>Recomendándonos.</strong> Comparte tu código de referido: cuando alguien hace su primera compra desde
+            $600.000 con él, te suma una interacción.
+          </p>
+        </li>
+      </ol>
+
+      <h3>Qué ganas</h3>
+      <ol class="camino" aria-hidden="true">
+        {
+          pasos.map((n) => (
+            <li class:list={{ hito: HITOS.includes(n) }}>
+              <span class="punto" />
+              {HITOS.includes(n) && <span class="numero">{n}</span>}
+            </li>
+          ))
+        }
+      </ol>
+      <ul class="premios">
+        {
+          HITOS.map((h) => (
+            <li>
+              <span class="nivel">{h}</span>
+              <span>
+                <small>Al llegar a {h} interacciones</small>
+                {PREMIOS[h]}
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+
+      <h3>Dónde ves tu avance</h3>
+      <p>
+        Cada caja de SS Joyería trae un chip: acerca tu celular y verás tu contador, tus premios y tu código para
+        compartir.
+      </p>
+
+      <p class="sutil letra-menuda">
+        De cada persona que recomiendes cuenta solo su primera compra desde $600.000.
+        El Círculo llega hasta {TOPE} interacciones.
+      </p>
+
+      <a class="boton rojo" href="/catalogo">Elige tu primera pieza</a>
+    </div>
   </section>
 </Publica>
+
+<style>
+  /* Cifras rectas en los títulos: en la fuente de la marca el "1" antiguo parece una I ("I8k"). */
+  :global(.saludo) h1,
+  .inicio-catalogo,
+  .circulo-inicio {
+    font-variant-numeric: lining-nums;
+  }
+
+  /* ----- Catálogo destacado ----- */
+  :global(.publica) .seccion.destacada.inicio-catalogo {
+    /* Algo más claro y rojo que la franja de las piezas del chip: es la puerta principal. */
+    --banda: #5a0f18;
+  }
+
+  .antetitulo {
+    margin: 0 0 0.4rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #e3c27a;
+  }
+
+  :global(.publica) .seccion.destacada.inicio-catalogo h2 {
+    font-size: clamp(2.6rem, 12vw, 3.4rem);
+    line-height: 1.02;
+    margin: 0 0 1rem;
+  }
+
+  .bajada {
+    max-width: 22rem;
+    margin: 0 auto;
+    font-family: var(--display);
+    font-size: 1.3rem;
+    line-height: 1.35;
+    color: #e6ddd3;
+  }
+
+  .boton.boton-catalogo {
+    max-width: 18rem;
+    margin: 2rem auto 0;
+    font-family: var(--display);
+    font-size: 1.3rem;
+    letter-spacing: 0.02em;
+    color: #1a0a05;
+    background: linear-gradient(180deg, #f3dc9a, #d9b45a);
+    box-shadow: 0 0.6rem 1.5rem -0.6rem rgb(0 0 0 / 0.8);
+  }
+
+  .boton-catalogo span {
+    transition: transform 200ms var(--ease-out);
+  }
+
+  @media (hover: hover) {
+    .boton-catalogo:hover span {
+      transform: translateX(4px);
+    }
+  }
+
+  /* ----- Accesos secundarios: dos tarjetas pequeñas lado a lado ----- */
+  .accesos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin: -1.5rem 0 1rem;
+  }
+
+  .acceso {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    padding: 1.1rem 0.9rem 1.2rem;
+    border-radius: 12px;
+    text-decoration: none;
+    background: var(--franja);
+    box-shadow:
+      inset 0 0 0 1px rgb(208 4 26 / 0.35),
+      inset 0 1px 0 rgb(242 236 228 / 0.1);
+    transition: transform 160ms var(--ease-out);
+  }
+
+  .acceso:active {
+    transform: scale(0.97);
+  }
+
+  .acceso strong {
+    font-family: var(--display);
+    font-size: 1.4rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+
+  .acceso span:last-child {
+    font-size: 0.85rem;
+    line-height: 1.35;
+    color: var(--gris);
+  }
+
+  .rombo {
+    width: 0.6rem;
+    height: 0.6rem;
+    margin: 0.2rem 0 0.5rem 0.15rem;
+    border: 1.5px solid var(--rojo);
+    transform: rotate(45deg);
+  }
+
+  /* ----- El Círculo SS ----- */
+  :global(.publica) .seccion.circulo-inicio {
+    text-align: left;
+  }
+
+  .intro {
+    margin: 0;
+    text-align: center;
+    font-family: var(--display);
+    font-size: 1.45rem;
+    line-height: 1.3;
+  }
+
+  h3 {
+    margin: 2.25rem 0 1rem;
+    font-family: var(--display);
+    font-size: 1.6rem;
+    font-weight: 600;
+    text-align: center;
+    color: var(--tinta);
+  }
+
+  .formas {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .formas li {
+    display: grid;
+    grid-template-columns: 2.25rem 1fr;
+    gap: 0.75rem;
+    align-items: start;
+  }
+
+  .formas li + li {
+    margin-top: 1.1rem;
+  }
+
+  .formas p {
+    margin: 0;
+  }
+
+  .n {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    font-family: var(--display);
+    font-size: 1.3rem;
+    font-weight: 600;
+    font-variant-numeric: lining-nums;
+    color: var(--tinta);
+    box-shadow: inset 0 0 0 1px rgb(242 236 228 / 0.35);
+    border-radius: 50%;
+  }
+
+  /* El mismo camino de rombos del contador, sin llenar: los 3 niveles más grandes. */
+  .camino {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    list-style: none;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1.5rem;
+  }
+
+  .camino li {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 1.6rem;
+  }
+
+  .punto {
+    width: 0.65rem;
+    height: 0.65rem;
+    border: 2px solid #6f6760;
+    transform: rotate(45deg);
+  }
+
+  .hito .punto {
+    width: 1.1rem;
+    height: 1.1rem;
+    border-color: var(--rojo);
+    background: var(--rojo);
+  }
+
+  .numero {
+    position: absolute;
+    top: 1.75rem;
+    font-size: 0.85rem;
+    font-variant-numeric: lining-nums;
+    color: var(--gris);
+  }
+
+  .premios {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .premios li {
+    display: grid;
+    grid-template-columns: 2.25rem 1fr;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-top: 1px solid rgb(242 236 228 / 0.12);
+  }
+
+  .premios li span:last-child {
+    display: flex;
+    flex-direction: column;
+    font-family: var(--display);
+    font-size: 1.2rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .premios small {
+    font-family: system-ui, sans-serif;
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--gris);
+  }
+
+  .nivel {
+    font-family: var(--display);
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    font-variant-numeric: lining-nums;
+    color: var(--rojo);
+  }
+
+  .letra-menuda {
+    margin-top: 2rem;
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  @media (min-width: 48rem) {
+    .accesos {
+      gap: 1rem;
+    }
+
+    .acceso {
+      padding: 1.4rem 1.2rem;
+    }
+  }
+</style>

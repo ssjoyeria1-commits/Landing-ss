@@ -39,7 +39,7 @@ async function ingresar(email: string, password: string): Promise<string> {
 ---
 
 <Admin title="Ingresar">
-  <form method="post" class="tarjeta" style="max-width: 24rem">
+  <form method="post" class="tarjeta ingreso">
     {error && <p class="aviso error">{error}</p>}
     <div class="campo">
       <label for="email">Correo</label>
@@ -52,3 +52,9 @@ async function ingresar(email: string, password: string): Promise<string> {
     <button type="submit">Ingresar</button>
   </form>
 </Admin>
+
+<style>
+  .ingreso button {
+    width: 100%;
+  }
+</style>

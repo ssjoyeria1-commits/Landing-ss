@@ -45,7 +45,7 @@ const enlaces = [
         </header>
       )
     }
-    <main>
+    <main class:list={{ 'sin-sesion': !usuario }}>
       {
         !usuario && (
           <div class="logo-ingreso">
@@ -114,9 +114,18 @@ const enlaces = [
   }
 
   .admin .logo-ingreso {
-    max-width: 24rem;
     text-align: center;
     margin: 1rem 0 2rem;
+  }
+
+  /* Sin sesión (ingresar): una columna angosta centrada, en celular y en computador. */
+  .admin main.sin-sesion {
+    max-width: 24rem;
+    margin-inline: auto;
+  }
+
+  .admin main.sin-sesion h1 {
+    text-align: center;
   }
 
   .admin h2 {

@@ -3,7 +3,7 @@
 // Nivel 1 (3 interacciones): el rombo de abajo con su interior en dorado, parpadeando.
 // Nivel 2 (5): los cuatro de abajo (el de abajo, los dos de encima y el del centro), de abajo hacia arriba.
 // Nivel 3 (10): el símbolo completo en dorado, contornos e interiores.
-// El símbolo va en negro (no en rojo) para que el dorado resalte más.
+// El símbolo va en rojo; en los rombos ganados parpadean en dorado el interior y también el contorno.
 // Medidas del logo original (las mismas de src/components/Logo.astro).
 
 interface Props {
@@ -68,7 +68,7 @@ const encendidos = nivel === 3 ? [6, 4, 5, 3, 1, 2, 0] : nivel === 2 ? [6, 4, 5,
   }
 
   .anillo {
-    fill: #000;
+    fill: var(--rojo);
   }
 
   .interior {
@@ -76,10 +76,26 @@ const encendidos = nivel === 3 ? [6, 4, 5, 3, 1, 2, 0] : nivel === 2 ? [6, 4, 5,
     opacity: 0;
   }
 
-  /* Interiores encendidos: parpadean en dorado, de abajo hacia arriba (0,25 s entre uno y otro). */
-  .encendido .interior {
+  /* Rombos ganados: el interior se enciende en dorado y el contorno pasa de rojo a dorado, al mismo
+     ritmo, de abajo hacia arriba (0,25 s entre uno y otro). */
+  .encendido .interior,
+  .encendido .anillo {
     animation: parpadeo 2.4s ease-in-out infinite;
     animation-delay: calc(var(--orden) * 0.25s);
+  }
+
+  .encendido .anillo {
+    animation-name: parpadeo-contorno;
+  }
+
+  @keyframes parpadeo-contorno {
+    0%,
+    100% {
+      fill: var(--rojo);
+    }
+    50% {
+      fill: var(--oro);
+    }
   }
 
   @keyframes parpadeo {
@@ -93,8 +109,10 @@ const encendidos = nivel === 3 ? [6, 4, 5, 3, 1, 2, 0] : nivel === 2 ? [6, 4, 5,
   }
 
   /* Nivel 3: todo el símbolo en oro, contornos incluidos, con un halo dorado suave. */
-  .nivel-3 .anillo {
+  .nivel-3 .anillo,
+  .nivel-3 .encendido .anillo {
     fill: var(--oro);
+    animation: none;
   }
 
   .nivel-3 svg {
@@ -110,10 +128,20 @@ const encendidos = nivel === 3 ? [6, 4, 5, 3, 1, 2, 0] : nivel === 2 ? [6, 4, 5,
     opacity: 0.9;
   }
 
+  .quieto .encendido .anillo {
+    animation: none;
+    fill: var(--oro);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .encendido .interior {
       animation: none;
       opacity: 0.9;
+    }
+
+    .encendido .anillo {
+      animation: none;
+      fill: var(--oro);
     }
   }
 </style>

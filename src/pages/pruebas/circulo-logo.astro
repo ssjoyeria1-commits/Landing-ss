@@ -12,7 +12,10 @@ const NIVELES = [
   { nivel: 2, hito: 5, texto: 'Los de abajo y el del centro' },
   { nivel: 3, hito: 10, texto: 'El símbolo completo en oro' },
 ];
-const casos = [0, 3, 4, 5, 8, 10];
+const casos = [0, 2, 3, 4, 5, 8, 9, 10];
+// Frase de ánimo debajo del premio que sigue (con 10 ya no hace falta).
+const animo = (n: number) =>
+  n <= 2 ? '¡Lo lograrás pronto!' : n <= 4 ? 'Estás cerca de ser un miembro avanzado.' : n <= 9 ? 'Estás cerca de llegar a la ÉLITE.' : '';
 const siguiente = (n: number) => NIVELES.find((x) => x.hito > n);
 ---
 
@@ -58,6 +61,7 @@ const siguiente = (n: number) => NIVELES.find((x) => x.hito > n);
                 <>Completaste el Círculo: el símbolo de SS es todo tuyo.</>
               )}
             </p>
+            {animo(n) && <p class="animo">{animo(n)}</p>}
           </div>
         </section>
       );
@@ -131,5 +135,16 @@ const siguiente = (n: number) => NIVELES.find((x) => x.hito > n);
 
   .estado {
     margin: 1.5rem 0 0;
+  }
+
+  /* Ánimo: en la letra de la marca, en dorado y cursiva, como una firma debajo del premio. */
+  .animo {
+    margin: 0.75rem 0 0;
+    font-family: var(--display);
+    font-size: 1.45rem;
+    font-style: italic;
+    font-weight: 600;
+    line-height: 1.25;
+    color: #e8c46f;
   }
 </style>

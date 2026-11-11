@@ -16,20 +16,24 @@ const faltan = proximo_hito === null ? 0 : proximo_hito - interacciones;
 const logrados = new Intl.ListFormat('es', { type: 'conjunction' }).format(
   hitos.filter((h) => h <= interacciones).map((h) => PREMIOS[h] ?? `el premio del nivel ${h}`),
 );
+// Con los 10 niveles completos solo quedan el símbolo en oro (más grande), el mensaje y el código.
+const completo = proximo_hito === null;
 const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(codigo_referido))}`;
 ---
 
 <section class="bloque">
   <h2 class="titulo-fuera">Tu Círculo SS</h2>
-  <div class="seccion circulo">
-    <p class="conteo">
-      <strong>{interacciones}</strong>
-      <span>de {TOPE} interacciones</span>
-    </p>
+  <div class:list={['seccion circulo', { completo }]}>
+    {!completo && (
+      <p class="conteo">
+        <strong>{interacciones}</strong>
+        <span>de {TOPE} interacciones</span>
+      </p>
+    )}
 
     {/* El símbolo de SS como avance: el rombo de abajo (nivel 1), los cuatro de abajo (nivel 2) o todo en oro (10). */}
     <div class="logo-avance">
-      <LogoCirculo {interacciones} alto="10rem" />
+      <LogoCirculo {interacciones} alto={completo ? '13rem' : '10rem'} />
     </div>
 
     {
@@ -52,7 +56,7 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
 
     {animo(interacciones) && <p class="animo">{animo(interacciones)}</p>}
 
-    <p class="sutil">{TEXTOS.circuloIntro}</p>
+    {!completo && <p class="sutil">{TEXTOS.circuloIntro}</p>}
 
     <button type="button" class="codigo" data-codigo={codigo_referido} aria-label={`Copiar el código ${codigo_referido}`}>
       <span class="sutil">Tu código de referido</span>
@@ -60,7 +64,7 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
       <span class="sutil aviso" aria-live="polite">Toca para copiar</span>
     </button>
 
-    <BotonWhatsApp href={compartir} texto="Compartir mi código" color="rojo" />
+    {!completo && <BotonWhatsApp href={compartir} texto="Compartir mi código" color="rojo" />}
   </div>
 </section>
 
@@ -134,6 +138,26 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     cursor: pointer;
     transition: transform 160ms var(--ease-out);
     container-type: inline-size;
+  }
+
+  /* Completo: el código pasa a segundo plano, más pequeño. */
+  .completo .codigo {
+    max-width: 16rem;
+    margin: 1.5rem auto 0;
+    padding: 0.85rem 1rem;
+  }
+
+  .completo .valor {
+    font-size: 1.25rem;
+    font-size: min(1.4rem, 7cqi);
+  }
+
+  .completo .logo-avance {
+    margin: 0.5rem 0 1.75rem;
+  }
+
+  .completo .siguiente {
+    font-size: 1.05rem;
   }
 
   .codigo:active {

@@ -45,7 +45,7 @@ const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
     <h2 class="titulo-fuera">El Círculo SS</h2>
     <div class="seccion circulo-inicio">
       <p class="intro">
-        Nuestro programa para quienes nos eligen: mientras más nos acompañas, más ganas.
+        Nuestro programa para los que eligen siempre crecer con la familia SS.
       </p>
 
       <h3>Cómo sumas</h3>
@@ -57,8 +57,8 @@ const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
         <li>
           <span class="n">2</span>
           <p>
-            <strong>Recomendándonos.</strong> Comparte tu código de referido: cuando alguien hace su primera compra desde
-            $600.000 con él, te suma una interacción.
+            <strong>Recomendándonos.</strong> Comparte tu nombre o tu código de referido: cuando alguien hace su primera
+            compra desde $600.000 y te menciona, te suma una interacción.
           </p>
         </li>
       </ol>
@@ -67,7 +67,7 @@ const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
       <ol class="camino" aria-hidden="true">
         {
           pasos.map((n) => (
-            <li class:list={{ hito: HITOS.includes(n) }}>
+            <li class:list={{ hito: HITOS.includes(n) }} style={HITOS.includes(n) ? `--orden: ${HITOS.indexOf(n)}` : undefined}>
               <span class="punto" />
               {HITOS.includes(n) && <span class="numero">{n}</span>}
             </li>
@@ -281,7 +281,7 @@ const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 1.6rem;
+    height: 2.1rem;
   }
 
   .punto {
@@ -291,16 +291,48 @@ const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
     transform: rotate(45deg);
   }
 
+  /* Los niveles crecen del 3 al 10, y una luz dorada los cruza en ese orden (0,45 s entre uno y otro),
+     cada 4,5 s. La luz es un degradado inclinado 45° dentro del rombo (que está girado 45°), así que
+     en pantalla avanza de izquierda a derecha. */
   .hito .punto {
-    width: 1.1rem;
-    height: 1.1rem;
+    --lado: 0.85rem;
+    width: var(--lado);
+    height: var(--lado);
     border-color: var(--rojo);
-    background: var(--rojo);
+    background: linear-gradient(45deg, var(--rojo) 0 38%, #f3dc9a 48%, #fff1c2 50%, #f3dc9a 52%, var(--rojo) 62% 100%) 100% 0 / 300%
+      300%;
+    animation: rombo-luz 4.5s ease-in-out infinite;
+    animation-delay: calc(0.6s + var(--orden) * 0.45s);
+  }
+
+  .camino li:nth-child(5) .punto {
+    --lado: 1.1rem;
+  }
+
+  .camino li:nth-child(10) .punto {
+    --lado: 1.35rem;
+  }
+
+  @keyframes rombo-luz {
+    0% {
+      background-position: 100% 0;
+    }
+    22%,
+    100% {
+      background-position: 0 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hito .punto {
+      animation: none;
+      background: var(--rojo);
+    }
   }
 
   .numero {
     position: absolute;
-    top: 1.75rem;
+    top: 2.25rem;
     font-size: 0.85rem;
     font-variant-numeric: lining-nums;
     color: var(--gris);

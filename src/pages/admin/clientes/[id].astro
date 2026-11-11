@@ -1,6 +1,6 @@
 ---
 import Admin from '../../../layouts/Admin.astro';
-import { PREMIOS } from '../../../config/circulo';
+import { premioTitulo } from '../../../config/circulo';
 import { enlaceAviso, nombreCompleto, type ClienteCirculo } from '../../../lib/clientes';
 import { fecha, pesos } from '../../../lib/formato';
 import { formatoWhatsapp } from '../../../lib/whatsapp';
@@ -78,7 +78,7 @@ const c = cliente as ClienteCirculo;
             return (
               <tr>
                 <td>{hito}</td>
-                <td>{PREMIOS[hito]}</td>
+                <td>{premioTitulo(hito)}</td>
                 <td>
                   {entregado && `Entregado el ${fecha(entregado.fecha_entrega)}`}
                   {pendiente && (

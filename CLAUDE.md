@@ -240,7 +240,6 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 ## Pendiente de los socios
 
 - Número de WhatsApp de atención (`src/config/sitio.ts`). Instagram y TikTok ya están (5 nov 2026).
-- Premios de los niveles 3, 5 y 10 (`src/config/circulo.ts`).
 - Términos de la garantía y texto de la política de datos (habeas data), en `src/config/legal.ts`.
 - Revisar los consejos de cuidado (`src/config/textos.ts`).
 - Fuente tipográfica original del logo, si quieren usarla en lugar de la serif del sistema.

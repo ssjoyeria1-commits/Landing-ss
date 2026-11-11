@@ -3,7 +3,7 @@
 // sobre la garantía y la política de datos) y una sección que explica el Círculo SS. Página fija
 // (se genera al publicar): las reglas y los premios salen de src/config.
 import Publica from '../layouts/Publica.astro';
-import { PREMIOS, TOPE } from '../config/circulo';
+import { premioTitulo, TOPE } from '../config/circulo';
 
 export const prerender = true;
 
@@ -81,7 +81,7 @@ const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
               <span class="nivel">{h}</span>
               <span>
                 <small>Al llegar a {h} interacciones</small>
-                {PREMIOS[h]}
+                {premioTitulo(h)}
               </span>
             </li>
           ))

@@ -56,7 +56,8 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
 
     {animo(interacciones) && <p class="animo">{animo(interacciones)}</p>}
 
-    {!completo && <p class="sutil">{TEXTOS.circuloIntro}</p>}
+    {/* La explicación de cómo funciona solo para quien empieza (0 a 2 interacciones). */}
+    {interacciones <= 2 && <p class="sutil">{TEXTOS.circuloIntro}</p>}
 
     <button type="button" class="codigo" data-codigo={codigo_referido} aria-label={`Copiar el código ${codigo_referido}`}>
       <span class="sutil">Tu código de referido</span>

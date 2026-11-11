@@ -4,6 +4,8 @@ import { premioTitulo } from '../../../config/circulo';
 import { enlaceAviso, nombreCompleto, type ClienteCirculo } from '../../../lib/clientes';
 import { fecha, pesos } from '../../../lib/formato';
 import { formatoWhatsapp } from '../../../lib/whatsapp';
+import { qrSvg } from '../../../lib/qr';
+import { SITIO } from '../../../config/sitio';
 
 const { id } = Astro.params;
 const supabase = Astro.locals.supabase;
@@ -12,11 +14,22 @@ let error = '';
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
+  const detalle = String(form.get('detalle') ?? '').trim().slice(0, 120) || null;
   if (form.get('accion') === 'premio') {
     const hito = Number(form.get('hito'));
-    const { error: fallo } = await supabase.from('premios').insert({ cliente_id: id, hito });
+    const { error: fallo } = await supabase.from('premios').insert({ cliente_id: id, hito, detalle });
     if (fallo) error = fallo.code === '23505' ? 'Ese premio ya estaba marcado como entregado.' : fallo.message;
-    else aviso = `Premio del nivel ${hito} marcado como entregado.`;
+    else aviso = `Premio del nivel ${hito} marcado como entregado. Abajo está la URL para el chip de su caja.`;
+  }
+  // Nota pública del premio (sale en la página del chip de la caja de premio).
+  if (form.get('accion') === 'detalle') {
+    const { error: fallo } = await supabase
+      .from('premios')
+      .update({ detalle })
+      .eq('cliente_id', id!)
+      .eq('hito', Number(form.get('hito')));
+    if (fallo) error = fallo.message;
+    else aviso = 'Nota del premio guardada.';
   }
 }
 
@@ -27,7 +40,7 @@ const [{ data: cliente }, { data: ventas }, { data: premios }, { data: referidos
     .select('id, fecha, monto_cop, anulada, nota, cajas(id, referencia, es_regalo, nombre_destinatario)')
     .eq('cliente_id', id!)
     .order('fecha', { ascending: false }),
-  supabase.from('premios').select('hito, fecha_entrega').eq('cliente_id', id!).order('hito'),
+  supabase.from('premios').select('hito, fecha_entrega, codigo_chip, referencia, detalle').eq('cliente_id', id!).order('hito'),
   supabase.from('clientes_circulo').select('id, nombre, apellido, propias').eq('referido_por', id!),
 ]);
 
@@ -82,11 +95,13 @@ const c = cliente as ClienteCirculo;
                 <td>
                   {entregado && `Entregado el ${fecha(entregado.fecha_entrega)}`}
                   {pendiente && (
-                    <form method="post" class="acciones">
+                    <form method="post">
                       <input type="hidden" name="accion" value="premio" />
                       <input type="hidden" name="hito" value={hito} />
                       <span class="etiqueta alerta">Pendiente</span>
-                      <button type="submit">Marcar entregado</button>
+                      <label for={`detalle-${hito}`} style="margin-top: 0.5rem">Nota para la caja (opcional)</label>
+                      <input id={`detalle-${hito}`} name="detalle" maxlength="120" placeholder="Tejido cartier, 2,1 g" autocomplete="off" />
+                      <button type="submit" style="margin-top: 0.5rem">Marcar entregado</button>
                     </form>
                   )}
                   {!entregado && !pendiente && 'Aún no lo alcanza'}
@@ -98,6 +113,36 @@ const c = cliente as ClienteCirculo;
       </tbody>
     </table>
   </div>
+
+  {
+    (premios ?? []).length > 0 && (
+      <section class="cajas-premio">
+        {(premios ?? []).map((p) => {
+          const url = `${SITIO.urlChips}${p.codigo_chip}`;
+          return (
+            <div class="tarjeta">
+              <h3 style="margin-top: 0">
+                Caja del premio del nivel {p.hito} · <code>{p.referencia}</code>
+              </h3>
+              <label>URL para el sticker y el QR</label>
+              <div class="acciones">
+                <code style="font-size: 1.05rem">{url}</code>
+                <a href={`/c/${p.codigo_chip}`} target="_blank" rel="noopener">Probar en este sitio</a>
+              </div>
+              <div class="qr-premio" set:html={qrSvg(url)} />
+              <form method="post" style="margin-top: 0.75rem">
+                <input type="hidden" name="accion" value="detalle" />
+                <input type="hidden" name="hito" value={p.hito} />
+                <label for={`nota-premio-${p.hito}`}>Nota que sale en la página (opcional)</label>
+                <input id={`nota-premio-${p.hito}`} name="detalle" maxlength="120" value={p.detalle ?? ''} placeholder="Tejido cartier, 2,1 g" autocomplete="off" />
+                <button type="submit" class="secundario" style="margin-top: 0.5rem">Guardar nota</button>
+              </form>
+            </div>
+          );
+        })}
+      </section>
+    )
+  }
 
   <h2>Compras</h2>
   <div class="tabla">
@@ -143,3 +188,22 @@ const c = cliente as ClienteCirculo;
     )
   }
 </Admin>
+
+<style>
+  .qr-premio {
+    width: 7.5rem;
+    height: 7.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .qr-premio :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+
+  .cajas-premio {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+</style>

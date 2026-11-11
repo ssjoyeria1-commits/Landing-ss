@@ -217,6 +217,38 @@ test('el contador se detiene en 10 y los premios no se entregan dos veces', asyn
   );
 });
 
+test('caja de premio: cada premio entregado tiene su chip con el premio y el avance del Círculo', async () => {
+  const db = await nuevaBase();
+  const whatsapp = nuevoWhatsapp();
+  const r = await venta(db, { whatsapp, nombre: 'Valentina Gómez' });
+  for (let i = 0; i < 4; i++) await venta(db, { whatsapp });
+
+  const premio = await como(db, 'authenticated', ADMIN, () =>
+    uno(
+      db,
+      "insert into public.premios (cliente_id, hito, detalle, nota) values ($1, 5, 'Tejido cartier, 2,1 g', 'nota interna') returning codigo_chip, referencia",
+      [r.cliente.id],
+    ),
+  );
+  assert.match(premio.codigo_chip, /^[a-km-np-z2-9]{10}$/);
+  assert.match(premio.referencia, /^SS-[A-HJ-NP-Z2-9]{5}$/);
+
+  const p = await pagina(db, premio.codigo_chip);
+  assert.equal(p.tipo, 'premio');
+  assert.equal(p.nombre, 'Valentina');
+  assert.equal(p.hito, 5);
+  assert.equal(p.detalle, 'Tejido cartier, 2,1 g');
+  assert.equal(p.circulo.interacciones, 5);
+  assert.equal(p.circulo.proximo_hito, 10);
+  const texto = JSON.stringify(p);
+  assert.ok(!texto.includes('nota interna'), 'la nota interna no sale');
+  assert.ok(!texto.includes(whatsapp.slice(3)) && !texto.includes(r.cliente.id), 'sin WhatsApp ni ids');
+  assert.equal((await uno(db, 'select count(*)::int as n from public.escaneos')).n, 0, 'no suma escaneos');
+
+  // El chip de la caja de la compra sigue abriendo su página normal.
+  assert.equal((await pagina(db, r.cajas[0].codigo_chip)).tipo, 'propia');
+});
+
 test('una venta anulada no cuenta y su chip deja de funcionar', async () => {
   const db = await nuevaBase();
   const r = await venta(db);

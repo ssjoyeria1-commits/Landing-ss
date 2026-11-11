@@ -33,7 +33,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 |---|---|
 | Servidor local | `npm run dev` (o `preview_start` con `astro-dev` de `.claude/launch.json`) → http://127.0.0.1:4321 |
 | Revisar tipos | `npx astro check` (debe dar 0 errores) |
-| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 53 pruebas) |
+| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 54 pruebas) |
 | Publicar | `npm run build` y luego `npx wrangler deploy` |
 | Tipos de las variables | `npm run types` (usa `--include-runtime=false`; ver abajo) |
 | Aplicar migraciones | `npx supabase db push --linked --dry-run`, luego sin `--dry-run` y con `--yes` |
@@ -62,6 +62,10 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   `src/pages/admin/` — panel.
 - `src/pages/index.astro` — inicio (fija): portada, franja destacada al catálogo, tarjetas a `/garantia` y `/datos`
   y la sección que explica el Círculo SS (premios de `src/config/circulo.ts`).
+- **Cajas de premio** (11 nov 2026, migración `20261111130000_caja_premio.sql`): cada premio entregado tiene su chip
+  (`premios.codigo_chip`, `referencia`, nota pública `detalle`); `pagina_caja` devuelve `tipo: premio` (bienvenida,
+  "Tu premio" con certificado 18K y el Círculo). Se marca entregado y se ve la URL y el QR en la ficha del cliente.
+  Pruebas: `/pruebas/casos?datos=premio|premio-elite`.
 - `src/components/caja/LogoCirculo.astro` — avance del Círculo con el símbolo (11 nov 2026): nivel 1 (3) el rombo de
   abajo, nivel 2 (5) los de abajo y el del centro, nivel 3 (10) todo en oro; los ganados parpadean en dorado
   (interior y contorno) fila por fila hacia arriba. Lo usan la página del chip (`Circulo.astro`, con la frase

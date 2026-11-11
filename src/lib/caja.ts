@@ -34,7 +34,21 @@ export interface CajaRegalo {
   piezas: PiezaPublica[];
 }
 
-export type CajaPublica = CajaPropia | CajaRegalo;
+/** Caja de premio del Círculo: su propio chip, con el premio que acaba de conseguir y el avance del cliente. */
+export interface CajaPremio {
+  tipo: 'premio';
+  referencia: string;
+  /** Fecha de entrega del premio (AAAA-MM-DD). */
+  fecha: string;
+  nombre: string;
+  /** Nivel del Círculo: 3, 5 o 10. */
+  hito: number;
+  /** Nota pública del premio (diseño, peso…), opcional. */
+  detalle: string | null;
+  circulo: CajaPropia['circulo'];
+}
+
+export type CajaPublica = CajaPropia | CajaRegalo | CajaPremio;
 
 const FORMATO_CODIGO = /^[a-km-np-z2-9]{10}$/;
 

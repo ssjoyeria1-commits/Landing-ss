@@ -1,5 +1,5 @@
 ---
-// Cuerpo de la página del chip: compra propia, regalo o página neutra. Lo usan /c/[codigo] y la
+// Cuerpo de la página del chip: compra propia, regalo, caja de premio del Círculo o página neutra. Lo usan /c/[codigo] y la
 // página de datos de prueba (/pruebas/casos), para que las dos muestren exactamente lo mismo.
 // La garantía no va aquí: las piezas llevan al certificado (/c/[codigo]/certificado) y, debajo del
 // Círculo, un botón lleva a los términos (/garantia).
@@ -11,6 +11,7 @@ import Cuidado from './Cuidado.astro';
 import Neutra from './Neutra.astro';
 import type { CajaPublica } from '../../lib/caja';
 import { capitalizar, primerNombre } from '../../lib/formato';
+import { premioTitulo } from '../../config/circulo';
 
 interface Props {
   caja: CajaPublica | null;
@@ -21,6 +22,8 @@ interface Props {
 }
 
 const { caja, temporal = false, enlaceCertificado = '' } = Astro.props;
+// Nivel del Círculo de una caja de premio: 3 → 1, 5 → 2, 10 → 3.
+const nivelPremio = caja?.tipo === 'premio' ? [3, 5, 10].indexOf(caja.hito) + 1 : 0;
 ---
 
 <Publica noindex>
@@ -42,12 +45,34 @@ const { caja, temporal = false, enlaceCertificado = '' } = Astro.props;
     )
   }
   {
+    caja?.tipo === 'premio' && (
+      <Fragment slot="saludo">
+        <h1>¡Felicitaciones, {capitalizar(caja.nombre)}!</h1>
+        <p>Llegaste al nivel {nivelPremio} del Círculo SS.</p>
+      </Fragment>
+    )
+  }
+  {
     caja ? (
       <>
-        {/* Orden: las piezas (protagonistas) con su certificado, el Círculo y el cuidado. */}
+        {/* Orden: las piezas (o el premio) con su certificado, el Círculo y el cuidado. */}
         <section class="seccion destacada">
-          <h2>{caja.piezas.length === 1 ? 'Tu pieza' : 'Tus piezas'}</h2>
-          <Piezas piezas={caja.piezas} />
+          {caja.tipo === 'premio' ? (
+            <>
+              <h2>Tu premio</h2>
+              <ul class="piezas premio">
+                <li>
+                  <span class="descripcion">{premioTitulo(caja.hito)}</span>
+                  <span class="detalle">{caja.detalle ?? `Premio del nivel ${nivelPremio} del Círculo SS`}</span>
+                </li>
+              </ul>
+            </>
+          ) : (
+            <>
+              <h2>{caja.piezas.length === 1 ? 'Tu pieza' : 'Tus piezas'}</h2>
+              <Piezas piezas={caja.piezas} />
+            </>
+          )}
           {enlaceCertificado && (
             <a class="boton boton-certificado" href={enlaceCertificado}>
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -58,7 +83,7 @@ const { caja, temporal = false, enlaceCertificado = '' } = Astro.props;
             </a>
           )}
         </section>
-        {caja.tipo === 'propia' ? (
+        {caja.tipo !== 'regalo' ? (
           <Circulo circulo={caja.circulo} />
         ) : (
           <CirculoRegalo comprador={capitalizar(caja.nombre_comprador)} codigoReferido={caja.codigo_referido_comprador} />
@@ -73,6 +98,30 @@ const { caja, temporal = false, enlaceCertificado = '' } = Astro.props;
 </Publica>
 
 <style>
+  /* El premio en la franja: el nombre grande con la luz dorada (como las piezas) y el detalle debajo. */
+  .piezas.premio {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .piezas.premio li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .piezas.premio .descripcion {
+    font-family: var(--display);
+    font-weight: 600;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+
+  .piezas.premio .detalle {
+    color: var(--gris);
+  }
+
   /* Mensaje del comprador en la bienvenida del regalo: en la letra de la marca, en cursiva y entre
      comillas, como una tarjeta escrita a mano; respeta los saltos de línea que escribió. */
   :global(.saludo) p.mensaje-regalo {

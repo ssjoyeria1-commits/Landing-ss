@@ -1,6 +1,6 @@
 // SOLO DESARROLLO: datos de ejemplo de una caja para /pruebas/casos y /pruebas/certificado (el guion bajo
 // hace que Astro no lo tome como página).
-import type { CajaPropia, CajaPublica, CajaRegalo } from '../../lib/caja';
+import type { CajaPremio, CajaPropia, CajaPublica, CajaRegalo } from '../../lib/caja';
 
 const demo: CajaPropia = {
   tipo: 'propia',
@@ -44,6 +44,17 @@ const regalo: CajaRegalo = {
   piezas: [{ descripcion: 'Aretes candonga lisos', peso_gramos: 2.1, ley: '18k' }],
 };
 
+// Caja de premio del Círculo: el de nivel 2 con nota, y el de la ÉLITE sin nota.
+const premio: CajaPremio = {
+  tipo: 'premio',
+  referencia: 'SS-PR5MV',
+  fecha: '2026-11-11',
+  nombre: 'valentina',
+  hito: 5,
+  detalle: 'Tejido cartier con dije de rombo, 2,1 g',
+  circulo: { interacciones: 6, hitos: [3, 5, 10], proximo_hito: 10, codigo_referido: 'VALENTINA-8310' },
+};
+
 export const casos: Record<string, CajaPublica | 'neutra' | 'temporal'> = {
   demo,
   peor,
@@ -64,6 +75,8 @@ export const casos: Record<string, CajaPublica | 'neutra' | 'temporal'> = {
     nombre_comprador: 'maximiliano-alejandro',
     piezas: peor.piezas,
   },
+  premio,
+  'premio-elite': { ...premio, hito: 10, detalle: null, circulo: { interacciones: 10, hitos: [3, 5, 10], proximo_hito: null, codigo_referido: 'VALENTINA-8310' } },
   neutra: 'neutra',
   temporal: 'temporal',
 };

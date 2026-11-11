@@ -10,6 +10,7 @@ import { SITIO } from '../../config/sitio';
 import { agruparPiezas, peso, type CajaPublica } from '../../lib/caja';
 import { capitalizar, fecha, primerNombre } from '../../lib/formato';
 import { enlaceWhatsApp } from '../../lib/whatsapp';
+import { premioTitulo } from '../../config/circulo';
 
 interface Props {
   caja: CajaPublica | null;
@@ -20,11 +21,21 @@ interface Props {
 
 const { caja, temporal = false, enlaceCaja } = Astro.props;
 
+// Filas de la tarjeta: las piezas de la caja, o el premio del Círculo (con su nota, si la tiene).
+const filas = !caja
+  ? []
+  : caja.tipo === 'premio'
+    ? [{ nombre: premioTitulo(caja.hito), dato: caja.detalle ?? `Premio del nivel ${[3, 5, 10].indexOf(caja.hito) + 1} del Círculo SS`, ley: '18k' }]
+    : agruparPiezas(caja.piezas).map((p) => ({
+        nombre: p.descripcion,
+        dato: `${p.cantidad > 1 ? `${p.cantidad} × ` : ''}${peso(p.peso_gramos)}`,
+        ley: p.ley,
+      }));
 // El sello grande dice 18K solo si todas las piezas lo son (si alguna no, cada una muestra su ley).
-const todas18 = caja ? caja.piezas.every((p) => /18/.test(p.ley)) : false;
+const todas18 = filas.length > 0 && filas.every((p) => /18/.test(p.ley));
 const titular = !caja
   ? null
-  : caja.tipo === 'propia'
+  : caja.tipo !== 'regalo'
     ? capitalizar(caja.nombre)
     : caja.nombre_destinatario
       ? capitalizar(primerNombre(caja.nombre_destinatario))
@@ -48,12 +59,11 @@ const titular = !caja
               <span>100% garantizado</span>
             </p>
             <ul class="lista">
-              {agruparPiezas(caja.piezas).map((p) => (
+              {filas.map((p) => (
                 <li>
-                  <span class="nombre">{p.descripcion}</span>
+                  <span class="nombre">{p.nombre}</span>
                   <span class="dato">
-                    {p.cantidad > 1 && `${p.cantidad} × `}
-                    {peso(p.peso_gramos)}
+                    {p.dato}
                     {!todas18 && ` · ${p.ley}`}
                   </span>
                 </li>

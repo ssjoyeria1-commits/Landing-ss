@@ -355,7 +355,7 @@ const RESPALDO: Record<string, { columnas: string[]; orden: string }> = {
     columnas: ['id', 'caja_id', 'descripcion', 'peso_gramos', 'ley', 'orden', 'unidad_id', 'precio_cop', 'costo_cop'],
     orden: 'id',
   },
-  premios: { columnas: ['id', 'cliente_id', 'hito', 'fecha_entrega', 'nota', 'created_at'], orden: 'created_at' },
+  premios: { columnas: ['id', 'cliente_id', 'hito', 'fecha_entrega', 'nota', 'detalle', 'codigo_chip', 'referencia', 'created_at'], orden: 'created_at' },
   escaneos: { columnas: ['id', 'caja_id', 'created_at'], orden: 'id' },
   categorias: {
     columnas: ['id', 'nombre', 'mano_obra_gramo_cop', 'precio_gramo_cop', 'precio_aliado_gramo_cop', 'activa', 'created_at'],

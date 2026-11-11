@@ -1,0 +1,135 @@
+---
+// SOLO DESARROLLO: propuesta del logo como avance del Círculo (en lugar de la línea de 10 rombos).
+// Muestra la tarjeta del Círculo con varios avances y una leyenda de los niveles. En producción 404.
+import Publica from '../../layouts/Publica.astro';
+import LogoCirculo from '../../components/caja/LogoCirculo.astro';
+import { PREMIOS, premioTitulo, TOPE } from '../../config/circulo';
+
+if (import.meta.env.PROD) return new Response(null, { status: 404 });
+
+const NIVELES = [
+  { nivel: 1, hito: 3, texto: 'El rombo de abajo' },
+  { nivel: 2, hito: 5, texto: 'Los tres rombos de abajo' },
+  { nivel: 3, hito: 10, texto: 'El símbolo completo en oro' },
+];
+const casos = [0, 3, 4, 5, 8, 10];
+const siguiente = (n: number) => NIVELES.find((x) => x.hito > n);
+---
+
+<Publica title="Círculo con el logo (prueba)" noindex portada={false}>
+  <section class="seccion leyenda">
+    <h2>Cómo se lee</h2>
+    <p class="sutil">Cada nivel enciende en dorado una parte del símbolo de SS.</p>
+    <ol>
+      {
+        NIVELES.map((x) => (
+          <li>
+            <LogoCirculo interacciones={x.hito} alto="5.5rem" quieto />
+            <span class="n">Nivel {x.nivel}</span>
+            <span class="cuantas">{x.hito} interacciones</span>
+            <span class="que">{x.texto}</span>
+            <span class="premio">{premioTitulo(x.hito)}</span>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  {
+    casos.map((n) => {
+      const prox = siguiente(n);
+      const faltan = prox ? prox.hito - n : 0;
+      return (
+        <section class="bloque">
+          <h2 class="titulo-fuera">Con {n} {n === 1 ? 'interacción' : 'interacciones'}</h2>
+          <div class="seccion tarjeta-circulo">
+            <p class="conteo">
+              <strong>{n}</strong>
+              <span>de {TOPE} interacciones</span>
+            </p>
+            <LogoCirculo interacciones={n} />
+            <p class="estado">
+              {prox ? (
+                <>
+                  {faltan === 1 ? 'Te falta 1 interacción' : `Te faltan ${faltan} interacciones`} para el nivel {prox.nivel}:{' '}
+                  <strong>{PREMIOS[prox.hito]}</strong>.
+                </>
+              ) : (
+                <>Completaste el Círculo: el símbolo de SS es todo tuyo.</>
+              )}
+            </p>
+          </div>
+        </section>
+      );
+    })
+  }
+</Publica>
+
+<style>
+  /* Cifras rectas en los títulos (en la fuente de la marca el 0 y el 1 antiguos parecen letras). */
+  :global(.publica) :is(.titulo-fuera, .leyenda) {
+    font-variant-numeric: lining-nums;
+  }
+
+  .leyenda ol {
+    list-style: none;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .leyenda li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .leyenda li :global(.logo-circulo) {
+    margin-bottom: 0.6rem;
+  }
+
+  .n {
+    font-family: var(--display);
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  .cuantas {
+    font-size: 0.8rem;
+    color: #e3c27a;
+  }
+
+  .que,
+  .premio {
+    font-size: 0.75rem;
+    line-height: 1.3;
+    color: var(--gris);
+  }
+
+  .premio {
+    margin-top: 0.3rem;
+    color: var(--tinta);
+  }
+
+  .conteo {
+    margin: 0 0 1.5rem;
+    color: var(--gris);
+  }
+
+  .conteo strong {
+    display: block;
+    font-family: var(--display);
+    font-size: 4rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--tinta);
+    font-variant-numeric: lining-nums;
+  }
+
+  .estado {
+    margin: 1.5rem 0 0;
+  }
+</style>

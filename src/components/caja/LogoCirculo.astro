@@ -1,0 +1,118 @@
+---
+// PRUEBA: el símbolo de SS (7 rombos) como avance del Círculo.
+// Nivel 1 (3 interacciones): el rombo de abajo con su interior en dorado, parpadeando.
+// Nivel 2 (5): los tres rombos de abajo (el de abajo y los dos de encima), de abajo hacia arriba.
+// Nivel 3 (10): el símbolo completo en dorado, contornos e interiores.
+// Medidas del logo original (las mismas de src/components/Logo.astro).
+
+interface Props {
+  interacciones: number;
+  /** Alto del símbolo. */
+  alto?: string;
+  /** Sin parpadeo (para la leyenda). */
+  quieto?: boolean;
+}
+
+const { interacciones, alto = '11rem', quieto = false } = Astro.props;
+
+const R = 106.5;
+const r = 63.5;
+// De arriba abajo, como en el logo: 0 arriba; 1 y 2; 3 al centro; 4 y 5; 6 abajo.
+const centros = [
+  [232, 106.5],
+  [106.5, 233.5],
+  [357.5, 233.5],
+  [232, 360.5],
+  [106.5, 487.5],
+  [357.5, 487.5],
+  [232, 614.5],
+];
+const anillo = ([x, y]: number[]) =>
+  `M${x} ${y - R}L${x + R} ${y}L${x} ${y + R}L${x - R} ${y}Z` + `M${x} ${y - r}L${x - r} ${y}L${x} ${y + r}L${x + r} ${y}Z`;
+const interior = ([x, y]: number[]) => `M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z`;
+
+const nivel = interacciones >= 10 ? 3 : interacciones >= 5 ? 2 : interacciones >= 3 ? 1 : 0;
+// Rombos encendidos por nivel, de abajo hacia arriba (el orden marca el retraso del parpadeo).
+const encendidos = nivel === 3 ? [6, 4, 5, 3, 1, 2, 0] : nivel === 2 ? [6, 4, 5] : nivel === 1 ? [6] : [];
+---
+
+<div class:list={['logo-circulo', `nivel-${nivel}`, { quieto }]} style={`--alto: ${alto}`}>
+  <svg viewBox="0 0 464 721" role="img" aria-label={nivel === 0 ? 'Aún sin nivel del Círculo' : `Nivel ${nivel} del Círculo`}>
+    {
+      centros.map((c, i) => {
+        const orden = encendidos.indexOf(i);
+        return (
+          <g class:list={['rombo', { encendido: orden >= 0 }]} style={orden >= 0 ? `--orden: ${orden}` : undefined}>
+            <path class="interior" d={interior(c)} />
+            <path class="anillo" d={anillo(c)} fill-rule="evenodd" />
+          </g>
+        );
+      })
+    }
+  </svg>
+</div>
+
+<style>
+  .logo-circulo {
+    --oro: #e8c46f;
+    --oro-claro: #fff1c2;
+    display: inline-block;
+    line-height: 0;
+  }
+
+  svg {
+    height: var(--alto);
+    width: auto;
+    overflow: visible;
+  }
+
+  .anillo {
+    fill: var(--rojo);
+  }
+
+  .interior {
+    fill: var(--oro);
+    opacity: 0;
+  }
+
+  /* Interiores encendidos: parpadean en dorado, de abajo hacia arriba (0,25 s entre uno y otro). */
+  .encendido .interior {
+    animation: parpadeo 2.4s ease-in-out infinite;
+    animation-delay: calc(var(--orden) * 0.25s);
+  }
+
+  @keyframes parpadeo {
+    0%,
+    100% {
+      opacity: 0.25;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /* Nivel 3: todo el símbolo en oro, contornos incluidos, con un halo dorado suave. */
+  .nivel-3 .anillo {
+    fill: var(--oro);
+  }
+
+  .nivel-3 svg {
+    filter: drop-shadow(0 0 0.6rem rgb(232 196 111 / 0.45));
+  }
+
+  .nivel-3 .encendido .interior {
+    fill: var(--oro-claro);
+  }
+
+  .quieto .encendido .interior {
+    animation: none;
+    opacity: 0.9;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .encendido .interior {
+      animation: none;
+      opacity: 0.9;
+    }
+  }
+</style>

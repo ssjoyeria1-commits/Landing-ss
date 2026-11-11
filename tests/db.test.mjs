@@ -203,8 +203,9 @@ test('el contador se detiene en 10 y los premios no se entregan dos veces', asyn
   assert.equal(fila.proximo_hito, null);
   assert.deepEqual(fila.premios_pendientes, [3, 5, 10]);
 
+  // Entregar = anotar la fecha del premio que ya existe.
   await como(db, 'authenticated', ADMIN, () =>
-    db.query('insert into public.premios (cliente_id, hito) values ($1, 3)', [r.cliente.id]),
+    db.query('update public.premios set fecha_entrega = privado.hoy() where cliente_id = $1 and hito = 3', [r.cliente.id]),
   );
   fila = await interacciones(db, r.cliente.id);
   assert.deepEqual(fila.premios_pendientes, [5, 10]);
@@ -217,16 +218,32 @@ test('el contador se detiene en 10 y los premios no se entregan dos veces', asyn
   );
 });
 
-test('caja de premio: cada premio entregado tiene su chip con el premio y el avance del Círculo', async () => {
+test('caja de premio: el premio y su chip se crean solos al llegar al nivel; entregar solo anota la fecha', async () => {
   const db = await nuevaBase();
   const whatsapp = nuevoWhatsapp();
   const r = await venta(db, { whatsapp, nombre: 'Valentina Gómez' });
-  for (let i = 0; i < 4; i++) await venta(db, { whatsapp });
+  const premios = () =>
+    como(db, 'authenticated', ADMIN, async () =>
+      (await db.query('select hito, fecha_entrega from public.premios where cliente_id = $1 order by hito', [r.cliente.id])).rows,
+    );
+  assert.deepEqual(await premios(), [], 'con 1 interacción todavía no hay premio');
+
+  const ventas = [];
+  for (let i = 0; i < 4; i++) ventas.push(await venta(db, { whatsapp }));
+  assert.deepEqual((await premios()).map((p) => [p.hito, p.fecha_entrega]), [[3, null], [5, null]], 'pendientes, sin fecha');
+
+  // Una anulación que lo baja de nivel borra el premio no entregado; el entregado se queda.
+  await como(db, 'authenticated', ADMIN, async () => {
+    await db.query('update public.premios set fecha_entrega = privado.hoy() where cliente_id = $1 and hito = 3', [r.cliente.id]);
+    await db.query('update public.ventas set anulada = true where id = $1', [ventas[3].venta_id]);
+  });
+  assert.deepEqual((await premios()).map((p) => p.hito), [3], 'con 4 interacciones ya no está el de 5');
+  await como(db, 'authenticated', ADMIN, () => db.query('update public.ventas set anulada = false where id = $1', [ventas[3].venta_id]));
 
   const premio = await como(db, 'authenticated', ADMIN, () =>
     uno(
       db,
-      "insert into public.premios (cliente_id, hito, detalle, nota) values ($1, 5, 'Tejido cartier, 2,1 g', 'nota interna') returning codigo_chip, referencia",
+      "update public.premios set detalle = 'Tejido cartier, 2,1 g', nota = 'nota interna' where cliente_id = $1 and hito = 5 returning codigo_chip, referencia",
       [r.cliente.id],
     ),
   );
@@ -247,6 +264,14 @@ test('caja de premio: cada premio entregado tiene su chip con el premio y el ava
 
   // El chip de la caja de la compra sigue abriendo su página normal.
   assert.equal((await pagina(db, r.cajas[0].codigo_chip)).tipo, 'propia');
+
+  // Un referido que compra también le crea el premio a quien lo refirió.
+  const otro = await venta(db, { nombre: 'Andrés' });
+  for (let i = 0; i < 2; i++) await venta(db, { referidoDe: otro.cliente.codigo_referido });
+  const delOtro = await como(db, 'authenticated', ADMIN, () =>
+    uno(db, 'select count(*)::int as n from public.premios where cliente_id = $1 and hito = 3', [otro.cliente.id]),
+  );
+  assert.equal(delOtro.n, 1);
 });
 
 test('una venta anulada no cuenta y su chip deja de funcionar', async () => {

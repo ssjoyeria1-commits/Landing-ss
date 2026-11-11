@@ -1,8 +1,12 @@
--- Cajas de premio del Círculo (decisión de los socios, 11 nov 2026): cada premio entregado lleva su propio
--- chip. Al escanearlo se ve la bienvenida con el nombre, el premio que acaba de conseguir (nombre del nivel y una
--- nota opcional, p. ej. el diseño o el peso), su certificado y su avance en el Círculo.
--- - premios.codigo_chip y premios.referencia: se generan solos al marcar el premio entregado (y para los que ya
---   estaban), con el mismo formato que los de las cajas; los generadores revisan las dos tablas para no repetir.
+-- Cajas de premio del Círculo (decisiones de los socios, 11 nov 2026): cada premio lleva su propio chip. Al
+-- escanearlo se ve la bienvenida con el nombre, el premio que acaba de conseguir (nombre del nivel y una nota
+-- opcional, p. ej. el diseño o el peso), su certificado y su avance en el Círculo.
+-- - El premio (y su chip) se crea solo apenas el cliente llega al nivel: después de cada venta o anulación se
+--   revisa el contador del cliente y el de quien lo refirió. "Marcar entregado" solo anota la fecha de entrega
+--   (premios.fecha_entrega queda vacía mientras está pendiente). Si una anulación lo baja de nivel, el premio
+--   no entregado se borra; los entregados no se tocan.
+-- - premios.codigo_chip y premios.referencia: con el mismo formato que los de las cajas; los generadores revisan
+--   las dos tablas para no repetir.
 -- - premios.detalle: la nota pública del premio (la nota interna sigue en premios.nota).
 -- - pagina_caja: si el código no es de una caja, busca un premio y devuelve tipo 'premio'. Sin WhatsApp, precios
 --   ni ids. Abrir un chip de premio no suma escaneo (los escaneos son de cajas).
@@ -69,6 +73,95 @@ alter table public.premios
 grant execute on function privado.nuevo_codigo_chip(), privado.nueva_referencia(), privado.codigo_aleatorio(text, int)
   to authenticated;
 
+-- Pendiente = sin fecha de entrega.
+alter table public.premios
+  alter column fecha_entrega drop not null,
+  alter column fecha_entrega drop default;
+
+-- Crea los premios que el cliente ya alcanzó (con su chip) y borra los no entregados que ya no le corresponden.
+create function privado.sincronizar_premios(p_cliente uuid)
+returns void
+language plpgsql volatile security definer
+set search_path = ''
+as $$
+declare
+  v_interacciones int;
+begin
+  if p_cliente is null then
+    return;
+  end if;
+  select k.interacciones into v_interacciones from privado.circulo_conteo() k where k.cliente_id = p_cliente;
+  v_interacciones := coalesce(v_interacciones, 0);
+  insert into public.premios (cliente_id, hito, fecha_entrega)
+  select p_cliente, h, null from unnest(privado.circulo_hitos()) h where h <= v_interacciones
+  on conflict (cliente_id, hito) do nothing;
+  delete from public.premios
+  where cliente_id = p_cliente and hito > v_interacciones and fecha_entrega is null;
+end
+$$;
+
+-- Después de cada venta (o anulación): el comprador y quien lo refirió.
+create function privado.ventas_premios()
+returns trigger
+language plpgsql volatile security definer
+set search_path = ''
+as $$
+begin
+  perform privado.sincronizar_premios(new.cliente_id);
+  perform privado.sincronizar_premios((select c.referido_por from public.clientes c where c.id = new.cliente_id));
+  if tg_op = 'UPDATE' and old.cliente_id is distinct from new.cliente_id then
+    perform privado.sincronizar_premios(old.cliente_id);
+    perform privado.sincronizar_premios((select c.referido_por from public.clientes c where c.id = old.cliente_id));
+  end if;
+  return null;
+end
+$$;
+
+create trigger ventas_premios
+after insert or update of anulada, monto_cop, cliente_id on public.ventas
+for each row execute function privado.ventas_premios();
+
+revoke execute on function privado.sincronizar_premios(uuid), privado.ventas_premios() from public, anon;
+
+-- Los clientes que ya alcanzaron niveles reciben sus premios pendientes (con chip).
+do $$
+declare
+  v_id uuid;
+begin
+  for v_id in select id from public.clientes loop
+    perform privado.sincronizar_premios(v_id);
+  end loop;
+end
+$$;
+
+create or replace view public.clientes_circulo
+with (security_invoker = true)
+as
+select
+  c.id,
+  c.nombre,
+  c.apellido,
+  c.whatsapp,
+  c.codigo_referido,
+  c.referido_por,
+  ref.codigo_referido as referido_por_codigo,
+  c.autorizo_datos,
+  c.autorizo_datos_fecha,
+  c.created_at,
+  k.propias,
+  k.por_referidos,
+  k.interacciones,
+  (select min(h) from unnest(privado.circulo_hitos()) h where h > k.interacciones) as proximo_hito,
+  array(
+    select h from unnest(privado.circulo_hitos()) h
+    where h <= k.interacciones
+      and not exists (select 1 from public.premios p where p.cliente_id = c.id and p.hito = h and p.fecha_entrega is not null)
+    order by h
+  ) as premios_pendientes
+from public.clientes c
+join privado.circulo_conteo() k on k.cliente_id = c.id
+left join public.clientes ref on ref.id = c.referido_por;
+
 create or replace function public.pagina_caja(p_codigo text, p_contar boolean default true)
 returns jsonb
 language plpgsql volatile security definer
@@ -104,7 +197,7 @@ begin
     return jsonb_build_object(
       'tipo', 'premio',
       'referencia', v_premio.referencia,
-      'fecha', v_premio.fecha_entrega,
+      'fecha', coalesce(v_premio.fecha_entrega, v_premio.created_at::date),
       'nombre', privado.primer_nombre(v_cliente.nombre),
       'hito', v_premio.hito,
       'detalle', v_premio.detalle,

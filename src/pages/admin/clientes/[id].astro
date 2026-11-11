@@ -2,7 +2,7 @@
 import Admin from '../../../layouts/Admin.astro';
 import { premioTitulo } from '../../../config/circulo';
 import { enlaceAviso, nombreCompleto, type ClienteCirculo } from '../../../lib/clientes';
-import { fecha, pesos } from '../../../lib/formato';
+import { fecha, hoyBogota, pesos } from '../../../lib/formato';
 import { formatoWhatsapp } from '../../../lib/whatsapp';
 import { qrSvg } from '../../../lib/qr';
 import { SITIO } from '../../../config/sitio';
@@ -15,11 +15,19 @@ let error = '';
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const detalle = String(form.get('detalle') ?? '').trim().slice(0, 120) || null;
+  // El premio (y el chip de su caja) ya existe desde que el cliente llegó al nivel: entregar solo anota la fecha.
   if (form.get('accion') === 'premio') {
     const hito = Number(form.get('hito'));
-    const { error: fallo } = await supabase.from('premios').insert({ cliente_id: id, hito, detalle });
-    if (fallo) error = fallo.code === '23505' ? 'Ese premio ya estaba marcado como entregado.' : fallo.message;
-    else aviso = `Premio del nivel ${hito} marcado como entregado. Abajo está la URL para el chip de su caja.`;
+    const { data, error: fallo } = await supabase
+      .from('premios')
+      .update({ fecha_entrega: hoyBogota() })
+      .eq('cliente_id', id!)
+      .eq('hito', hito)
+      .is('fecha_entrega', null)
+      .select('hito');
+    if (fallo) error = fallo.message;
+    else if (!data?.length) error = 'Ese premio ya estaba marcado como entregado.';
+    else aviso = `Premio del nivel ${hito} marcado como entregado.`;
   }
   // Nota pública del premio (sale en la página del chip de la caja de premio).
   if (form.get('accion') === 'detalle') {
@@ -86,8 +94,9 @@ const c = cliente as ClienteCirculo;
       <tbody>
         {
           [3, 5, 10].map((hito) => {
-            const entregado = premios?.find((p) => p.hito === hito);
-            const pendiente = c.premios_pendientes.includes(hito);
+            const premio = premios?.find((p) => p.hito === hito);
+            const entregado = premio?.fecha_entrega ? premio : undefined;
+            const pendiente = !!premio && !entregado;
             return (
               <tr>
                 <td>{hito}</td>
@@ -95,13 +104,11 @@ const c = cliente as ClienteCirculo;
                 <td>
                   {entregado && `Entregado el ${fecha(entregado.fecha_entrega)}`}
                   {pendiente && (
-                    <form method="post">
+                    <form method="post" class="acciones">
                       <input type="hidden" name="accion" value="premio" />
                       <input type="hidden" name="hito" value={hito} />
                       <span class="etiqueta alerta">Pendiente</span>
-                      <label for={`detalle-${hito}`} style="margin-top: 0.5rem">Nota para la caja (opcional)</label>
-                      <input id={`detalle-${hito}`} name="detalle" maxlength="120" placeholder="Tejido cartier, 2,1 g" autocomplete="off" />
-                      <button type="submit" style="margin-top: 0.5rem">Marcar entregado</button>
+                      <button type="submit">Marcar entregado</button>
                     </form>
                   )}
                   {!entregado && !pendiente && 'Aún no lo alcanza'}
@@ -122,8 +129,18 @@ const c = cliente as ClienteCirculo;
           return (
             <div class="tarjeta">
               <h3 style="margin-top: 0">
-                Caja del premio del nivel {p.hito} · <code>{p.referencia}</code>
+                Caja del premio del nivel {p.hito} · <code>{p.referencia}</code>{' '}
+                {p.fecha_entrega ? (
+                  <span class="etiqueta">Entregado el {fecha(p.fecha_entrega)}</span>
+                ) : (
+                  <span class="etiqueta alerta">Por entregar</span>
+                )}
               </h3>
+              {!p.fecha_entrega && (
+                <p class="ayuda" style="margin-top: 0">
+                  Graba el chip de su caja con esta URL, escribe la nota si quieres y, al enviarla, márcalo entregado en la tabla.
+                </p>
+              )}
               <label>URL para el sticker y el QR</label>
               <div class="acciones">
                 <code style="font-size: 1.05rem">{url}</code>

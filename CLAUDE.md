@@ -62,9 +62,11 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   `src/pages/admin/` — panel.
 - `src/pages/index.astro` — inicio (fija): portada, franja destacada al catálogo, tarjetas a `/garantia` y `/datos`
   y la sección que explica el Círculo SS (premios de `src/config/circulo.ts`).
-- **Cajas de premio** (11 nov 2026, migración `20261111130000_caja_premio.sql`): cada premio entregado tiene su chip
-  (`premios.codigo_chip`, `referencia`, nota pública `detalle`); `pagina_caja` devuelve `tipo: premio` (bienvenida,
-  "Tu premio" con certificado 18K y el Círculo). Se marca entregado y se ve la URL y el QR en la ficha del cliente.
+- **Cajas de premio** (11 nov 2026, migración `20261111130000_caja_premio.sql`): el premio y su chip se crean solos
+  al llegar al nivel (trigger `ventas_premios` → `privado.sincronizar_premios`, también para quien refirió; una anulación
+  borra los no entregados que ya no le tocan). `premios.fecha_entrega` vacía = pendiente; "Marcar entregado" solo la
+  anota. `premios.codigo_chip`, `referencia`, nota pública `detalle`; `pagina_caja` devuelve `tipo: premio` (bienvenida,
+  "Tu premio" con certificado 18K y el Círculo). URL, QR y nota de cada caja en la ficha del cliente.
   Pruebas: `/pruebas/casos?datos=premio|premio-elite`.
 - `src/components/caja/LogoCirculo.astro` — avance del Círculo con el símbolo (11 nov 2026): nivel 1 (3) el rombo de
   abajo, nivel 2 (5) los de abajo y el del centro, nivel 3 (10) todo en oro; los ganados parpadean en dorado

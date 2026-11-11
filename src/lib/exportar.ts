@@ -300,7 +300,7 @@ export const EXPORTACIONES: Record<string, Exportacion> = {
           supabase.from('clientes_circulo').select('*').order('nombre').order('apellido').range(d, h),
         ),
         traerTodo<{ cliente_id: string; hito: number }>((d, h) =>
-          supabase.from('premios').select('cliente_id, hito').order('hito').range(d, h),
+          supabase.from('premios').select('cliente_id, hito').not('fecha_entrega', 'is', null).order('hito').range(d, h),
         ),
       ]);
       const entregados = new Map<string, number[]>();

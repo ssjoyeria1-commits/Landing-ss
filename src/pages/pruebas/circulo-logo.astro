@@ -3,7 +3,7 @@
 // Muestra la tarjeta del Círculo con varios avances y una leyenda de los niveles. En producción 404.
 import Publica from '../../layouts/Publica.astro';
 import LogoCirculo from '../../components/caja/LogoCirculo.astro';
-import { PREMIOS, premioTitulo, TOPE } from '../../config/circulo';
+import { animo, PREMIOS, premioTitulo, TOPE } from '../../config/circulo';
 
 if (import.meta.env.PROD) return new Response(null, { status: 404 });
 
@@ -13,9 +13,6 @@ const NIVELES = [
   { nivel: 3, hito: 10, texto: 'El símbolo completo en oro' },
 ];
 const casos = [0, 2, 3, 4, 5, 8, 9, 10];
-// Frase de ánimo debajo del premio que sigue (con 10 ya no hace falta).
-const animo = (n: number) =>
-  n <= 2 ? '¡Lo lograrás pronto!' : n <= 4 ? 'Estás cerca de ser un miembro avanzado.' : n <= 9 ? 'Estás cerca de llegar a la ÉLITE.' : '';
 const siguiente = (n: number) => NIVELES.find((x) => x.hito > n);
 ---
 

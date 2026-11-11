@@ -18,3 +18,13 @@ export const premioTitulo = (nivel: number) => {
 };
 
 export const TOPE = 10;
+
+/** Frase de ánimo debajo del próximo premio, según el avance (con 10 ya no hace falta). */
+export const animo = (interacciones: number) =>
+  interacciones <= 2
+    ? '¡Lo lograrás pronto!'
+    : interacciones <= 4
+      ? 'Estás cerca de ser un miembro avanzado.'
+      : interacciones <= 9
+        ? 'Estás cerca de llegar a la ÉLITE.'
+        : '';

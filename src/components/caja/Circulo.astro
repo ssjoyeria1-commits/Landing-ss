@@ -1,6 +1,7 @@
 ---
 import BotonWhatsApp from './BotonWhatsApp.astro';
-import { PREMIOS, TOPE } from '../../config/circulo';
+import LogoCirculo from './LogoCirculo.astro';
+import { animo, PREMIOS, TOPE } from '../../config/circulo';
 import { MENSAJES } from '../../config/mensajes';
 import { TEXTOS } from '../../config/textos';
 import type { CajaPropia } from '../../lib/caja';
@@ -10,7 +11,6 @@ interface Props {
 }
 
 const { interacciones, hitos, proximo_hito, codigo_referido } = Astro.props.circulo;
-const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
 const faltan = proximo_hito === null ? 0 : proximo_hito - interacciones;
 // Premios de los niveles ya alcanzados, en una frase: "A", "A y B", "A, B y C". Vacío antes del nivel 3.
 const logrados = new Intl.ListFormat('es', { type: 'conjunction' }).format(
@@ -27,20 +27,10 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
       <span>de {TOPE} interacciones</span>
     </p>
 
-    <ol class="camino" role="img" aria-label={`Llevas ${interacciones} de ${TOPE} interacciones`}>
-      {
-        pasos.map((n) => (
-          <li class:list={{ hecho: n <= interacciones, hito: hitos.includes(n) }} style={`--i: ${n - 1}`}>
-            <span class="punto" />
-            {hitos.includes(n) && <span class="numero">{n}</span>}
-          </li>
-        ))
-      }
-    </ol>
-    <script is:inline>
-      if ('IntersectionObserver' in window && document.currentScript.previousElementSibling.querySelector('.hecho'))
-        document.currentScript.previousElementSibling.dataset.estado = 'esperando';
-    </script>
+    {/* El símbolo de SS como avance: el rombo de abajo (nivel 1), los cuatro de abajo (nivel 2) o todo en oro (10). */}
+    <div class="logo-avance">
+      <LogoCirculo {interacciones} alto="10rem" />
+    </div>
 
     {
       proximo_hito === null ? (
@@ -60,6 +50,8 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
         </p>
       )
     }
+
+    {animo(interacciones) && <p class="animo">{animo(interacciones)}</p>}
 
     <p class="sutil">{TEXTOS.circuloIntro}</p>
 
@@ -88,22 +80,6 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
       espera = setTimeout(() => (aviso.textContent = 'Toca para copiar'), 2000);
     });
   }
-
-  // Los rombos ganados se llenan uno a uno cuando el contador entra en pantalla.
-  // Sin JavaScript (o sin IntersectionObserver) se ven llenos desde el principio.
-  if ('IntersectionObserver' in window) {
-    for (const camino of document.querySelectorAll<HTMLElement>('.circulo .camino[data-estado="esperando"]')) {
-      const observador = new IntersectionObserver(
-        ([entrada]) => {
-          if (!entrada.isIntersecting) return;
-          camino.dataset.estado = 'llenando';
-          observador.disconnect();
-        },
-        { threshold: 0.6 },
-      );
-      observador.observe(camino);
-    }
-  }
 </script>
 
 <style>
@@ -124,82 +100,19 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     font-variant-numeric: lining-nums tabular-nums;
   }
 
-  .camino {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    list-style: none;
-    margin: 0 0 2rem;
-    padding: 0 0 1.5rem;
+  .logo-avance {
+    margin: 0.5rem 0 2rem;
   }
 
-  .camino li {
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 1.6rem;
-  }
-
-  /* Rombos, como los del logo. */
-  .punto {
-    width: 0.65rem;
-    height: 0.65rem;
-    border: 2px solid #6f6760;
-    transform: rotate(45deg);
-  }
-
-  .hito .punto {
-    width: 1.1rem;
-    height: 1.1rem;
-    border-color: var(--tinta);
-  }
-
-  .hecho .punto {
-    background: var(--rojo);
-    border-color: var(--rojo);
-  }
-
-  /* Antes de entrar en pantalla, los ganados se ven vacíos; luego se llenan con 60 ms entre uno y otro. */
-  .camino[data-estado='esperando'] .hecho:not(.hito) .punto {
-    background: transparent;
-    border-color: #6f6760;
-  }
-
-  .camino[data-estado='esperando'] .hito.hecho .punto {
-    background: transparent;
-    border-color: var(--tinta);
-  }
-
-  @keyframes llenar {
-    from {
-      opacity: 0;
-      transform: rotate(45deg) scale(0.5);
-    }
-  }
-
-  @keyframes aparecer {
-    from {
-      opacity: 0;
-    }
-  }
-
-  .camino[data-estado='llenando'] .hecho .punto {
-    animation: llenar 260ms var(--ease-out) backwards;
-    animation-delay: calc(var(--i) * 60ms);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .camino[data-estado='llenando'] .hecho .punto {
-      animation-name: aparecer;
-      animation-delay: 0ms;
-    }
-  }
-
-  .numero {
-    position: absolute;
-    top: 1.75rem;
-    font-size: 0.85rem;
-    color: var(--gris);
+  /* Ánimo: en la letra de la marca, en dorado y cursiva, debajo del próximo premio. */
+  .animo {
+    margin: 0 0 1.25rem;
+    font-family: var(--display);
+    font-size: 1.45rem;
+    font-style: italic;
+    font-weight: 600;
+    line-height: 1.25;
+    color: #e8c46f;
   }
 
   .siguiente {

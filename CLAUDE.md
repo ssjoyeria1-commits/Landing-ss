@@ -62,6 +62,10 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   `src/pages/admin/` — panel.
 - `src/pages/index.astro` — inicio (fija): portada, franja destacada al catálogo, tarjetas a `/garantia` y `/datos`
   y la sección que explica el Círculo SS (premios de `src/config/circulo.ts`).
+- `src/components/caja/LogoCirculo.astro` — avance del Círculo con el símbolo (11 nov 2026): nivel 1 (3) el rombo de
+  abajo, nivel 2 (5) los de abajo y el del centro, nivel 3 (10) todo en oro; los ganados parpadean en dorado
+  (interior y contorno) fila por fila hacia arriba. Lo usan la página del chip (`Circulo.astro`, con la frase
+  de `animo()` de `src/config/circulo.ts`) y el inicio. Prueba: `/pruebas/circulo-logo`.
 - `src/components/Logo.astro` — símbolo de los 7 rombos redibujado en SVG (medidas del logo original).
 - `.claude/skills/` — skills de diseño instaladas (origen y qué ejecutan: `.claude/skills-fuentes/FUENTES.md`).
   `impeccable` descarga un ejecutable la primera vez; sus hooks están apagados.

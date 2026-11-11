@@ -3,12 +3,17 @@
 // sobre la garantía y la política de datos) y una sección que explica el Círculo SS. Página fija
 // (se genera al publicar): las reglas y los premios salen de src/config.
 import Publica from '../layouts/Publica.astro';
+import LogoCirculo from '../components/caja/LogoCirculo.astro';
 import { premioTitulo, TOPE } from '../config/circulo';
 
 export const prerender = true;
 
-const HITOS = [3, 5, 10];
-const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
+// Cada nivel enciende en dorado una parte del símbolo de SS (ver LogoCirculo.astro).
+const NIVELES = [
+  { nivel: 1, hito: 3, parte: 'El rombo de abajo' },
+  { nivel: 2, hito: 5, parte: 'Los de abajo y el del centro' },
+  { nivel: 3, hito: 10, parte: 'El símbolo completo en oro' },
+];
 ---
 
 <Publica title="SS Joyería · Joyas en oro de 18k">
@@ -64,29 +69,20 @@ const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
       </ol>
 
       <h3>Qué ganas</h3>
-      <ol class="camino" aria-hidden="true">
+      <p class="sutil centrado">Cada nivel enciende en dorado una parte del símbolo de SS.</p>
+      <ol class="niveles">
         {
-          pasos.map((n) => (
-            <li class:list={{ hito: HITOS.includes(n) }} style={HITOS.includes(n) ? `--orden: ${HITOS.indexOf(n)}` : undefined}>
-              <span class="punto" />
-              {HITOS.includes(n) && <span class="numero">{n}</span>}
+          NIVELES.map((x) => (
+            <li>
+              <LogoCirculo interacciones={x.hito} alto="5.5rem" />
+              <span class="titulo-nivel">Nivel {x.nivel}</span>
+              <span class="cuantas">{x.hito} interacciones</span>
+              <span class="parte">{x.parte}</span>
+              <span class="premio">{premioTitulo(x.hito)}</span>
             </li>
           ))
         }
       </ol>
-      <ul class="premios">
-        {
-          HITOS.map((h) => (
-            <li>
-              <span class="nivel">{h}</span>
-              <span>
-                <small>Al llegar a {h} interacciones</small>
-                {premioTitulo(h)}
-              </span>
-            </li>
-          ))
-        }
-      </ul>
 
       <h3>Dónde ves tu avance</h3>
       <p>
@@ -267,116 +263,58 @@ const pasos = Array.from({ length: TOPE }, (_, i) => i + 1);
     border-radius: 50%;
   }
 
-  /* El mismo camino de rombos del contador, sin llenar: los 3 niveles más grandes. */
-  .camino {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    list-style: none;
-    margin: 0 0 1.25rem;
-    padding: 0 0 1.5rem;
-  }
-
-  .camino li {
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 2.1rem;
-  }
-
-  .punto {
-    width: 0.65rem;
-    height: 0.65rem;
-    border: 2px solid #6f6760;
-    transform: rotate(45deg);
-  }
-
-  /* Los niveles crecen del 3 al 10, y una luz dorada los cruza en ese orden (0,45 s entre uno y otro),
-     cada 4,5 s. La luz es un degradado inclinado 45° dentro del rombo (que está girado 45°), así que
-     en pantalla avanza de izquierda a derecha. */
-  .hito .punto {
-    --lado: 0.85rem;
-    width: var(--lado);
-    height: var(--lado);
-    border-color: var(--rojo);
-    background: linear-gradient(45deg, var(--rojo) 0 38%, #f3dc9a 48%, #fff1c2 50%, #f3dc9a 52%, var(--rojo) 62% 100%) 100% 0 / 300%
-      300%;
-    animation: rombo-luz 4.5s ease-in-out infinite;
-    animation-delay: calc(0.6s + var(--orden) * 0.45s);
-  }
-
-  .camino li:nth-child(5) .punto {
-    --lado: 1.1rem;
-  }
-
-  .camino li:nth-child(10) .punto {
-    --lado: 1.35rem;
-  }
-
-  @keyframes rombo-luz {
-    0% {
-      background-position: 100% 0;
-    }
-    22%,
-    100% {
-      background-position: 0 100%;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .hito .punto {
-      animation: none;
-      background: var(--rojo);
-    }
-  }
-
-  .numero {
-    position: absolute;
-    top: 2.25rem;
-    font-size: 0.85rem;
-    font-variant-numeric: lining-nums;
-    color: var(--gris);
-  }
-
-  .premios {
-    list-style: none;
+  .centrado {
     margin: 0;
+    text-align: center;
+  }
+
+  /* Los tres niveles lado a lado: el símbolo en su estado, el nivel, cuántas interacciones y el premio. */
+  .niveles {
+    list-style: none;
+    margin: 1.5rem 0 0;
     padding: 0;
-  }
-
-  .premios li {
     display: grid;
-    grid-template-columns: 2.25rem 1fr;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 0.75rem 0;
-    border-top: 1px solid rgb(242 236 228 / 0.12);
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    text-align: center;
   }
 
-  .premios li span:last-child {
+  .niveles li {
     display: flex;
     flex-direction: column;
-    font-family: var(--display);
-    font-size: 1.2rem;
-    font-weight: 600;
-    line-height: 1.25;
+    align-items: center;
+    gap: 0.2rem;
   }
 
-  .premios small {
-    font-family: system-ui, sans-serif;
+  .niveles li :global(.logo-circulo) {
+    margin-bottom: 0.6rem;
+  }
+
+  .titulo-nivel {
+    font-family: var(--display);
+    font-size: 1.3rem;
+    font-weight: 600;
+  }
+
+  .cuantas {
     font-size: 0.8rem;
-    font-weight: 400;
+    color: #e3c27a;
+  }
+
+  .parte,
+  .premio {
+    font-size: 0.78rem;
+    line-height: 1.3;
     color: var(--gris);
   }
 
-  .nivel {
+  .premio {
+    margin-top: 0.35rem;
     font-family: var(--display);
-    font-size: 2rem;
+    font-size: 1rem;
     font-weight: 600;
-    line-height: 1;
-    text-align: center;
-    font-variant-numeric: lining-nums;
-    color: var(--rojo);
+    line-height: 1.2;
+    color: var(--tinta);
   }
 
   .letra-menuda {

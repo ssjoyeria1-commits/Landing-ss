@@ -156,6 +156,13 @@ function agruparIguales<T extends { descripcion: string; peso_gramos: number; pr
               <td>Costo de las piezas{!contable.costo_completo && ' (solo las del inventario)'}</td>
               <td class="num">− {pesos(contable.costo_piezas_cop)}</td>
             </tr>
+            <tr class="subtotal">
+              <td>Utilidad bruta</td>
+              <td class="num">
+                {pesos(contable.ingresos_cop - contable.costo_piezas_cop)}
+                {contable.ingresos_cop > 0 && <small> ({Math.round(((contable.ingresos_cop - contable.costo_piezas_cop) / contable.ingresos_cop) * 100)} %)</small>}
+              </td>
+            </tr>
             <tr>
               <td>Empaque ({contable.empaques} × {pesos(contable.empaques ? contable.empaque_cop / contable.empaques : 0)})</td>
               <td class="num">− {pesos(contable.empaque_cop)}</td>
@@ -168,7 +175,7 @@ function agruparIguales<T extends { descripcion: string; peso_gramos: number; pr
               </tr>
             )}
             <tr class="subtotal">
-              <td>Utilidad</td>
+              <td>Utilidad operativa</td>
               <td class="num">
                 {pesos(contable.utilidad_cop)}
                 {contable.ingresos_cop > 0 && <small> ({Math.round((contable.utilidad_cop / contable.ingresos_cop) * 100)} %)</small>}

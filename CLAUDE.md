@@ -235,7 +235,8 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
       ventas viejas); vista `ventas_contables` (ingresos, costos directos —piezas, mensajero, comisión—,
       utilidad). Panel: cobro en Registrar venta y en el detalle, `/admin/gastos`, `/admin/contabilidad`
       (estado de resultados por semana, mes o año, frente al mismo tramo del periodo anterior si va en curso;
-      `src/lib/contabilidad.ts`, `src/components/admin/InformeContable.astro`) y `/admin/contabilidad/ajustes`
+      `src/lib/contabilidad.ts`, `src/components/admin/InformeContable.astro`; desde el 13 nov: utilidad bruta = ingresos − costo de las piezas,
+      utilidad operativa = bruta − empaques, mensajeros y comisiones —es `utilidad_cop` de la vista—, neta = operativa − gastos) y `/admin/contabilidad/ajustes`
       (medios de pago; categorías de gasto, activar o desactivar varias a la vez).
       **Empaques** (decisión del 9 nov; migración `20261109120000_empaque_gasto_y_costo.sql`): la compra se
       registra en Gastos, en la categoría con `es_empaque`, con fecha y `gastos.cantidad`. De ahí sale el costo

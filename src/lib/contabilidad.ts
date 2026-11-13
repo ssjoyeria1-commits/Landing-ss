@@ -152,7 +152,10 @@ export interface Resumen {
   mensajeros: number;
   comisiones: number;
   costosDirectos: number;
+  /** Ingresos − costo de las piezas. */
   utilidadBruta: number;
+  /** Utilidad bruta − costos de la venta (empaques, mensajeros y comisiones). */
+  utilidadOperativa: number;
   gastos: number;
   gastosPorCategoria: Map<string, number>;
   utilidadNeta: number;
@@ -171,7 +174,7 @@ export function resumir(ventas: VentaContable[], gastos: Gasto[]): Resumen {
   const r: Resumen = {
     ventas: 0, ventasClientes: 0, ventasAliados: 0, piezas: 0, piezasClientesCop: 0, piezasAliadosCop: 0, descuentos: 0,
     domicilioCobrado: 0, ingresos: 0, costoPiezas: 0, empaques: 0, mensajeros: 0, comisiones: 0, costosDirectos: 0,
-    utilidadBruta: 0, gastos: 0, gastosPorCategoria: new Map(), utilidadNeta: 0, porCobrarAliados: 0, ventasSinCosto: 0,
+    utilidadBruta: 0, utilidadOperativa: 0, gastos: 0, gastosPorCategoria: new Map(), utilidadNeta: 0, porCobrarAliados: 0, ventasSinCosto: 0,
     porMedio: new Map(), empaquesSinCosto: 0, comprasEmpaque: 0,
   };
   for (const v of ventas) {
@@ -194,7 +197,7 @@ export function resumir(ventas: VentaContable[], gastos: Gasto[]): Resumen {
     r.mensajeros += n(v.domicilio_pagado_cop);
     r.comisiones += n(v.comision_cop);
     r.costosDirectos += n(v.costos_cop);
-    r.utilidadBruta += n(v.utilidad_cop);
+    r.utilidadOperativa += n(v.utilidad_cop);
     if (!v.costo_completo) r.ventasSinCosto += 1;
     if (n(v.empaques) > 0 && n(v.empaque_cop) === 0) r.empaquesSinCosto += 1;
     const medio = v.medio_pago ?? 'Sin definir';
@@ -214,7 +217,8 @@ export function resumir(ventas: VentaContable[], gastos: Gasto[]): Resumen {
     const cat = g.categorias_gasto?.nombre ?? 'Sin categoría';
     r.gastosPorCategoria.set(cat, (r.gastosPorCategoria.get(cat) ?? 0) + n(g.monto_cop));
   }
-  r.utilidadNeta = r.utilidadBruta - r.gastos;
+  r.utilidadBruta = r.ingresos - r.costoPiezas;
+  r.utilidadNeta = r.utilidadOperativa - r.gastos;
   return r;
 }
 

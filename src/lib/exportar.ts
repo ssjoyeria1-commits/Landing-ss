@@ -236,7 +236,7 @@ export const EXPORTACIONES: Record<string, Exportacion> = {
         encabezados: [
           'Fecha', 'Tipo', 'Medio de pago', 'Piezas', 'Venta (COP)', 'Descuento (COP)', 'Domicilio cobrado (COP)', 'Ingresos (COP)',
           'Costo de las piezas (COP)', 'Empaques', 'Costo de empaques (COP)', 'Mensajero (COP)', 'Comisión (%)', 'Comisión (COP)',
-          'Costos directos (COP)', 'Utilidad (COP)', 'Margen (%)', 'Pago del aliado', 'Estado',
+          'Costos directos (COP)', 'Utilidad operativa (COP)', 'Margen operativo (%)', 'Pago del aliado', 'Estado',
         ],
         filas: filas.map((v) => [
           v.fecha,

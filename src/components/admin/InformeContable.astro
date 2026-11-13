@@ -34,10 +34,17 @@ const lineas: Linea[] = [
   { texto: 'Domicilios cobrados', a: actual.domicilioCobrado, b: previo.domicilioCobrado },
   { texto: 'Ingresos', a: actual.ingresos, b: previo.ingresos, tipo: 'total' },
   { texto: 'Costo de las piezas', a: actual.costoPiezas, b: previo.costoPiezas, tipo: 'resta' },
+  { texto: 'Utilidad bruta', a: actual.utilidadBruta, b: previo.utilidadBruta, tipo: 'total', margen: [actual.utilidadBruta, actual.ingresos] },
   { texto: 'Empaques', a: actual.empaques, b: previo.empaques, tipo: 'resta' },
   { texto: 'Mensajeros', a: actual.mensajeros, b: previo.mensajeros, tipo: 'resta' },
   { texto: 'Comisiones de medios de pago', a: actual.comisiones, b: previo.comisiones, tipo: 'resta' },
-  { texto: 'Utilidad bruta', a: actual.utilidadBruta, b: previo.utilidadBruta, tipo: 'total', margen: [actual.utilidadBruta, actual.ingresos] },
+  {
+    texto: 'Utilidad operativa',
+    a: actual.utilidadOperativa,
+    b: previo.utilidadOperativa,
+    tipo: 'total',
+    margen: [actual.utilidadOperativa, actual.ingresos],
+  },
 ];
 const categorias = [...new Set([...actual.gastosPorCategoria.keys(), ...previo.gastosPorCategoria.keys()])].sort(
   (x, y) => (actual.gastosPorCategoria.get(y) ?? 0) - (actual.gastosPorCategoria.get(x) ?? 0),
@@ -73,9 +80,9 @@ const medios = [...actual.porMedio].sort((x, y) => y[1].ingresos - x[1].ingresos
     <small>{porcentaje(actual.utilidadBruta, actual.ingresos) && `margen ${porcentaje(actual.utilidadBruta, actual.ingresos)}`}</small>
   </div>
   <div class="cifra">
-    <span>Gastos</span>
-    <strong>{pesos(actual.gastos)}</strong>
-    <small>{cambio(actual.gastos, previo.gastos) && `${cambio(actual.gastos, previo.gastos)} vs. ${nombreAnterior}`}</small>
+    <span>Utilidad operativa</span>
+    <strong>{pesos(actual.utilidadOperativa)}</strong>
+    <small>{porcentaje(actual.utilidadOperativa, actual.ingresos) && `margen ${porcentaje(actual.utilidadOperativa, actual.ingresos)}`}</small>
   </div>
   <div class="cifra" data-signo={actual.utilidadNeta < 0 ? 'negativo' : 'positivo'}>
     <span>Utilidad neta</span>
@@ -186,6 +193,7 @@ const medios = [...actual.porMedio].sort((x, y) => y[1].ingresos - x[1].ingresos
           <th class="num">Ventas</th>
           <th class="num">Ingresos</th>
           <th class="num">Utilidad bruta</th>
+          <th class="num">Utilidad operativa</th>
           <th class="num">Gastos</th>
           <th class="num">Utilidad neta</th>
         </tr>
@@ -198,6 +206,7 @@ const medios = [...actual.porMedio].sort((x, y) => y[1].ingresos - x[1].ingresos
               <td class="num">{r.ventas}</td>
               <td class="num">{pesos(r.ingresos)}</td>
               <td class="num">{pesos(r.utilidadBruta)}</td>
+              <td class="num">{pesos(r.utilidadOperativa)}</td>
               <td class="num">{pesos(r.gastos)}</td>
               <td class="num" data-signo={r.utilidadNeta < 0 ? 'negativo' : undefined}>{pesos(r.utilidadNeta)}</td>
             </tr>
@@ -221,7 +230,7 @@ const medios = [...actual.porMedio].sort((x, y) => y[1].ingresos - x[1].ingresos
               <th>Medio</th>
               <th class="num">Ingresos</th>
               <th class="num">Costos</th>
-              <th class="num">Utilidad</th>
+              <th class="num">Utilidad operativa</th>
             </tr>
           </thead>
           <tbody>
@@ -246,8 +255,8 @@ const medios = [...actual.porMedio].sort((x, y) => y[1].ingresos - x[1].ingresos
 }
 
 <p class="ayuda">
-  Ingresos = ventas (ya con descuento) + domicilios cobrados. Utilidad bruta = ingresos − costos directos de cada venta (piezas,
-  empaque, mensajero y comisión). Utilidad neta = utilidad bruta − gastos (sin la compra de empaques, que ya está en cada venta). Las ventas a aliados cuentan el día de la venta aunque
+  Ingresos = ventas (ya con descuento) + domicilios cobrados. Utilidad bruta = ingresos − costo de las piezas. Utilidad
+  operativa = utilidad bruta − costos de cada venta (empaque, mensajero y comisión). Utilidad neta = utilidad operativa − gastos (sin la compra de empaques, que ya está en cada venta). Las ventas a aliados cuentan el día de la venta aunque
   estén por cobrar. Descargas para Excel en <a href="/admin/exportar">Exportar</a>.
 </p>
 

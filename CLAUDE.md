@@ -33,7 +33,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 |---|---|
 | Servidor local | `npm run dev` (o `preview_start` con `astro-dev` de `.claude/launch.json`) → http://127.0.0.1:4321 |
 | Revisar tipos | `npx astro check` (debe dar 0 errores) |
-| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 54 pruebas) |
+| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 56 pruebas) |
 | Publicar | `npm run build` y luego `npx wrangler deploy` |
 | Tipos de las variables | `npm run types` (usa `--include-runtime=false`; ver abajo) |
 | Aplicar migraciones | `npx supabase db push --linked --dry-run`, luego sin `--dry-run` y con `--yes` |
@@ -173,7 +173,10 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   - [x] 4E — conteo físico por producto y peso (`/admin/inventario/productos/[id]/conteo`, función
         `registrar_conteo`: las faltantes se dan de baja), bajas y reintegros sueltos con motivo
         (`ajustar_inventario`), tablas `conteos` y `ajustes` de solo lectura para el panel, historial en
-        la ficha del producto. Aplicada y publicada. Revisión de seguridad (29 oct): anon solo ejecuta
+        la ficha del producto. Aplicada y publicada.
+  - [x] **Eliminar producto** (13 nov 2026, migración `20261113120000_eliminar_producto.sql`): al final de la ficha,
+        `eliminar_producto(id)` borra el producto con sus piezas (también las de baja), fotos, conteos y ajustes, y los
+        lotes que quedan vacíos. Si alguna pieza salió en una venta (aunque esté anulada) no se elimina: se desactiva. Revisión de seguridad (29 oct): anon solo ejecuta
         `pagina_caja` y no lee tablas; las funciones del panel verifican `es_admin()`.
 - [x] **Catálogo web (antes de la fase 5).** Decisiones (3 nov 2026): fotos por producto (hasta 5,
       se esperan ~3), cada peso disponible con su precio y **nunca cantidades**, al principio solo con

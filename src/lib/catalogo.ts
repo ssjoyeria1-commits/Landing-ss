@@ -76,6 +76,13 @@ export async function borrarFoto(supabase: Supabase, productoId: string, fotoId:
   return null;
 }
 
+/** Borra del bucket los archivos de las fotos de un producto ya eliminado (sus filas se fueron con él). */
+export async function borrarArchivosFotos(supabase: Supabase, productoId: string, fotoIds: string[]): Promise<void> {
+  if (fotoIds.length === 0) return;
+  const rutas = fotoIds.flatMap((f) => [archivo(`${productoId}/${f}`, 'grande'), archivo(`${productoId}/${f}`, 'mini')]);
+  await supabase.storage.from(BUCKET).remove(rutas);
+}
+
 /** Cambia una foto de lugar (una posición antes o después) y deja el orden 0, 1, 2…. */
 export async function moverFoto(supabase: Supabase, productoId: string, fotoId: string, paso: -1 | 1): Promise<string | null> {
   const { data, error } = await supabase.from('fotos_producto').select('id').eq('producto_id', productoId).order('orden').order('created_at');

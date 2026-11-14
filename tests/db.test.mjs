@@ -787,6 +787,51 @@ test('ajustes: solo los admins ajustan, y el historial no se puede editar ni bor
   });
 });
 
+async function eliminarProducto(db, id, usuario = ADMIN) {
+  return como(db, 'authenticated', usuario, async () => (await uno(db, 'select public.eliminar_producto($1) as r', [id])).r);
+}
+
+test('eliminar producto: borra sus piezas (también las de baja), fotos, conteos y los lotes que quedan vacíos', async () => {
+  const db = await nuevaBase();
+  const [u] = await inventario(db, [2, 1.5]);
+  const p = (await uno(db, "select id, categoria_id from public.productos where codigo = 'AN-014'"));
+  // Otro producto en otro lote: no se toca.
+  const otro = await producto(db, p.categoria_id, 'AN-015');
+  await lote(db, [{ producto_id: otro.id, peso_gramos: 3 }]);
+  await rpc(db, 'ajustar_inventario', { tipo: 'baja', unidades: [u], motivo: 'Daño' });
+  await rpc(db, 'registrar_conteo', { producto_id: p.id, contadas: 1, faltantes: [] });
+  const foto = await como(db, 'authenticated', ADMIN, () =>
+    uno(db, 'insert into public.fotos_producto (producto_id) values ($1) returning id', [p.id]),
+  );
+  await assert.rejects(eliminarProducto(db, p.id, NO_ADMIN), /No autorizado/);
+
+  const r = await eliminarProducto(db, p.id);
+  assert.deepEqual(r, { piezas: 2, lotes: 1, fotos: [foto.id] });
+  assert.equal((await uno(db, "select count(*)::int as n from public.productos where codigo = 'AN-014'")).n, 0);
+  assert.equal((await uno(db, 'select count(*)::int as n from public.unidades')).n, 1, 'queda la pieza del otro producto');
+  assert.equal((await uno(db, 'select count(*)::int as n from public.lotes')).n, 1);
+  assert.equal((await uno(db, 'select count(*)::int as n from public.ajustes')).n, 0);
+  assert.equal((await uno(db, 'select count(*)::int as n from public.conteos')).n, 0);
+  // Fuera de la función, una pieza dada de baja sigue sin poder borrarse.
+  const [v] = (await db.query('select id from public.unidades')).rows.map((x) => x.id);
+  await rpc(db, 'ajustar_inventario', { tipo: 'baja', unidades: [v], motivo: 'Daño' });
+  await como(db, 'authenticated', ADMIN, () =>
+    assert.rejects(db.query('delete from public.unidades where id = $1', [v]), /No se puede borrar una pieza baja/),
+  );
+});
+
+test('eliminar producto: no se elimina si alguna pieza se vendió, aunque la venta esté anulada', async () => {
+  const db = await nuevaBase();
+  const [u] = await inventario(db, [2, 1.5]);
+  const p = (await uno(db, "select id from public.productos where codigo = 'AN-014'")).id;
+  await venta(db, { cajas: [{ piezas: [{ unidad_id: u }] }] });
+  await assert.rejects(eliminarProducto(db, p), /tiene piezas vendidas/);
+  await como(db, 'authenticated', ADMIN, () => db.query('update public.ventas set anulada = true'));
+  assert.equal(await estadoUnidad(db, u), 'disponible');
+  await assert.rejects(eliminarProducto(db, p), /tiene piezas vendidas/);
+  assert.equal((await uno(db, 'select count(*)::int as n from public.unidades')).n, 2, 'no se borró nada');
+});
+
 // ---------------------------------------------------------------------------
 // Fase C1: catálogo público
 // ---------------------------------------------------------------------------

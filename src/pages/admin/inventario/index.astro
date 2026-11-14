@@ -9,6 +9,7 @@ const q = limpiarBusqueda(Astro.url.searchParams.get('q') ?? '');
 const categoria = Astro.url.searchParams.get('categoria') ?? '';
 const inactivos = Astro.url.searchParams.get('inactivos') === '1';
 const bajos = Astro.url.searchParams.get('bajos') === '1';
+const aviso = Astro.url.searchParams.get('aviso') ?? '';
 
 let consulta = supabase.from('existencias').select('*').order('codigo').limit(500);
 if (q) consulta = consulta.or(`codigo.ilike.*${q}*,nombre.ilike.*${q}*`);
@@ -81,6 +82,7 @@ if (productos.length > 0) {
     <button type="submit" class="secundario">Buscar</button>
   </form>
 
+  {aviso && <p class="aviso ok">{aviso}</p>}
   {error && <p class="aviso error">No se pudo cargar el inventario: {error.message}</p>}
 
   {

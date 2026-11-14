@@ -13,7 +13,7 @@ import {
   type UnidadDetalle,
 } from '../../../../lib/inventario';
 import type { PiezaVendida } from '../../../../lib/informes';
-import { borrarFoto, moverFoto, subirFoto, urlFoto, type FotoProducto } from '../../../../lib/catalogo';
+import { borrarArchivosFotos, borrarFoto, moverFoto, subirFoto, urlFoto, type FotoProducto } from '../../../../lib/catalogo';
 import FotosProducto from '../../../../components/admin/FotosProducto.astro';
 
 const supabase = Astro.locals.supabase;
@@ -45,6 +45,18 @@ if (Astro.request.method === 'POST') {
       return Astro.redirect(
         `/admin/inventario/productos/${id}${texto ? `?aviso=${encodeURIComponent(texto)}` : ''}${accion === 'foto-subir' ? '' : '#fotos'}`,
       );
+    }
+  } else if (accion === 'eliminar' && !nuevo) {
+    // Borra el producto con sus piezas, fotos, conteos y ajustes; no deja si alguna pieza se vendió.
+    const { data, error: fallo } = await supabase.rpc('eliminar_producto', { p_id: id });
+    if (fallo) error = mensajeError(fallo.message);
+    else {
+      const r = data as { piezas: number; lotes: number; fotos: string[] };
+      await borrarArchivosFotos(supabase, id, r.fotos ?? []);
+      const partes = [`Producto eliminado`];
+      if (r.piezas > 0) partes.push(`con ${r.piezas} ${r.piezas === 1 ? 'pieza' : 'piezas'}`);
+      if (r.lotes > 0) partes.push(`(${r.lotes === 1 ? 'se borró 1 lote que quedó vacío' : `se borraron ${r.lotes} lotes que quedaron vacíos`})`);
+      return Astro.redirect(`/admin/inventario?aviso=${encodeURIComponent(partes.join(' ') + '.')}`);
     }
   } else if (accion === 'baja' || accion === 'reintegro') {
     // Bajas y reintegros de piezas sueltas, con motivo (quedan en el historial).
@@ -366,6 +378,28 @@ const valor = (campo: string, original: string | number | null | undefined) =>
           </div>
         </section>
       )}
+
+      <section class="eliminar">
+        <h2>Eliminar producto</h2>
+        {vendidas.length > 0 || todas.some((p) => p.estado === 'vendida') ? (
+          <p class="ayuda">
+            Este producto tiene piezas vendidas, así que no se puede eliminar: sus ventas y su contabilidad lo necesitan. Si ya
+            no lo trabajas, quita la marca de "Activo" arriba y guarda: deja de salir en ventas y en el catálogo.
+          </p>
+        ) : (
+          <form
+            method="post"
+            data-confirmar={`¿Eliminar ${producto!.codigo} · ${producto!.nombre}${todas.length > 0 ? ` y sus ${todas.length} ${todas.length === 1 ? 'pieza' : 'piezas'} del inventario` : ''}${fotos.length > 0 ? `, con sus fotos` : ''}? No se puede deshacer.`}
+          >
+            <input type="hidden" name="accion" value="eliminar" />
+            <p class="ayuda">
+              Para un producto creado por error. Se borran también sus piezas{todas.length > 0 ? ` (${todas.length})` : ''}, fotos,
+              conteos y ajustes, y los lotes que queden vacíos. No se puede deshacer.
+            </p>
+            <button type="submit" class="secundario">Eliminar producto</button>
+          </form>
+        )}
+      </section>
       </>
     )
   }
@@ -382,9 +416,20 @@ const valor = (campo: string, original: string | number | null | undefined) =>
     font-weight: 700;
     padding: 0 0.25rem;
   }
+  .eliminar {
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--borde);
+  }
 </style>
 
 <script>
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-confirmar]')) {
+    form.addEventListener('submit', (e) => {
+      if (!confirm(form.dataset.confirmar)) e.preventDefault();
+    });
+  }
+
   document.querySelector<HTMLFormElement>('#bajas')?.addEventListener('submit', (e) => {
     const form = e.currentTarget as HTMLFormElement;
     const n = form.querySelectorAll('input[name="unidades"]:checked').length;

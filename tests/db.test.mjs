@@ -932,6 +932,7 @@ async function inventarioConAliado(db, pesos, precioAliado = 300000) {
   await como(db, 'authenticated', ADMIN, async () => {
     await db.query("update public.categorias set precio_aliado_gramo_cop = $1 where nombre = 'Anillos'", [precioAliado]);
     await db.query("insert into public.fotos_producto (producto_id) select id from public.productos where codigo = 'AN-014'");
+    await db.query("update public.productos set publicado = true where codigo = 'AN-014'");
   });
   return ids;
 }
@@ -944,7 +945,7 @@ test('aliados: el enlace trae precio de aliado, precio público sugerido y canti
 
   const c = await catalogoAliado(db, a.token);
   assert.equal(c.aliado, 'Laura', 'solo el primer nombre');
-  assert.equal(c.productos.length, 1, 'aparece aunque no esté publicado en el catálogo público');
+  assert.equal(c.productos.length, 1);
   const [p] = c.productos;
   assert.equal(p.codigo, 'AN-014');
   assert.equal(p.fotos.length, 1);
@@ -957,20 +958,33 @@ test('aliados: el enlace trae precio de aliado, precio público sugerido y canti
   const acceso = await como(db, 'authenticated', ADMIN, () => uno(db, 'select ultimo_acceso from public.aliados where id = $1', [a.id]));
   assert.ok(acceso.ultimo_acceso, 'anota el último acceso');
 
-  // Al vender una de 2 g, la cantidad baja; el catálogo público sigue vacío (no está publicado).
+  // Al vender una de 2 g, la cantidad baja.
   await venta(db, { cajas: [{ piezas: [{ unidad_id: u2a }] }] });
   const despues = (await catalogoAliado(db, a.token)).productos[0].opciones;
   assert.deepEqual(despues.map((o) => o.cantidad), [1, 1]);
-  assert.deepEqual(await catalogo(db), []);
 });
 
-test('aliados: sin precio de aliado en la categoría o sin foto, el producto no aparece', async () => {
+test('aliados: mismas reglas del público (marcado y con foto); sin precio de aliado sale sin precio y sin piezas, agotado', async () => {
   const db = await nuevaBase();
-  await inventario(db, [2]);
+  const [u] = await inventario(db, [2]);
   const a = await aliado(db);
-  assert.deepEqual((await catalogoAliado(db, a.token)).productos, [], 'la categoría no tiene precio de aliado');
-  await como(db, 'authenticated', ADMIN, () => db.query("update public.categorias set precio_aliado_gramo_cop = 300000"));
+  const p = (await uno(db, "select id from public.productos where codigo = 'AN-014'")).id;
+  await como(db, 'authenticated', ADMIN, () => db.query('update public.productos set publicado = true where id = $1', [p]));
   assert.deepEqual((await catalogoAliado(db, a.token)).productos, [], 'sin foto');
+  await como(db, 'authenticated', ADMIN, () => db.query('insert into public.fotos_producto (producto_id) values ($1)', [p]));
+  // La categoría no tiene precio de aliado: aparece con precio null y el público sugerido.
+  const [sinPrecio] = (await catalogoAliado(db, a.token)).productos;
+  assert.deepEqual(sinPrecio.opciones.map((o) => [Number(o.peso_gramos), o.precio_cop, Number(o.precio_publico_cop), o.cantidad]), [[2, null, 800000, 1]]);
+  await assert.rejects(ventaAliado(db, a.id, [{ producto_id: p, peso_gramos: 2, cantidad: 1 }]), /precio para aliados/);
+  // Sin marcar para el catálogo no aparece.
+  await como(db, 'authenticated', ADMIN, () => db.query('update public.productos set publicado = false where id = $1', [p]));
+  assert.deepEqual((await catalogoAliado(db, a.token)).productos, [], 'sin marcar');
+  await como(db, 'authenticated', ADMIN, () => db.query('update public.productos set publicado = true where id = $1', [p]));
+  // Vendida la única pieza, sale agotado.
+  await venta(db, { cajas: [{ piezas: [{ unidad_id: u }] }] });
+  const [agotado] = (await catalogoAliado(db, a.token)).productos;
+  assert.equal(agotado.codigo, 'AN-014');
+  assert.deepEqual(agotado.opciones, []);
 });
 
 test('aliados: código inválido, inexistente o de un aliado inactivo no devuelve nada', async () => {
@@ -1213,12 +1227,13 @@ test('precio fijo por unidad: reemplaza peso × precio por gramo en la venta, el
   const va = await ventaAliado(db, a.id, [{ producto_id: p, peso_gramos: 1.5, cantidad: 1 }]);
   assert.equal(Number(va.monto_cop), 15000);
 
-  // Sin precio fijo de aliado ni precio de aliado en la categoría, no se le vende ni sale en su catálogo.
+  // Sin precio fijo de aliado ni precio de aliado en la categoría, sale sin precio y no se le vende.
   await como(db, 'authenticated', ADMIN, async () => {
     await db.query('update public.productos set precio_aliado_unitario_cop = null where id = $1', [p]);
     await db.query("update public.categorias set precio_aliado_gramo_cop = null where nombre = 'Anillos'");
   });
-  assert.equal((await catalogoAliado(db, a.token)).productos.length, 0);
+  assert.deepEqual((await catalogoAliado(db, a.token)).productos[0].opciones.map((o) => o.precio_cop), [null]);
+  await assert.rejects(ventaAliado(db, a.id, [{ producto_id: p, peso_gramos: 2, cantidad: 1 }]), /precio para aliados/);
 });
 
 test('venta por cantidad: toma esa cantidad de piezas del lote más antiguo y no deja vender más de las que hay', async () => {

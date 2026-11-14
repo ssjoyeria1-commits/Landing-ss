@@ -1,7 +1,8 @@
 ---
 // Cuerpo de /aliados/{token}: lo disponible para un aliado, por categoría. Cada tarjeta lleva la foto
 // principal, el nombre, el código y por cada peso cuántas hay, el precio de aliado y el público
-// sugerido. "Compartir" manda las fotos con un texto (sin precio: cada aliado pone el suyo) por el
+// sugerido ("Por confirmar" si aún no tiene precio de aliado); sin piezas, "Agotado" al final de su
+// categoría. "Compartir" manda las fotos con un texto (sin precio: cada aliado pone el suyo) por el
 // menú de compartir del celular; "Descargar fotos" las guarda. Lo usan /aliados/[token] y /pruebas/aliados.
 import { peso } from '../../lib/caja';
 import { anclaCategoria, type ProductoAliado } from '../../lib/catalogo';
@@ -23,13 +24,15 @@ const porCategoria = categorias.map((nombre) => ({
 
 /** Texto que acompaña las fotos al compartir: pieza y pesos disponibles, sin precios. */
 const textoCompartir = (p: ProductoAliado) =>
-  `${p.nombre} · Oro 18k\n${p.opciones.length === 1 ? 'Peso' : 'Pesos disponibles'}: ${p.opciones.map((o) => peso(o.peso_gramos)).join(' · ')}`;
+  p.opciones.length === 0
+    ? `${p.nombre} · Oro 18k\nAgotado por ahora`
+    : `${p.nombre} · Oro 18k\n${p.opciones.length === 1 ? 'Peso' : 'Pesos disponibles'}: ${p.opciones.map((o) => peso(o.peso_gramos)).join(' · ')}`;
 ---
 
 <header class="encabezado">
   <h1 class="aparece">Hola, {aliado}</h1>
   <p class="aparece">
-    Lo disponible hoy con tus precios de aliado. Se actualiza solo: si una pieza se vende, sale de aquí. Este enlace es
+    Lo disponible hoy con tus precios de aliado. Se actualiza solo: si una pieza se vende, sale de aquí, y lo que se acaba queda marcado como agotado. Este enlace es
     solo para ti; a tus clientes compárteles las fotos.
   </p>
   {
@@ -55,13 +58,17 @@ const textoCompartir = (p: ProductoAliado) =>
       <ul class="rejilla">
         {c.productos.map((p, ip) => (
           <li class="aparece" style={`--orden: ${ip % 4}`}>
-            <article class="tarjeta">
+            <article class:list={['tarjeta', { agotado: p.opciones.length === 0 }]}>
               <span class="foto">
+                {p.opciones.length === 0 && <span class="sello">Agotado</span>}
                 <img src={p.fotos[0].mini} alt={p.nombre} width="480" height="600" loading={ip < 4 ? 'eager' : 'lazy'} decoding="async" />
                 {p.fotos.length > 1 && <span class="cuantas">{p.fotos.length} fotos</span>}
               </span>
               <span class="nombre luz-dorada">{p.nombre}</span>
               <span class="codigo">{p.codigo}</span>
+              {p.opciones.length === 0 ? (
+                <p class="sin-piezas">Agotado por ahora.</p>
+              ) : (
               <table class="pesos">
                 <thead>
                   <tr>
@@ -77,12 +84,13 @@ const textoCompartir = (p: ProductoAliado) =>
                         {peso(o.peso_gramos)}
                         <span class="cantidad">× {o.cantidad}</span>
                       </td>
-                      <td class="mio">{pesos(o.precio_cop)}</td>
+                      <td class:list={['mio', { pendiente: o.precio_cop === null }]}>{o.precio_cop === null ? 'Por confirmar' : pesos(o.precio_cop)}</td>
                       <td class="sugerido">{pesos(o.precio_publico_cop)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              )}
               <div
                 class="acciones-foto"
                 data-fotos={JSON.stringify(p.fotos.map((f) => f.grande))}
@@ -244,6 +252,35 @@ const textoCompartir = (p: ProductoAliado) =>
     object-fit: cover;
   }
 
+  /* Agotado: la foto apagada con un sello encima (como en el catálogo público). */
+  .agotado .foto img {
+    filter: grayscale(0.7) brightness(0.6);
+  }
+
+  .sello {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    translate: -50% -50%;
+    padding: 0.3rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--tinta);
+    background: rgb(0 0 0 / 0.65);
+    box-shadow: inset 0 0 0 1px rgb(242 236 228 / 0.5);
+  }
+
+  .sin-piezas {
+    margin: 0.75rem 0 0;
+    color: var(--gris);
+    font-size: 0.92rem;
+  }
+
   .cuantas {
     position: absolute;
     right: 0.6rem;
@@ -308,6 +345,12 @@ const textoCompartir = (p: ProductoAliado) =>
 
   .mio {
     font-weight: 700;
+  }
+
+  .mio.pendiente {
+    font-weight: 400;
+    font-style: italic;
+    color: var(--gris);
   }
 
   .sugerido {

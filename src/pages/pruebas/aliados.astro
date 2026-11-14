@@ -10,9 +10,9 @@ if (import.meta.env.PROD) return new Response(null, { status: 404 });
 
 const base = 'https://dtwlwoyvpcpbaswbkanx.supabase.co/storage/v1/object/public/catalogo';
 const foto = (ruta: string) => ({ grande: `${base}/${ruta}.webp`, mini: `${base}/${ruta}-mini.webp` });
-const o = (g: number, publico: number, aliado: number, cantidad: number) => ({
+const o = (g: number, publico: number, aliado: number | null, cantidad: number) => ({
   peso_gramos: g,
-  precio_cop: Math.round(g * aliado),
+  precio_cop: aliado === null ? null : Math.round(g * aliado),
   precio_publico_cop: Math.round(g * publico),
   cantidad,
 });
@@ -44,6 +44,22 @@ const demo: ProductoAliado[] = [
     categoria: 'Candongas',
     fotos: [foto('a21e5ec1-f3d3-4d9e-8701-8ab12130c969/27352351-e08f-4937-9591-dc641e3018ca')],
     opciones: [o(1.19, 415000, 330000, 5)],
+  },
+  {
+    codigo: 'CD-002',
+    nombre: 'Candonga sin precio de aliado',
+    descripcion: null,
+    categoria: 'Candongas',
+    fotos: [foto('a21e5ec1-f3d3-4d9e-8701-8ab12130c969/27352351-e08f-4937-9591-dc641e3018ca')],
+    opciones: [o(1.05, 415000, null, 2)],
+  },
+  {
+    codigo: 'CD-003',
+    nombre: 'Candonga agotada',
+    descripcion: null,
+    categoria: 'Candongas',
+    fotos: [foto('a21e5ec1-f3d3-4d9e-8701-8ab12130c969/27352351-e08f-4937-9591-dc641e3018ca')],
+    opciones: [],
   },
 ];
 

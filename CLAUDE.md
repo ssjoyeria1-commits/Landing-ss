@@ -228,6 +228,8 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   - [x] A3 — `/aliados/[token]` (`CatalogoAliado.astro`): por peso, cantidad, su precio y el sugerido;
         Compartir (fotos + texto sin precio, menú del celular) y Descargar fotos. `noindex`, sin caché,
         `no-referrer`, límite de 30 por minuto. Prueba: `/pruebas/aliados`.
+        Desde el 14 nov (migración `20261114120000_catalogo_aliado_agotados.sql`): mismas reglas del público (marcado para
+        el catálogo, activo y con foto; sin piezas, "Agotado"); sin precio de aliado sale con "Por confirmar" y no se le vende.
   - [x] A4 — ventas a aliados (decisión 6 nov: **sin chip**, con pago pendiente o pagado). Una venta es
         de un cliente o de un aliado (`ventas.aliado_id`, `pagada_aliado_at`); `registrar_venta_aliado(p)`
         toma por producto y peso las piezas del lote más antiguo, a precio de aliado; su caja es interna y

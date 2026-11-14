@@ -137,7 +137,8 @@ export async function obtenerCatalogo(): Promise<ProductoPublico[]> {
 /** Un peso disponible para un aliado: su precio, el público sugerido y cuántas piezas hay. */
 export interface OpcionAliado {
   peso_gramos: number;
-  precio_cop: number;
+  /** null: el producto aún no tiene precio de aliado ("Precio por confirmar"). */
+  precio_cop: number | null;
   precio_publico_cop: number;
   cantidad: number;
 }
@@ -169,7 +170,7 @@ export async function obtenerCatalogoAliado(token: string): Promise<CatalogoAlia
       fotos: p.fotos.map((ruta) => ({ grande: urlFoto(ruta), mini: urlFoto(ruta, 'mini') })),
       opciones: p.opciones.map((o) => ({
         peso_gramos: Number(o.peso_gramos),
-        precio_cop: Number(o.precio_cop),
+        precio_cop: o.precio_cop == null ? null : Number(o.precio_cop),
         precio_publico_cop: Number(o.precio_publico_cop),
         cantidad: Number(o.cantidad),
       })),

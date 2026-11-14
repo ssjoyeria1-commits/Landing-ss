@@ -1,6 +1,6 @@
 ---
 // SOLO DESARROLLO: el catálogo con datos de prueba, sin base de datos.
-// ?datos=demo|peor|uno|vacio|temporal y ?ficha=CODIGO para ver la ficha de una pieza (o uno que no
+// ?datos=demo|peor|uno|vacio|temporal y ?ficha=CODIGO para ver la ficha de una pieza (AN-040 está agotada) (o uno que no
 // exista para "ya no está disponible"). ?whatsapp=1 muestra el botón con un número de ejemplo. En producción responde 404.
 import Publica from '../../layouts/Publica.astro';
 import Catalogo from '../../components/catalogo/Catalogo.astro';
@@ -31,6 +31,7 @@ const demo: ProductoPublico[] = [
   { codigo: 'AN-014', nombre: 'Anillo solitario', descripcion: 'Oro amarillo con circón central, acabado brillante.', categoria: 'Anillos', fotos: [foto(42, 'anillo'), foto(38, 'anillo', [1, 1]), foto(46, 'anillo', [3, 2])], opciones: [o(2.1), o(2.45), o(3.02)] },
   { codigo: 'AN-020', nombre: 'Argolla media caña', descripcion: null, categoria: 'Anillos', fotos: [foto(40, 'anillo')], opciones: [o(3.8)] },
   { codigo: 'AN-031', nombre: 'Anillo rombo calado', descripcion: 'Inspirado en el rombo del imagotipo.', categoria: 'Anillos', fotos: [foto(30, 'anillo'), foto(34, 'anillo')], opciones: [o(1.9), o(2.2), o(2.6), o(2.9), o(3.3)] },
+  { codigo: 'AN-040', nombre: 'Anillo trenzado', descripcion: 'Agotado por ahora.', categoria: 'Anillos', fotos: [foto(36, 'anillo'), foto(40, 'anillo')], opciones: [] },
   { codigo: 'CA-002', nombre: 'Cadena tejido lazo 50 cm', descripcion: 'Broche de seguridad.', categoria: 'Cadenas', fotos: [foto(44, 'cadena')], opciones: [o(4.5, 380000), o(5.1, 380000)] },
   { codigo: 'CA-008', nombre: 'Cadena con dije de rombo', descripcion: null, categoria: 'Cadenas', fotos: [foto(36, 'cadena'), foto(40, 'cadena')], opciones: [o(3.25, 380000)] },
   { codigo: 'TO-011', nombre: 'Topos de bolita', descripcion: null, categoria: 'Aretes', fotos: [foto(48, 'aretes')], opciones: [o(0.8, 450000), o(1.1, 450000)] },

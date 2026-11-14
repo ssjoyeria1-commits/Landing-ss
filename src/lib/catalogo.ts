@@ -112,10 +112,11 @@ export interface ProductoPublico {
   descripcion: string | null;
   categoria: string;
   fotos: { grande: string; mini: string }[];
+  /** Vacío: agotado. */
   opciones: OpcionPublica[];
 }
 
-/** Productos publicados, con foto y con piezas disponibles, ya con las direcciones de sus fotos. */
+/** Productos publicados y con foto (sin piezas disponibles llegan con opciones vacías: agotados), ya con las direcciones de sus fotos. */
 export async function obtenerCatalogo(): Promise<ProductoPublico[]> {
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },

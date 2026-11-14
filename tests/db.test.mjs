@@ -840,7 +840,7 @@ async function catalogo(db) {
   return como(db, 'anon', null, async () => (await uno(db, 'select public.catalogo_publico() as c')).c);
 }
 
-test('catálogo público: solo productos publicados, con foto y con piezas; un precio por peso, sin cantidades ni costos', async () => {
+test('catálogo público: solo productos publicados y con foto; sin piezas salen agotados; un precio por peso, sin cantidades ni costos', async () => {
   const db = await nuevaBase();
   const [u2a, u2b, u15] = await inventario(db, [2, 2, 1.5]);
   const p = await como(db, 'authenticated', ADMIN, () => uno(db, "select id from public.productos where codigo = 'AN-014'"));
@@ -866,11 +866,23 @@ test('catálogo público: solo productos publicados, con foto y con piezas; un p
   assert.deepEqual(Object.keys(item).sort(), ['categoria', 'codigo', 'descripcion', 'fotos', 'nombre', 'opciones']);
   assert.doesNotMatch(JSON.stringify(item), /costo|disponibles|lote|proveedor/);
 
-  // Vender y dar de baja va quitando pesos; sin piezas, el producto desaparece.
+  // Vender y dar de baja va quitando pesos; sin piezas, sigue con opciones vacías (agotado).
   await venta(db, { cajas: [{ piezas: [{ unidad_id: u15 }, { unidad_id: u2a }] }] });
   assert.deepEqual((await catalogo(db))[0].opciones.map((o) => Number(o.peso_gramos)), [2]);
   await rpc(db, 'ajustar_inventario', { tipo: 'baja', unidades: [u2b], motivo: 'Daño' });
-  assert.deepEqual(await catalogo(db), []);
+  const [agotado] = await catalogo(db);
+  assert.equal(agotado.codigo, 'AN-014');
+  assert.deepEqual(agotado.opciones, []);
+
+  // Uno con piezas va antes que el agotado en la misma categoría, aunque su nombre vaya después.
+  const c = (await uno(db, 'select categoria_id from public.productos where id = $1', [p.id])).categoria_id;
+  const otro = await producto(db, c, 'AN-099');
+  await como(db, 'authenticated', ADMIN, async () => {
+    await db.query("update public.productos set publicado = true, nombre = 'Zafiro' where id = $1", [otro.id]);
+    await db.query('insert into public.fotos_producto (producto_id) values ($1)', [otro.id]);
+  });
+  await lote(db, [{ producto_id: otro.id, peso_gramos: 1 }]);
+  assert.deepEqual((await catalogo(db)).map((x) => x.codigo), ['AN-099', 'AN-014']);
 });
 
 test('catálogo público: el visitante no lee tablas, hasta 5 fotos y solo los admins suben al bucket', async () => {

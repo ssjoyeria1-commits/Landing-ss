@@ -192,6 +192,9 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
         elegido, oculto mientras `whatsappNegocio` sea el de ceros). `noindex`, caché de 60 s.
         Componentes en `src/components/catalogo/`. Portada con "Catálogo" sobre el logo animado
         (con luz dorada) y fondo en degradado negro → vino en las páginas públicas. Publicado.
+  - [x] **Agotados** (13 nov 2026, migración `20261113130000_catalogo_agotados.sql`): un producto publicado y con foto
+        pero sin piezas disponibles sale en `catalogo_publico()` con `opciones` vacío, al final de su categoría: foto
+        apagada con sello "Agotado" y, en la ficha, "Avísame cuando vuelva" por WhatsApp. Prueba: `/pruebas/catalogo?ficha=AN-040`.
 - [ ] **Fase 5 (seguridad, respaldos, rendimiento).** Decisiones (5 nov 2026): repositorio a privado
       (pendiente: la cuenta de GitHub tiene un problema de verificación), reglas fuertes de contraseña
       en lugar de la protección contra contraseñas filtradas (esa es solo del plan Pro), respaldo

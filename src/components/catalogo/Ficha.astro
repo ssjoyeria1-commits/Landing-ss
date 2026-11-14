@@ -1,6 +1,6 @@
 ---
 // Ficha de una pieza del catálogo: sus fotos (se deslizan de lado), cada peso disponible con su
-// precio y el botón de WhatsApp con la pieza y el peso elegido. Sin el producto (vendido, oculto o
+// precio y el botón de WhatsApp con la pieza y el peso elegido (agotada: sin pesos, con un aviso). Sin el producto (vendido, oculto o
 // inexistente) muestra que ya no está disponible. Lo usan /catalogo/[codigo] y /pruebas/catalogo.
 import BotonWhatsApp from '../caja/BotonWhatsApp.astro';
 import { peso } from '../../lib/caja';
@@ -25,6 +25,8 @@ const p = producto;
 // Volver lleva directo a la categoría de la pieza: la portada del catálogo queda arriba, sin repetir la entrada.
 const volverA = p ? `${volver}#${anclaCategoria(p.categoria)}` : volver;
 const una = p?.opciones.length === 1;
+// Publicado y con foto, pero sin piezas: se ve con sus fotos y un aviso de agotado, sin pesos.
+const agotado = p?.opciones.length === 0;
 ---
 
 <p class="volver"><a href={volverA}>← Catálogo</a></p>
@@ -87,6 +89,18 @@ const una = p?.opciones.length === 1;
         <h1 class:list={["luz-dorada", { larga: p.nombre.length > 40 }]}>{p.nombre}</h1>
         {p.descripcion && <p class="descripcion">{p.descripcion}</p>}
 
+        {agotado ? (
+          <>
+            <p class="agotado">Agotado</p>
+            <p class="sutil">Esta pieza está agotada por ahora. Escríbenos y te avisamos cuando vuelva.</p>
+            {conWhatsapp && (
+              <div class="interes">
+                <BotonWhatsApp href={enlaceWhatsApp(numero, MENSAJES.agotadoCatalogo(p.nombre, p.codigo))} texto="Avísame cuando vuelva" />
+              </div>
+            )}
+          </>
+        ) : (
+        <>
         <fieldset class="pesos">
           <legend>{una ? 'Peso disponible' : 'Pesos disponibles'}</legend>
           {p.opciones.map((o, i) => (
@@ -114,6 +128,8 @@ const una = p?.opciones.length === 1;
               color="rojo"
             />
           </div>
+        )}
+        </>
         )}
         <p class="codigo sutil">Referencia {p.codigo}</p>
       </div>
@@ -339,6 +355,18 @@ const una = p?.opciones.length === 1;
 
   .codigo {
     margin-top: 1.25rem;
+  }
+
+  .agotado {
+    display: inline-block;
+    margin: 1.5rem 0 0.75rem;
+    padding: 0.35rem 1.1rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    box-shadow: inset 0 0 0 1px rgb(242 236 228 / 0.5);
   }
 </style>
 

@@ -15,6 +15,10 @@ export const MENSAJES = {
   interesCatalogo: (nombre: string, codigo: string, peso?: string) =>
     `Hola, vi en el catálogo de SS Joyería la pieza ${nombre} (${codigo})${peso ? ` de ${peso}` : ''} y me interesa.`,
 
+  /** Alguien pregunta por una pieza agotada del catálogo web. */
+  agotadoCatalogo: (nombre: string, codigo: string) =>
+    `Hola, vi en el catálogo de SS Joyería la pieza ${nombre} (${codigo}), que está agotada. ¿Me avisan cuando vuelva?`,
+
   /** El socio le manda a un aliado su enlace privado al catálogo con precios de aliado. */
   enlaceAliado: (nombre: string, url: string) =>
     `Hola ${nombre}, este es tu catálogo de SS Joyería con tus precios de aliado y lo disponible hoy: ${url}\nEs solo para ti: no lo compartas con tus clientes (para ellos, comparte las fotos desde ahí).`,

@@ -1,7 +1,7 @@
 ---
 // Cuerpo de /catalogo: piezas por categoría en una cuadrícula de vitrina. Cada tarjeta lleva la foto
-// principal, el nombre y cada peso disponible con su precio (nunca cuántas piezas hay), y abre la
-// ficha de la pieza. Lo usan /catalogo y /pruebas/catalogo.
+// principal, el nombre y cada peso disponible con su precio (nunca cuántas piezas hay), o "Agotado"
+// si no le quedan piezas (van al final de su categoría), y abre la ficha de la pieza. Lo usan /catalogo y /pruebas/catalogo.
 import { peso } from '../../lib/caja';
 import { ANCHO, anclaCategoria, type ProductoPublico } from '../../lib/catalogo';
 import { pesos } from '../../lib/formato';
@@ -59,8 +59,9 @@ const porCategoria = categorias.map((nombre) => ({
       <ul class="rejilla">
         {c.productos.map((p, ip) => (
           <li class="aparece" style={`--orden: ${ip % 4}`}>
-            <a class="tarjeta" href={enlace(p.codigo)}>
+            <a class:list={['tarjeta', { agotado: p.opciones.length === 0 }]} href={enlace(p.codigo)}>
               <span class="foto">
+                {p.opciones.length === 0 && <span class="sello">Agotado</span>}
                 <img
                   src={p.fotos[0].mini}
                   srcset={`${p.fotos[0].mini} ${ANCHO.mini}w, ${p.fotos[0].grande} ${ANCHO.grande}w`}
@@ -74,6 +75,7 @@ const porCategoria = categorias.map((nombre) => ({
               </span>
               <span class="nombre luz-dorada">{p.nombre}</span>
               <span class="precios">
+                {p.opciones.length === 0 && <span class="sin-piezas">Agotado</span>}
                 {p.opciones.slice(0, VISIBLES).map((o) => (
                   <span class="opcion">
                     <span class="peso">{peso(o.peso_gramos)}</span>
@@ -243,6 +245,38 @@ const porCategoria = categorias.map((nombre) => ({
     border-radius: 10px;
     background: var(--franja);
     box-shadow: var(--halo-foto);
+  }
+
+  .foto {
+    position: relative;
+  }
+
+  /* Agotado: la foto apagada con un sello encima; el nombre se sigue leyendo. */
+  .agotado .foto img {
+    filter: grayscale(0.7) brightness(0.6);
+  }
+
+  .sello {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    translate: -50% -50%;
+    padding: 0.3rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--tinta);
+    background: rgb(0 0 0 / 0.65);
+    box-shadow: inset 0 0 0 1px rgb(242 236 228 / 0.5);
+  }
+
+  .sin-piezas {
+    color: var(--gris);
+    letter-spacing: 0.06em;
   }
 
   .foto img {

@@ -229,7 +229,7 @@ const valor = (campo: string, original: string | number | null | undefined) =>
           <label class="check">
             <input type="checkbox" name="publicado" checked={enviado ? enviado.get('publicado') === 'on' : !nuevo && producto!.publicado} /> Mostrar en el catálogo
           </label>
-          <p class="ayuda">Aparece si además tiene al menos una foto y le queda alguna pieza. Muestra cada peso con su precio, nunca cuántas hay.</p>
+          <p class="ayuda">Aparece si además tiene al menos una foto. Muestra cada peso con su precio, nunca cuántas hay; si no le quedan piezas, sale como agotado.</p>
           <div class="campo" style="margin-top: 0.75rem">
             <label for="descripcion_publica">Descripción para el catálogo (opcional)</label>
             <textarea id="descripcion_publica" name="descripcion_publica" rows="2" maxlength="400" placeholder="Oro amarillo de 18k, con circón central.">{valor('descripcion_publica', producto?.descripcion_publica)}</textarea>

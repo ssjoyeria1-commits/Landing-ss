@@ -69,27 +69,20 @@ const textoCompartir = (p: ProductoAliado) =>
               {p.opciones.length === 0 ? (
                 <p class="sin-piezas">Agotado por ahora.</p>
               ) : (
-              <table class="pesos">
-                <thead>
-                  <tr>
-                    <th>Peso</th>
-                    <th>Tu precio</th>
-                    <th>Sugerido</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.opciones.map((o) => (
-                    <tr>
-                      <td>
-                        {peso(o.peso_gramos)}
-                        <span class="cantidad">× {o.cantidad}</span>
-                      </td>
-                      <td class:list={['mio', { pendiente: o.precio_cop === null }]}>{o.precio_cop === null ? 'Por confirmar' : pesos(o.precio_cop)}</td>
-                      <td class="sugerido">{pesos(o.precio_publico_cop)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <ul class="pesos">
+                {p.opciones.map((o) => (
+                  <li>
+                    <span class="peso">
+                      {peso(o.peso_gramos)}
+                      <span class="cantidad">× {o.cantidad}</span>
+                    </span>
+                    <span class:list={['mio', { pendiente: o.precio_cop === null }]}>
+                      {o.precio_cop === null ? 'Por confirmar' : pesos(o.precio_cop)}
+                    </span>
+                    <span class="sugerido">Sugerido {pesos(o.precio_publico_cop)}</span>
+                  </li>
+                ))}
+              </ul>
               )}
               <div
                 class="acciones-foto"
@@ -194,34 +187,35 @@ const textoCompartir = (p: ProductoAliado) =>
     background: var(--rojo);
   }
 
-  /* Una columna en el celular (cada tarjeta lleva su tabla de precios), dos en tableta y tres en
+  /* Igual que el catálogo público: dos por fila en el celular, tres en tableta y de ancho fijo en
      computador. Las filas se centran. */
   .rejilla {
-    --columnas: 1;
-    --hueco: 1.5rem;
+    --columnas: 2;
+    --hueco: 1.25rem;
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 2.5rem var(--hueco);
+    gap: 2rem var(--hueco);
   }
 
   .rejilla > li {
     width: calc((100% - (var(--columnas) - 1) * var(--hueco)) / var(--columnas));
-    max-width: 22rem;
   }
 
   @media (min-width: 40rem) {
     .rejilla {
-      --columnas: 2;
+      --columnas: 3;
+      --hueco: 1.75rem;
+      row-gap: 2.5rem;
     }
   }
 
   @media (min-width: 60rem) {
-    .rejilla {
-      --columnas: 3;
+    .rejilla > li {
+      width: 15.5rem;
     }
   }
 
@@ -232,6 +226,7 @@ const textoCompartir = (p: ProductoAliado) =>
   .tarjeta {
     display: flex;
     flex-direction: column;
+    height: 100%;
     color: var(--tinta);
   }
 
@@ -293,9 +288,9 @@ const textoCompartir = (p: ProductoAliado) =>
   }
 
   .nombre {
-    margin-top: 0.9rem;
+    margin-top: 0.8rem;
     font-family: var(--display);
-    font-size: 1.45rem;
+    font-size: 1.35rem;
     font-weight: 600;
     line-height: 1.15;
     overflow-wrap: anywhere;
@@ -309,38 +304,29 @@ const textoCompartir = (p: ProductoAliado) =>
     letter-spacing: 0.04em;
   }
 
+  /* Cada peso en tres líneas cortas (cabe en media pantalla del celular): peso y cuántas hay, el
+     precio del aliado en negrita y el sugerido para el cliente. */
   .pesos {
-    width: 100%;
-    margin-top: 0.75rem;
-    border-collapse: collapse;
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
     font-size: 0.92rem;
     font-variant-numeric: tabular-nums;
   }
 
-  .pesos th {
-    padding: 0 0 0.3rem;
-    text-align: right;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--gris);
-  }
-
-  .pesos th:first-child,
-  .pesos td:first-child {
-    text-align: left;
-  }
-
-  .pesos td {
-    padding: 0.35rem 0;
-    text-align: right;
+  .pesos li {
+    display: flex;
+    flex-direction: column;
+    padding: 0.4rem 0;
     border-top: 1px solid rgb(242 236 228 / 0.12);
   }
 
-  .cantidad {
-    margin-left: 0.35rem;
+  .peso {
     color: var(--gris);
+  }
+
+  .cantidad {
+    margin-left: 0.3rem;
   }
 
   .mio {
@@ -354,22 +340,25 @@ const textoCompartir = (p: ProductoAliado) =>
   }
 
   .sugerido {
+    font-size: 0.8rem;
     color: var(--gris);
   }
 
+  /* Los botones uno sobre otro: la tarjeta es angosta. Van al pie aunque la tarjeta vecina sea más alta. */
   .acciones-foto {
     display: flex;
+    flex-direction: column;
     gap: 0.5rem;
-    margin-top: 1rem;
+    margin-top: auto;
+    padding-top: 0.9rem;
   }
 
   .acciones-foto > * {
-    flex: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-height: 2.75rem;
-    padding: 0 0.75rem;
+    padding: 0 0.5rem;
     border: 0;
     border-radius: 999px;
     font: inherit;

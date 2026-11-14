@@ -3,7 +3,7 @@ import Admin from '../../../layouts/Admin.astro';
 import FormularioVenta from '../../../components/admin/FormularioVenta.astro';
 import { hoyBogota } from '../../../lib/formato';
 import { leerCobro, leerFormularioVenta, leerVentaAliado } from '../../../lib/venta';
-import { listaPaises } from '../../../lib/whatsapp';
+import { listaPaises, partesWhatsapp } from '../../../lib/whatsapp';
 import { mensajeError, type UnidadDetalle } from '../../../lib/inventario';
 
 let error = '';
@@ -63,9 +63,18 @@ const paises = listaPaises();
 const hoy = hoyBogota();
 // Desde la ficha de un aliado se llega con ?aliado=ID para dejarlo elegido.
 const aliadoInicial = aliados.find((a) => a.id === Astro.url.searchParams.get('aliado'))?.id ?? '';
+// Desde la ficha de un cliente se llega con ?cliente=ID para dejar su WhatsApp escrito (el formulario
+// lo busca y lo muestra como cliente existente).
+let clienteInicial: { pais: string; numero: string } | null = null;
+const clienteId = Astro.url.searchParams.get('cliente');
+if (clienteId && /^[0-9a-f-]{36}$/i.test(clienteId)) {
+  const { data } = await Astro.locals.supabase.from('clientes').select('whatsapp').eq('id', clienteId).maybeSingle();
+  const partes = data?.whatsapp ? partesWhatsapp(data.whatsapp as string) : null;
+  if (partes) clienteInicial = { pais: partes.pais, numero: partes.nacional };
+}
 const tipoInicial: 'cliente' | 'aliado' = aliadoInicial || Astro.url.searchParams.get('tipo') === 'aliado' ? 'aliado' : 'cliente';
 ---
 
 <Admin title="Registrar venta">
-  <FormularioVenta {error} {unidades} {aliados} {mediosPago} {paises} {hoy} {aliadoInicial} tipoInicial={tipoInicial} />
+  <FormularioVenta {error} {unidades} {aliados} {mediosPago} {paises} {hoy} {aliadoInicial} {clienteInicial} tipoInicial={tipoInicial} />
 </Admin>

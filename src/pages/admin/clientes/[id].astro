@@ -83,7 +83,7 @@ const c = cliente as ClienteCirculo;
     </p>
     <div class="acciones">
       <a class="boton" href={enlaceAviso(c)} target="_blank" rel="noopener">Avisar por WhatsApp</a>
-      <a class="boton secundario" href="/admin/ventas/nueva">Registrar otra venta</a>
+      <a class="boton secundario" href={`/admin/ventas/nueva?cliente=${c.id}`}>Registrar otra venta</a>
     </div>
   </div>
 

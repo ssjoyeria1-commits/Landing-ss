@@ -12,9 +12,11 @@ interface Props {
   hoy: string;
   aliadoInicial: string;
   tipoInicial: 'cliente' | 'aliado';
+  /** Cliente ya elegido (desde su ficha): país y número nacional de su WhatsApp. */
+  clienteInicial?: { pais: string; numero: string } | null;
 }
 
-const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoInicial } = Astro.props;
+const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoInicial, clienteInicial = null } = Astro.props;
 ---
 
 <form method="post" id="venta" novalidate>
@@ -61,12 +63,12 @@ const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoIn
       <div class="campo">
         <label for="pais">País del WhatsApp</label>
         <select id="pais" name="pais">
-          {paises.map((p) => <option value={p.codigo}>{p.nombre}</option>)}
+          {paises.map((p) => <option value={p.codigo} selected={p.codigo === clienteInicial?.pais}>{p.nombre}</option>)}
         </select>
       </div>
       <div class="campo">
         <label for="whatsapp">WhatsApp</label>
-        <input id="whatsapp" name="whatsapp" type="tel" inputmode="tel" autocomplete="off" required placeholder="300 123 4567" />
+        <input id="whatsapp" name="whatsapp" type="tel" inputmode="tel" autocomplete="off" required placeholder="300 123 4567" value={clienteInicial?.numero} />
       </div>
     </div>
     <p class="ayuda" id="estado-cliente">Escribe el número para saber si el cliente ya existe.</p>
@@ -786,8 +788,14 @@ const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoIn
       estado.textContent = 'Escribe el número para saber si el cliente ya existe.';
       return;
     }
-    const r = await fetch(`/admin/api/cliente?pais=${pais.value}&numero=${encodeURIComponent(numero)}`);
-    const datos = await r.json();
+    let datos;
+    try {
+      const r = await fetch(`/admin/api/cliente?pais=${pais.value}&numero=${encodeURIComponent(numero)}`);
+      datos = await r.json();
+    } catch {
+      if (id === consulta) estado.textContent = 'No se pudo buscar el cliente. Revisa la conexión o vuelve a escribir el número.';
+      return;
+    }
     if (id !== consulta) return;
     if (!datos.valido) {
       estado.textContent = 'Número no válido para el país elegido.';
@@ -806,6 +814,8 @@ const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoIn
     espera = window.setTimeout(buscarCliente, 400);
   });
   pais.addEventListener('change', buscarCliente);
+  // Llegó desde la ficha del cliente con su número ya escrito: se busca de una vez.
+  if (whatsapp.value.trim()) buscarCliente();
 
   // Envío sin recargar, para no perder las cajas si hay un error.
   form.addEventListener('submit', async (e) => {

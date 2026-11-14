@@ -29,6 +29,16 @@ export function normalizarWhatsapp(numero: string, pais: string): string | null 
   return tel?.isValid() ? tel.number : null;
 }
 
+/** Separa un número guardado (+57…) en país y número nacional, para llenar el formulario de venta. */
+export function partesWhatsapp(numero: string): { pais: string; nacional: string } | null {
+  const tel = parsePhoneNumberFromString(numero);
+  if (!tel?.country) return null;
+  // Si el número nacional no vuelve a dar el mismo (pasa con algunos de México), va completo con +.
+  const nacional = tel.formatNational();
+  const vuelve = parsePhoneNumberFromString(nacional, tel.country);
+  return { pais: tel.country, nacional: vuelve?.isValid() && vuelve.number === tel.number ? nacional : tel.formatInternational() };
+}
+
 export function formatoWhatsapp(numero: string): string {
   return parsePhoneNumberFromString(numero)?.formatInternational() ?? numero;
 }

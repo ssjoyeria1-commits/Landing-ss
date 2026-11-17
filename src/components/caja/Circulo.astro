@@ -174,12 +174,14 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     }
   }
 
-  /* El tramo en curso: un brillo que lo recorre de vez en cuando (la luz dorada de la marca). */
-  .actual .relleno::after {
+  /* El tramo en curso: un brillo que lo recorre de punta a punta de vez en cuando (la luz dorada de la
+     marca), también por la parte que falta por llenar. */
+  .actual .barra::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(100deg, transparent 30%, rgb(255 250 235 / 0.75) 50%, transparent 70%);
+    border-radius: inherit;
+    background: linear-gradient(100deg, transparent 30%, rgb(255 240 200 / 0.7) 50%, transparent 70%);
     transform: translateX(-100%);
     animation: tramo-brillo 2.6s ease-in-out 2.4s infinite;
   }
@@ -226,7 +228,7 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
 
   @media (prefers-reduced-motion: reduce) {
     .relleno,
-    .actual .relleno::after {
+    .actual .barra::after {
       animation: none;
     }
   }

@@ -17,22 +17,20 @@ const faltan = proximo_hito === null ? 0 : proximo_hito - gramos;
 const nivelActual = hitos.filter((h) => h <= gramos).length;
 // Con los 15 g completos solo quedan el símbolo en oro (más grande), el mensaje y el código.
 const completo = proximo_hito === null;
-// Solo la barra del nivel que se está llenando: va del hito anterior (0, 5 o 10 g) al siguiente; `lleno` de 0 a 1.
-const tramo = (() => {
-  const i = hitos.findIndex((h) => gramos < h);
-  if (i < 0) return null;
+// Cada tramo va de un hito al siguiente; `lleno` de 0 a 1. El que está en curso es el "actual".
+const tramos = hitos.map((hasta, i) => {
   const desde = i === 0 ? 0 : hitos[i - 1];
-  const hasta = hitos[i];
-  return { nivel: i + 1, desde, hasta, lleno: Math.min(1, Math.max(0, (gramos - desde) / (hasta - desde))) };
-})();
+  const lleno = Math.min(1, Math.max(0, (gramos - desde) / (hasta - desde)));
+  return { hasta, lleno, actual: gramos >= desde && gramos < hasta };
+});
 const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(codigo_referido))}`;
 ---
 
 <section class="bloque">
   <h2 class="titulo-fuera">Tu Círculo SS</h2>
   <div class:list={['seccion circulo', { completo }]}>
-    {/* Avance hacia el próximo nivel: una barra del hito anterior al siguiente que se llena en dorado cuando entra en
-        pantalla (y la cifra sube a la par). */}
+    {/* Avance de nivel a nivel: tres tramos (0–5, 5–10 y 10–15 g) que se llenan en dorado, uno tras otro, cuando
+        la barra entra en pantalla. */}
     {!completo && (
       <div
         class="avance"
@@ -43,23 +41,22 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
         aria-valuetext={`${verGramos(gramos)} de ${TOPE} g`}
       >
         <p class="cifra">
-          <strong data-gramos={gramos} data-desde={tramo?.desde ?? 0}>{gramos.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</strong>
+          <strong>{gramos.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</strong>
           <span>gramos</span>
         </p>
-        {tramo && (
-          <div class="tramo actual" aria-hidden="true" style={`--lleno: ${tramo.lleno}`}>
-            <span class="barra">
-              <span class="relleno" />
-            </span>
-            <span class="extremos">
-              <span>{tramo.desde} g</span>
-              <span class="meta">
-                <span class="rombo" />
-                Nivel {tramo.nivel} · {tramo.hasta} g
+        <ol class="tramos" aria-hidden="true">
+          {tramos.map((t, i) => (
+            <li class:list={{ ganado: t.lleno === 1, actual: t.actual }} style={`--lleno: ${t.lleno}; --i: ${i}`}>
+              <span class="barra">
+                <span class="relleno" />
               </span>
-            </span>
-          </div>
-        )}
+              <span class="marca">
+                <span class="rombo" />
+                Nivel {i + 1} · {t.hasta} g
+              </span>
+            </li>
+          ))}
+        </ol>
       </div>
     )}
 
@@ -103,38 +100,28 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
 
 <script>
   // Llenado de la barra del Círculo: arranca la primera vez que la barra se ve (el Círculo suele estar más abajo
-  // de las piezas). La barra llena tardaría LLENA ms (la del cliente, su parte; al menos MINIMO) y la cifra sube a
-  // la par, desde el hito anterior hasta sus gramos. Sin IntersectionObserver o con "reducir movimiento", la barra
-  // ya se ve llena (no se toca nada).
-  const LLENA = 4000;
-  const MINIMO = 2000;
-  const formato = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 });
+  // de las piezas). Cada tramo completo tarda TRAMO ms y el en curso, su parte. La cifra no se anima: se ve fija.
+  // Sin IntersectionObserver o con "reducir movimiento", la barra ya se ve llena (no se toca nada).
+  const TRAMO = 1700;
   if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     for (const avance of document.querySelectorAll<HTMLElement>('.circulo .avance')) {
-      const cifra = avance.querySelector<HTMLElement>('[data-gramos]')!;
-      const total = Number(cifra.dataset.gramos);
-      const desde = Number(cifra.dataset.desde);
-      const tramo = avance.querySelector<HTMLElement>('.tramo');
-      if (!tramo) continue;
-      const lleno = Number(getComputedStyle(tramo).getPropertyValue('--lleno')) || 0;
-      const duracion = lleno > 0 ? Math.max(lleno * LLENA, MINIMO) : 0;
-      tramo.style.setProperty('--dura', `${duracion}ms`);
-      tramo.style.setProperty('--empieza', '0ms');
+      const tramos = [...avance.querySelectorAll<HTMLElement>('.tramos li')];
+      // Cuánto se llena cada tramo (0 a 1) y cuándo empieza: el siguiente arranca cuando termina el anterior.
+      let inicio = 0;
+      for (const li of tramos) {
+        const lleno = Number(getComputedStyle(li).getPropertyValue('--lleno')) || 0;
+        const dura = Math.max(lleno * TRAMO, lleno > 0 ? 700 : 0);
+        li.style.setProperty('--dura', `${dura}ms`);
+        li.style.setProperty('--empieza', `${inicio}ms`);
+        inicio += dura;
+      }
       avance.classList.add('listo');
-      cifra.textContent = formato.format(desde);
 
       const observador = new IntersectionObserver(
         (entradas) => {
           if (!entradas.some((e) => e.isIntersecting)) return;
           observador.disconnect();
           avance.classList.add('en-vista');
-          const t0 = performance.now();
-          const subir = (ahora: number) => {
-            const p = Math.min(1, (ahora - t0) / (duracion || 1));
-            cifra.textContent = formato.format(desde + (total - desde) * p);
-            if (p < 1) requestAnimationFrame(subir);
-          };
-          requestAnimationFrame(subir);
         },
         { threshold: 0.6 },
       );
@@ -180,10 +167,20 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     font-variant-numeric: lining-nums tabular-nums;
   }
 
+  /* Tres tramos lado a lado; cada uno con su barra y, debajo, el nivel y sus gramos. */
+  .tramos {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+  }
+
   .barra {
     position: relative;
     display: block;
-    height: 1.25rem;
+    height: 1.1rem;
     overflow: hidden;
     border-radius: 999px;
     background: rgb(242 236 228 / 0.1);
@@ -191,7 +188,7 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
   }
 
   /* El relleno dorado crece de izquierda a derecha. Con JavaScript (.listo) empieza vacío y, al verse la barra
-     (.en-vista), se llena hasta donde va el cliente (--empieza y --dura los pone el script). */
+     (.en-vista), los tramos se llenan uno tras otro (--empieza y --dura los pone el script). */
   .relleno {
     position: absolute;
     inset: 0;
@@ -208,6 +205,35 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
   .listo.en-vista .relleno {
     transform: scaleX(var(--lleno));
     transition: transform var(--dura) linear var(--empieza);
+  }
+
+  /* El nivel se marca en dorado justo cuando su tramo termina de llenarse. */
+  .listo .ganado .marca {
+    color: var(--gris);
+  }
+
+  .listo .ganado .rombo {
+    background: transparent;
+  }
+
+  .listo.en-vista .ganado .marca {
+    color: #e8c46f;
+    transition: color 300ms ease calc(var(--empieza) + var(--dura));
+  }
+
+  .listo.en-vista .ganado .rombo {
+    background: currentColor;
+    animation: rombo-ganado 500ms var(--ease-out) calc(var(--empieza) + var(--dura)) backwards;
+  }
+
+  @keyframes rombo-ganado {
+    0% {
+      background: transparent;
+      transform: rotate(45deg) scale(1);
+    }
+    50% {
+      transform: rotate(45deg) scale(1.8);
+    }
   }
 
   /* El tramo en curso: un brillo que lo recorre de punta a punta de vez en cuando (la luz dorada de la
@@ -238,32 +264,37 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     }
   }
 
-  /* Debajo de la barra: de dónde parte (el nivel anterior) y a qué nivel llega. */
-  .extremos {
+  .marca {
     display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-top: 0.55rem;
-    font-size: 0.85rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    margin-top: 0.5rem;
+    font-size: 0.78rem;
     line-height: 1.2;
     color: var(--gris);
     font-variant-numeric: lining-nums;
   }
 
-  .meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    color: var(--tinta);
-    font-weight: 600;
-  }
-
   .rombo {
     flex: none;
-    width: 0.5rem;
-    height: 0.5rem;
+    width: 0.45rem;
+    height: 0.45rem;
     transform: rotate(45deg);
-    box-shadow: inset 0 0 0 1px #e8c46f;
+    box-shadow: inset 0 0 0 1px currentColor;
+  }
+
+  /* Nivel ganado: la marca en dorado y el rombo lleno. */
+  .ganado .marca {
+    color: #e8c46f;
+  }
+
+  .ganado .rombo {
+    background: currentColor;
+  }
+
+  .actual .marca {
+    color: var(--tinta);
   }
 
   @media (prefers-reduced-motion: reduce) {

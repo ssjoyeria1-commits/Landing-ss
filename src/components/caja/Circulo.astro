@@ -17,17 +17,46 @@ const faltan = proximo_hito === null ? 0 : proximo_hito - gramos;
 const nivelActual = hitos.filter((h) => h <= gramos).length;
 // Con los 15 g completos solo quedan el símbolo en oro (más grande), el mensaje y el código.
 const completo = proximo_hito === null;
+// Cada tramo va de un hito al siguiente; `lleno` de 0 a 1. El que está en curso es el "actual".
+const tramos = hitos.map((hasta, i) => {
+  const desde = i === 0 ? 0 : hitos[i - 1];
+  const lleno = Math.min(1, Math.max(0, (gramos - desde) / (hasta - desde)));
+  return { hasta, lleno, actual: gramos >= desde && gramos < hasta };
+});
 const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(codigo_referido))}`;
 ---
 
 <section class="bloque">
   <h2 class="titulo-fuera">Tu Círculo SS</h2>
   <div class:list={['seccion circulo', { completo }]}>
+    {/* Avance de nivel a nivel: tres tramos (0–5, 5–10 y 10–15 g) que se llenan en dorado al abrir la página. */}
     {!completo && (
-      <p class="conteo">
-        <strong>{gramos.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</strong>
-        <span>de {TOPE} gramos</span>
-      </p>
+      <div
+        class="avance"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax={TOPE}
+        aria-valuenow={gramos}
+        aria-valuetext={`${verGramos(gramos)} de ${TOPE} g`}
+      >
+        <p class="cifra">
+          <strong>{gramos.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</strong>
+          <span>gramos</span>
+        </p>
+        <ol class="tramos" aria-hidden="true">
+          {tramos.map((t, i) => (
+            <li class:list={{ ganado: t.lleno === 1, actual: t.actual }} style={`--lleno: ${t.lleno}; --i: ${i}`}>
+              <span class="barra">
+                <span class="relleno" />
+              </span>
+              <span class="marca">
+                <span class="rombo" />
+                Nivel {i + 1} · {t.hasta} g
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
     )}
 
     {/* El símbolo de SS como avance: el rombo de abajo (nivel 1), los cuatro de abajo (nivel 2) o todo en oro (15 g). */}
@@ -86,21 +115,120 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
 </script>
 
 <style>
-  .conteo {
-    margin: 0 0 1.5rem;
+  .avance {
+    margin: 0 0 1.75rem;
+  }
+
+  .cifra {
+    margin: 0 0 1rem;
     color: var(--gris);
   }
 
   /* El número en marfil, no en rojo: un 0 rojo se leería como error. */
-  .conteo strong {
+  .cifra strong {
     display: block;
     font-family: var(--display);
-    font-size: 5rem;
+    font-size: 4rem;
     font-weight: 600;
     line-height: 1;
     color: var(--tinta);
     /* Cifras de caja alta: en Cormorant, el 0 y el 1 de estilo antiguo parecen letras. */
     font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  /* Tres tramos lado a lado; cada uno con su barra y, debajo, el nivel y sus gramos. */
+  .tramos {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+  }
+
+  .barra {
+    position: relative;
+    display: block;
+    height: 1.1rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgb(242 236 228 / 0.1);
+    box-shadow: inset 0 0 0 1px rgb(242 236 228 / 0.14);
+  }
+
+  /* El relleno dorado crece de izquierda a derecha; los tramos se llenan uno tras otro. */
+  .relleno {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #b8892f, #f3dc9a 55%, #d9b45a);
+    transform: scaleX(var(--lleno));
+    transform-origin: left;
+    animation: tramo-llenar 900ms var(--ease-out) both;
+    animation-delay: calc(300ms + var(--i) * 650ms);
+  }
+
+  @keyframes tramo-llenar {
+    from {
+      transform: scaleX(0);
+    }
+  }
+
+  /* El tramo en curso: un brillo que lo recorre de vez en cuando (la luz dorada de la marca). */
+  .actual .relleno::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgb(255 250 235 / 0.75) 50%, transparent 70%);
+    transform: translateX(-100%);
+    animation: tramo-brillo 2.6s ease-in-out 2.4s infinite;
+  }
+
+  @keyframes tramo-brillo {
+    60%,
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .marca {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    margin-top: 0.5rem;
+    font-size: 0.78rem;
+    line-height: 1.2;
+    color: var(--gris);
+    font-variant-numeric: lining-nums;
+  }
+
+  .rombo {
+    flex: none;
+    width: 0.45rem;
+    height: 0.45rem;
+    transform: rotate(45deg);
+    box-shadow: inset 0 0 0 1px currentColor;
+  }
+
+  /* Nivel ganado: la marca en dorado y el rombo lleno. */
+  .ganado .marca {
+    color: #e8c46f;
+  }
+
+  .ganado .rombo {
+    background: currentColor;
+  }
+
+  .actual .marca {
+    color: var(--tinta);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .relleno,
+    .actual .relleno::after {
+      animation: none;
+    }
   }
 
   .logo-avance {

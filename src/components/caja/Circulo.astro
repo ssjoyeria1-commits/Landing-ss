@@ -102,7 +102,7 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
   // Llenado de la barra del Círculo: arranca la primera vez que la barra se ve (el Círculo suele estar más abajo
   // de las piezas). Cada tramo completo tarda TRAMO ms y el en curso, su parte; la cifra sube de 0 al total a la
   // par. Sin IntersectionObserver o con "reducir movimiento", la barra ya se ve llena (no se toca nada).
-  const TRAMO = 800;
+  const TRAMO = 1700;
   const formato = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 });
   if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     for (const avance of document.querySelectorAll<HTMLElement>('.circulo .avance')) {
@@ -113,7 +113,7 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
       let inicio = 0;
       for (const li of tramos) {
         const lleno = Number(getComputedStyle(li).getPropertyValue('--lleno')) || 0;
-        const dura = Math.max(lleno * TRAMO, lleno > 0 ? 350 : 0);
+        const dura = Math.max(lleno * TRAMO, lleno > 0 ? 700 : 0);
         li.style.setProperty('--dura', `${dura}ms`);
         li.style.setProperty('--empieza', `${inicio}ms`);
         inicio += dura;

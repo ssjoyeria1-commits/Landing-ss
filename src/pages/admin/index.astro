@@ -22,6 +22,7 @@ if (soloPendientes) consulta = consulta.neq('premios_pendientes', '{}');
 
 const { data, error } = await consulta;
 const clientes = (data ?? []) as ClienteCirculo[];
+import { gramos } from '../../config/circulo';
 ---
 
 <Admin title="Clientes">
@@ -52,8 +53,8 @@ const clientes = (data ?? []) as ClienteCirculo[];
             <tr>
               <th>Cliente</th>
               <th>Código</th>
-              <th class="num">Interacciones</th>
-              <th>Próximo hito</th>
+              <th class="num">Gramos</th>
+              <th>Próximo premio</th>
               <th>Premios</th>
               <th />
             </tr>
@@ -69,11 +70,11 @@ const clientes = (data ?? []) as ClienteCirculo[];
                 <td>
                   <code>{c.codigo_referido}</code>
                 </td>
-                <td class="num">{c.interacciones}</td>
-                <td>{c.proximo_hito ?? 'Completo'}</td>
+                <td class="num">{gramos(c.gramos)}</td>
+                <td>{c.proximo_hito ? `${c.proximo_hito} g` : 'Completo'}</td>
                 <td>
                   {c.premios_pendientes.length > 0 && (
-                    <span class="etiqueta alerta">Pendiente: {c.premios_pendientes.join(', ')}</span>
+                    <span class="etiqueta alerta">Pendiente: {c.premios_pendientes.map((h) => `${h} g`).join(', ')}</span>
                   )}
                 </td>
                 <td>

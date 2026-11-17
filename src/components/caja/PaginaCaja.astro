@@ -11,7 +11,7 @@ import Cuidado from './Cuidado.astro';
 import Neutra from './Neutra.astro';
 import type { CajaPublica } from '../../lib/caja';
 import { capitalizar, primerNombre } from '../../lib/formato';
-import { premioTitulo } from '../../config/circulo';
+import { numeroNivel, premioTitulo } from '../../config/circulo';
 
 interface Props {
   caja: CajaPublica | null;
@@ -22,8 +22,8 @@ interface Props {
 }
 
 const { caja, temporal = false, enlaceCertificado = '' } = Astro.props;
-// Nivel del Círculo de una caja de premio: 3 → 1, 5 → 2, 10 → 3.
-const nivelPremio = caja?.tipo === 'premio' ? [3, 5, 10].indexOf(caja.hito) + 1 : 0;
+// Nivel del Círculo de una caja de premio: 5 g → 1, 10 g → 2, 15 g → 3.
+const nivelPremio = caja?.tipo === 'premio' ? numeroNivel(caja.hito) : 0;
 ---
 
 <Publica noindex>

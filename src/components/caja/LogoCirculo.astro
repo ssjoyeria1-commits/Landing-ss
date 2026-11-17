@@ -1,20 +1,21 @@
 ---
 // El símbolo de SS (7 rombos) como avance del Círculo (página del chip e inicio).
-// Nivel 1 (3 interacciones): el rombo de abajo con su interior en dorado, parpadeando.
-// Nivel 2 (5): los cuatro de abajo (el de abajo, los dos de encima y el del centro), de abajo hacia arriba.
-// Nivel 3 (10): el símbolo completo en dorado, contornos e interiores.
+// Nivel 1 (5 g): el rombo de abajo con su interior en dorado, parpadeando.
+// Nivel 2 (10 g): los cuatro de abajo (el de abajo, los dos de encima y el del centro), de abajo hacia arriba.
+// Nivel 3 (15 g): el símbolo completo en dorado, contornos e interiores.
 // El símbolo va en rojo; en los rombos ganados parpadean en dorado el interior y también el contorno.
 // Medidas del logo original (las mismas de src/components/Logo.astro).
 
 interface Props {
-  interacciones: number;
+  /** Gramos del Círculo. */
+  gramos: number;
   /** Alto del símbolo. */
   alto?: string;
   /** Sin parpadeo (para la leyenda). */
   quieto?: boolean;
 }
 
-const { interacciones, alto = '11rem', quieto = false } = Astro.props;
+const { gramos, alto = '11rem', quieto = false } = Astro.props;
 
 const R = 106.5;
 const r = 63.5;
@@ -32,7 +33,8 @@ const anillo = ([x, y]: number[]) =>
   `M${x} ${y - R}L${x + R} ${y}L${x} ${y + R}L${x - R} ${y}Z` + `M${x} ${y - r}L${x - r} ${y}L${x} ${y + r}L${x + r} ${y}Z`;
 const interior = ([x, y]: number[]) => `M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z`;
 
-const nivel = interacciones >= 10 ? 3 : interacciones >= 5 ? 2 : interacciones >= 3 ? 1 : 0;
+const g = Number(gramos);
+const nivel = g >= 15 ? 3 : g >= 10 ? 2 : g >= 5 ? 1 : 0;
 // Rombos encendidos por nivel. El parpadeo va por filas, de abajo hacia arriba: los dos rombos de una
 // misma fila se encienden a la vez (fila 0 la de abajo, 4 la de arriba).
 const encendidos = nivel === 3 ? [6, 4, 5, 3, 1, 2, 0] : nivel === 2 ? [6, 4, 5, 3] : nivel === 1 ? [6] : [];

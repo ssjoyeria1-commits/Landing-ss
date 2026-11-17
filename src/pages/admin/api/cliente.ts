@@ -8,7 +8,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
 
   const { data, error } = await locals.supabase
     .from('clientes_circulo')
-    .select('id, nombre, apellido, codigo_referido, interacciones, autorizo_datos')
+    .select('id, nombre, apellido, codigo_referido, gramos, autorizo_datos')
     .eq('whatsapp', whatsapp)
     .maybeSingle();
   if (error) return Response.json({ valido: true, error: error.message }, { status: 500 });

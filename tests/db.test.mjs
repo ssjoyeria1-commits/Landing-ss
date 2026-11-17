@@ -91,7 +91,10 @@ async function venta(db, { whatsapp, nombre = 'María', monto = 700000, referido
   );
 }
 
-async function interacciones(db, clienteId) {
+/** Una caja con una sola pieza de esos gramos. */
+const deGramos = (g) => [{ es_regalo: false, piezas: [{ descripcion: 'Pieza', peso_gramos: g, ley: '18k' }] }];
+
+async function circulo(db, clienteId) {
   return como(db, 'authenticated', ADMIN, async () =>
     uno(db, 'select * from public.clientes_circulo where id = $1', [clienteId]),
   );
@@ -129,40 +132,40 @@ test('los códigos de chip son distintos entre cajas', async () => {
   assert.equal(new Set(r.cajas.map((c) => c.referencia)).size, 20);
 });
 
-test('las compras de menos de 600.000 no cuentan, tampoco la primera', async () => {
+test('Círculo: cada compra suma todos sus gramos, sin monto mínimo', async () => {
   const db = await nuevaBase();
   const whatsapp = nuevoWhatsapp();
-  const r = await venta(db, { whatsapp, monto: 400000 });
-  assert.equal((await interacciones(db, r.cliente.id)).interacciones, 0);
-
-  await venta(db, { whatsapp, monto: 600000 });
-  assert.equal((await interacciones(db, r.cliente.id)).interacciones, 1);
-
-  await venta(db, { whatsapp, monto: 599999 });
-  assert.equal((await interacciones(db, r.cliente.id)).interacciones, 1);
+  const r = await venta(db, { whatsapp, monto: 100000, cajas: deGramos(1.2) });
+  assert.equal(Number((await circulo(db, r.cliente.id)).gramos), 1.2);
+  // Varias cajas y piezas en una venta: suman todas.
+  await venta(db, { whatsapp, cajas: [...deGramos(0.8), { es_regalo: true, piezas: [pieza('Cadena'), pieza('Dije')] }] });
+  const fila = await circulo(db, r.cliente.id);
+  assert.equal(Number(fila.gramos), 12.5);
+  assert.equal(Number(fila.gramos_propios), 12.5);
+  assert.equal(fila.proximo_hito, 15);
 });
 
-test('del referido solo suma su primera compra que califique', async () => {
+test('Círculo: del referido suma el 10% de los gramos de su primera compra, nada más', async () => {
   const db = await nuevaBase();
-  const a = await venta(db, { nombre: 'Juan' });
-  assert.equal((await interacciones(db, a.cliente.id)).interacciones, 1);
-
+  const a = await venta(db, { nombre: 'Juan', cajas: deGramos(2) });
   const whatsappB = nuevoWhatsapp();
-  const b = await venta(db, { whatsapp: whatsappB, nombre: 'Ana', monto: 400000, referidoDe: a.cliente.codigo_referido.toLowerCase() });
-  assert.equal((await interacciones(db, a.cliente.id)).interacciones, 1, 'la compra menor del referido no suma');
+  const b = await venta(db, { whatsapp: whatsappB, nombre: 'Ana', cajas: deGramos(4.25), referidoDe: a.cliente.codigo_referido.toLowerCase() });
+  let fila = await circulo(db, a.cliente.id);
+  assert.equal(Number(fila.gramos), 2.43, '2 + 10% de 4,25 (0,425 → 0,43)');
+  assert.equal(Number(fila.gramos_propios), 2);
+  assert.equal(Number(fila.gramos_referidos), 0.43);
 
-  await venta(db, { whatsapp: whatsappB, monto: 700000 });
-  assert.equal((await interacciones(db, a.cliente.id)).interacciones, 2, 'la primera que califica sí suma');
+  await venta(db, { whatsapp: whatsappB, cajas: deGramos(9) });
+  fila = await circulo(db, a.cliente.id);
+  assert.equal(Number(fila.gramos), 2.43, 'las siguientes compras del referido no suman');
 
-  await venta(db, { whatsapp: whatsappB, monto: 900000 });
-  const fila = await interacciones(db, a.cliente.id);
-  assert.equal(fila.interacciones, 2, 'las siguientes no suman');
-  assert.equal(fila.propias, 1);
-  assert.equal(fila.por_referidos, 1);
-
-  const filaB = await interacciones(db, b.cliente.id);
-  assert.equal(filaB.interacciones, 2, 'al referido le cuentan sus propias compras');
+  const filaB = await circulo(db, b.cliente.id);
+  assert.equal(Number(filaB.gramos), 13.25, 'al referido le cuentan todas sus compras');
   assert.equal(filaB.referido_por_codigo, a.cliente.codigo_referido);
+
+  // Si anulan su primera compra, cuenta la siguiente.
+  await como(db, 'authenticated', ADMIN, () => db.query('update public.ventas set anulada = true where id = $1', [b.venta_id]));
+  assert.equal(Number((await circulo(db, a.cliente.id)).gramos), 2.9);
 });
 
 test('solo se puede asignar referido a un cliente nuevo', async () => {
@@ -191,59 +194,63 @@ test('rechaza ventas sin cajas o cajas sin piezas, sin dejar datos a medias', as
   assert.equal((await uno(db, 'select count(*)::int as n from public.ventas')).n, 0);
 });
 
-test('el contador se detiene en 10 y los premios no se entregan dos veces', async () => {
+test('el contador se detiene en 15 g y los premios no se entregan dos veces', async () => {
   const db = await nuevaBase();
   const whatsapp = nuevoWhatsapp();
   const r = await venta(db, { whatsapp });
-  for (let i = 0; i < 11; i++) await venta(db, { whatsapp });
+  for (let i = 0; i < 3; i++) await venta(db, { whatsapp });
 
-  let fila = await interacciones(db, r.cliente.id);
-  assert.equal(fila.propias, 12);
-  assert.equal(fila.interacciones, 10);
+  let fila = await circulo(db, r.cliente.id);
+  assert.equal(Number(fila.gramos_propios), 21);
+  assert.equal(Number(fila.gramos), 15);
   assert.equal(fila.proximo_hito, null);
-  assert.deepEqual(fila.premios_pendientes, [3, 5, 10]);
+  assert.deepEqual(fila.premios_pendientes, [5, 10, 15]);
 
   // Entregar = anotar la fecha del premio que ya existe.
   await como(db, 'authenticated', ADMIN, () =>
-    db.query('update public.premios set fecha_entrega = privado.hoy() where cliente_id = $1 and hito = 3', [r.cliente.id]),
+    db.query('update public.premios set fecha_entrega = privado.hoy() where cliente_id = $1 and hito = 5', [r.cliente.id]),
   );
-  fila = await interacciones(db, r.cliente.id);
-  assert.deepEqual(fila.premios_pendientes, [5, 10]);
+  fila = await circulo(db, r.cliente.id);
+  assert.deepEqual(fila.premios_pendientes, [10, 15]);
 
   await assert.rejects(
     como(db, 'authenticated', ADMIN, () =>
-      db.query('insert into public.premios (cliente_id, hito) values ($1, 3)', [r.cliente.id]),
+      db.query('insert into public.premios (cliente_id, hito) values ($1, 5)', [r.cliente.id]),
     ),
     /premios_una_vez/,
   );
+  await assert.rejects(
+    como(db, 'authenticated', ADMIN, () => db.query('insert into public.premios (cliente_id, hito) values ($1, 3)', [r.cliente.id])),
+    /premios_hito_check/,
+  );
 });
 
-test('caja de premio: el premio y su chip se crean solos al llegar al nivel; entregar solo anota la fecha', async () => {
+test('caja de premio: el premio y su chip se crean solos al llegar a los gramos; entregar solo anota la fecha', async () => {
   const db = await nuevaBase();
   const whatsapp = nuevoWhatsapp();
-  const r = await venta(db, { whatsapp, nombre: 'Valentina Gómez' });
+  const r = await venta(db, { whatsapp, nombre: 'Valentina Gómez', cajas: deGramos(2) });
   const premios = () =>
     como(db, 'authenticated', ADMIN, async () =>
       (await db.query('select hito, fecha_entrega from public.premios where cliente_id = $1 order by hito', [r.cliente.id])).rows,
     );
-  assert.deepEqual(await premios(), [], 'con 1 interacción todavía no hay premio');
+  assert.deepEqual(await premios(), [], 'con 2 g todavía no hay premio');
 
   const ventas = [];
-  for (let i = 0; i < 4; i++) ventas.push(await venta(db, { whatsapp }));
-  assert.deepEqual((await premios()).map((p) => [p.hito, p.fecha_entrega]), [[3, null], [5, null]], 'pendientes, sin fecha');
+  for (let i = 0; i < 4; i++) ventas.push(await venta(db, { whatsapp, cajas: deGramos(2) }));
+  assert.deepEqual((await premios()).map((p) => [p.hito, p.fecha_entrega]), [[5, null], [10, null]], 'pendientes, sin fecha');
 
   // Una anulación que lo baja de nivel borra el premio no entregado; el entregado se queda.
   await como(db, 'authenticated', ADMIN, async () => {
-    await db.query('update public.premios set fecha_entrega = privado.hoy() where cliente_id = $1 and hito = 3', [r.cliente.id]);
+    await db.query('update public.premios set fecha_entrega = privado.hoy() where cliente_id = $1 and hito = 5', [r.cliente.id]);
     await db.query('update public.ventas set anulada = true where id = $1', [ventas[3].venta_id]);
   });
-  assert.deepEqual((await premios()).map((p) => p.hito), [3], 'con 4 interacciones ya no está el de 5');
+  assert.deepEqual((await premios()).map((p) => p.hito), [5], 'con 8 g ya no está el de 10');
   await como(db, 'authenticated', ADMIN, () => db.query('update public.ventas set anulada = false where id = $1', [ventas[3].venta_id]));
 
   const premio = await como(db, 'authenticated', ADMIN, () =>
     uno(
       db,
-      "update public.premios set detalle = 'Tejido cartier, 2,1 g', nota = 'nota interna' where cliente_id = $1 and hito = 5 returning codigo_chip, referencia",
+      "update public.premios set detalle = '10 balines', nota = 'nota interna' where cliente_id = $1 and hito = 10 returning codigo_chip, referencia",
       [r.cliente.id],
     ),
   );
@@ -253,10 +260,10 @@ test('caja de premio: el premio y su chip se crean solos al llegar al nivel; ent
   const p = await pagina(db, premio.codigo_chip);
   assert.equal(p.tipo, 'premio');
   assert.equal(p.nombre, 'Valentina');
-  assert.equal(p.hito, 5);
-  assert.equal(p.detalle, 'Tejido cartier, 2,1 g');
-  assert.equal(p.circulo.interacciones, 5);
-  assert.equal(p.circulo.proximo_hito, 10);
+  assert.equal(p.hito, 10);
+  assert.equal(p.detalle, '10 balines');
+  assert.equal(Number(p.circulo.gramos), 10);
+  assert.equal(p.circulo.proximo_hito, 15);
   const texto = JSON.stringify(p);
   assert.ok(!texto.includes('nota interna'), 'la nota interna no sale');
   assert.ok(!texto.includes(whatsapp.slice(3)) && !texto.includes(r.cliente.id), 'sin WhatsApp ni ids');
@@ -265,11 +272,11 @@ test('caja de premio: el premio y su chip se crean solos al llegar al nivel; ent
   // El chip de la caja de la compra sigue abriendo su página normal.
   assert.equal((await pagina(db, r.cajas[0].codigo_chip)).tipo, 'propia');
 
-  // Un referido que compra también le crea el premio a quien lo refirió.
-  const otro = await venta(db, { nombre: 'Andrés' });
-  for (let i = 0; i < 2; i++) await venta(db, { referidoDe: otro.cliente.codigo_referido });
+  // La primera compra de un referido también le crea el premio a quien lo refirió (4,9 + 10% de 2 = 5,1).
+  const otro = await venta(db, { nombre: 'Andrés', cajas: deGramos(4.9) });
+  await venta(db, { referidoDe: otro.cliente.codigo_referido, cajas: deGramos(2) });
   const delOtro = await como(db, 'authenticated', ADMIN, () =>
-    uno(db, 'select count(*)::int as n from public.premios where cliente_id = $1 and hito = 3', [otro.cliente.id]),
+    uno(db, 'select count(*)::int as n from public.premios where cliente_id = $1 and hito = 5', [otro.cliente.id]),
   );
   assert.equal(delOtro.n, 1);
 });
@@ -277,12 +284,12 @@ test('caja de premio: el premio y su chip se crean solos al llegar al nivel; ent
 test('una venta anulada no cuenta y su chip deja de funcionar', async () => {
   const db = await nuevaBase();
   const r = await venta(db);
-  assert.equal((await interacciones(db, r.cliente.id)).interacciones, 1);
+  assert.equal(Number((await circulo(db, r.cliente.id)).gramos), 5.25);
 
   await como(db, 'authenticated', ADMIN, () =>
     db.query('update public.ventas set anulada = true where id = $1', [r.venta_id]),
   );
-  assert.equal((await interacciones(db, r.cliente.id)).interacciones, 0);
+  assert.equal(Number((await circulo(db, r.cliente.id)).gramos), 0);
   assert.equal(await pagina(db, r.cajas[0].codigo_chip), null);
   assert.ok((await uno(db, 'select anulada_at from public.ventas where id = $1', [r.venta_id])).anulada_at);
 });
@@ -320,7 +327,8 @@ test('página de compra propia: solo datos públicos, mismo contador en todas la
   assert.equal(p.nombre, 'María');
   assert.equal(p.referencia, r.cajas[0].referencia);
   assert.deepEqual(p.piezas.map((x) => x.descripcion), ['Cadena', 'Dije']);
-  assert.deepEqual(p.circulo, { interacciones: 1, hitos: [3, 5, 10], proximo_hito: 3, codigo_referido: r.cliente.codigo_referido });
+  // 3 piezas de 5,25 g = 15,75: el contador se queda en 15.
+  assert.deepEqual(p.circulo, { gramos: 15, hitos: [5, 10, 15], proximo_hito: null, codigo_referido: r.cliente.codigo_referido });
 
   const texto = JSON.stringify(p);
   assert.ok(!texto.includes(whatsapp.slice(3)), 'no expone el WhatsApp');
@@ -328,7 +336,7 @@ test('página de compra propia: solo datos públicos, mismo contador en todas la
   assert.ok(!texto.includes(r.cajas[0].codigo_chip), 'no repite el código del chip');
 
   const otra = await pagina(db, r.cajas[1].codigo_chip);
-  assert.equal(otra.circulo.interacciones, p.circulo.interacciones);
+  assert.equal(otra.circulo.gramos, p.circulo.gramos);
 
   assert.equal((await uno(db, 'select count(*)::int as n from public.escaneos')).n, 2);
 
@@ -678,7 +686,7 @@ test('venta por pieza: anular devuelve la pieza al inventario y reactivar la vue
   await assert.rejects(anular(false), /No se puede reactivar/);
 });
 
-test('venta por pieza: piezas fuera del inventario con precio, descuento válido y el Círculo usa el total', async () => {
+test('venta por pieza: piezas fuera del inventario con precio, descuento válido y el Círculo suma sus gramos', async () => {
   const db = await nuevaBase();
   const [u] = await inventario(db, [1.5]); // 600.000
   const whatsapp = nuevoWhatsapp();
@@ -689,12 +697,12 @@ test('venta por pieza: piezas fuera del inventario con precio, descuento válido
   );
   await assert.rejects(venta(db, { whatsapp, cajas: [{ piezas: [manual] }], descuento: 250000 }), /descuento/);
 
-  // 600.000 − 10.000 = 590.000: no llega al mínimo del Círculo.
+  // Con descuento igual suman los gramos de la pieza del inventario.
   const r = await venta(db, { whatsapp, cajas: [{ piezas: [{ unidad_id: u }] }], descuento: 10000 });
-  assert.equal((await interacciones(db, r.cliente.id)).interacciones, 0);
+  assert.equal(Number((await circulo(db, r.cliente.id)).gramos), 1.5);
   const r2 = await venta(db, { whatsapp, cajas: [{ piezas: [manual, { ...manual, precio_cop: 400000 }] }] });
   assert.equal(Number(r2.monto_cop), 650000);
-  assert.equal((await interacciones(db, r.cliente.id)).interacciones, 1);
+  assert.equal(Number((await circulo(db, r.cliente.id)).gramos), 3.1);
 });
 
 // ---------------------------------------------------------------------------
@@ -1054,7 +1062,7 @@ test('venta a aliado: no cuenta en el Círculo y su caja no abre la página del 
   const chip = (await uno(db, 'select codigo_chip from public.cajas where venta_id = $1', [r.venta_id])).codigo_chip;
   assert.equal(await pagina(db, chip), null);
   assert.equal((await uno(db, 'select count(*)::int as n from public.escaneos')).n, 0, 'ni suma escaneo');
-  const conteo = await como(db, 'authenticated', ADMIN, () => uno(db, 'select count(*)::int as n from public.clientes_circulo where interacciones > 0'));
+  const conteo = await como(db, 'authenticated', ADMIN, () => uno(db, 'select count(*)::int as n from public.clientes_circulo where gramos > 0'));
   assert.equal(conteo.n, 0);
 });
 

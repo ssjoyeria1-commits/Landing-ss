@@ -1,7 +1,7 @@
 ---
 import BotonWhatsApp from './BotonWhatsApp.astro';
 import LogoCirculo from './LogoCirculo.astro';
-import { animo, PREMIOS, TOPE } from '../../config/circulo';
+import { animo, gramos as verGramos, numeroNivel, PREMIOS, TOPE } from '../../config/circulo';
 import { MENSAJES } from '../../config/mensajes';
 import { TEXTOS } from '../../config/textos';
 import type { CajaPropia } from '../../lib/caja';
@@ -10,13 +10,12 @@ interface Props {
   circulo: CajaPropia['circulo'];
 }
 
-const { interacciones, hitos, proximo_hito, codigo_referido } = Astro.props.circulo;
-const faltan = proximo_hito === null ? 0 : proximo_hito - interacciones;
-// Premios de los niveles ya alcanzados, en una frase: "A", "A y B", "A, B y C". Vacío antes del nivel 3.
-const logrados = new Intl.ListFormat('es', { type: 'conjunction' }).format(
-  hitos.filter((h) => h <= interacciones).map((h) => PREMIOS[h] ?? `el premio del nivel ${h}`),
-);
-// Con los 10 niveles completos solo quedan el símbolo en oro (más grande), el mensaje y el código.
+const { hitos, proximo_hito, codigo_referido } = Astro.props.circulo;
+const gramos = Number(Astro.props.circulo.gramos);
+const faltan = proximo_hito === null ? 0 : proximo_hito - gramos;
+// Nivel ya alcanzado (0 antes de los 5 g). Los premios se suman ("10 balines más"), así que se nombra el nivel.
+const nivelActual = hitos.filter((h) => h <= gramos).length;
+// Con los 15 g completos solo quedan el símbolo en oro (más grande), el mensaje y el código.
 const completo = proximo_hito === null;
 const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(codigo_referido))}`;
 ---
@@ -26,14 +25,14 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
   <div class:list={['seccion circulo', { completo }]}>
     {!completo && (
       <p class="conteo">
-        <strong>{interacciones}</strong>
-        <span>de {TOPE} interacciones</span>
+        <strong>{gramos.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</strong>
+        <span>de {TOPE} gramos</span>
       </p>
     )}
 
-    {/* El símbolo de SS como avance: el rombo de abajo (nivel 1), los cuatro de abajo (nivel 2) o todo en oro (10). */}
+    {/* El símbolo de SS como avance: el rombo de abajo (nivel 1), los cuatro de abajo (nivel 2) o todo en oro (15 g). */}
     <div class="logo-avance">
-      <LogoCirculo {interacciones} alto={completo ? '13rem' : '10rem'} />
+      <LogoCirculo {gramos} alto={completo ? '13rem' : '10rem'} />
     </div>
 
     {
@@ -41,23 +40,23 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
         <p class="siguiente">
           Completaste todos los niveles del Círculo SS. <strong>Eres parte de la ÉLITE.</strong>
         </p>
-      ) : logrados ? (
+      ) : nivelActual > 0 ? (
         <p class="siguiente">
-          Ya has logrado conseguir <strong>{logrados}</strong>. Ahora estás cerca de alcanzar{' '}
-          <strong>{PREMIOS[proximo_hito]}</strong>: {faltan === 1 ? 'te falta 1 interacción' : `te faltan ${faltan} interacciones`}.
+          Ya llegaste al <strong>nivel {nivelActual}</strong>. Te faltan {verGramos(faltan)} para el nivel{' '}
+          {numeroNivel(proximo_hito)}: <strong>{PREMIOS[proximo_hito]}</strong>.
         </p>
       ) : (
         <p class="siguiente">
-          {faltan === 1 ? 'Te falta 1 interacción' : `Te faltan ${faltan} interacciones`} para el nivel {proximo_hito}:{' '}
+          Te faltan {verGramos(faltan)} para el nivel {numeroNivel(proximo_hito)}:{' '}
           <strong>{PREMIOS[proximo_hito]}</strong>.
         </p>
       )
     }
 
-    {animo(interacciones) && <p class="animo">{animo(interacciones)}</p>}
+    {animo(gramos) && <p class="animo">{animo(gramos)}</p>}
 
-    {/* La explicación de cómo funciona solo para quien empieza (0 a 2 interacciones). */}
-    {interacciones <= 2 && <p class="sutil">{TEXTOS.circuloIntro}</p>}
+    {/* La explicación de cómo funciona solo para quien empieza (antes del primer premio, 5 g). */}
+    {gramos < 5 && <p class="sutil">{TEXTOS.circuloIntro}</p>}
 
     <button type="button" class="codigo" data-codigo={codigo_referido} aria-label={`Copiar el código ${codigo_referido}`}>
       <span class="sutil">Tu código de referido</span>

@@ -15,7 +15,8 @@ export interface CajaPropia {
   nombre: string;
   piezas: PiezaPublica[];
   circulo: {
-    interacciones: number;
+    /** Gramos del Círculo (hasta 15). */
+    gramos: number;
     hitos: number[];
     proximo_hito: number | null;
     codigo_referido: string;

@@ -10,7 +10,7 @@ import { SITIO } from '../../config/sitio';
 import { agruparPiezas, peso, type CajaPublica } from '../../lib/caja';
 import { capitalizar, fecha, primerNombre } from '../../lib/formato';
 import { enlaceWhatsApp } from '../../lib/whatsapp';
-import { premioTitulo } from '../../config/circulo';
+import { numeroNivel, premioTitulo } from '../../config/circulo';
 
 interface Props {
   caja: CajaPublica | null;
@@ -25,7 +25,7 @@ const { caja, temporal = false, enlaceCaja } = Astro.props;
 const filas = !caja
   ? []
   : caja.tipo === 'premio'
-    ? [{ nombre: premioTitulo(caja.hito), dato: caja.detalle ?? `Premio del nivel ${[3, 5, 10].indexOf(caja.hito) + 1} del Círculo SS`, ley: '18k' }]
+    ? [{ nombre: premioTitulo(caja.hito), dato: caja.detalle ?? `Premio del nivel ${numeroNivel(caja.hito)} del Círculo SS`, ley: '18k' }]
     : agruparPiezas(caja.piezas).map((p) => ({
         nombre: p.descripcion,
         dato: `${p.cantidad > 1 ? `${p.cantidad} × ` : ''}${peso(p.peso_gramos)}`,

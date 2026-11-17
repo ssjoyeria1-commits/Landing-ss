@@ -1,6 +1,6 @@
 ---
 import Admin from '../../../layouts/Admin.astro';
-import { premioTitulo } from '../../../config/circulo';
+import { gramos, HITOS, numeroNivel, premioTitulo } from '../../../config/circulo';
 import { enlaceAviso, nombreCompleto, type ClienteCirculo } from '../../../lib/clientes';
 import { fecha, hoyBogota, pesos } from '../../../lib/formato';
 import { formatoWhatsapp } from '../../../lib/whatsapp';
@@ -27,7 +27,7 @@ if (Astro.request.method === 'POST') {
       .select('hito');
     if (fallo) error = fallo.message;
     else if (!data?.length) error = 'Ese premio ya estaba marcado como entregado.';
-    else aviso = `Premio del nivel ${hito} marcado como entregado.`;
+    else aviso = `Premio del nivel ${numeroNivel(hito)} (${hito} g) marcado como entregado.`;
   }
   // Nota pública del premio (sale en la página del chip de la caja de premio).
   if (form.get('accion') === 'detalle') {
@@ -49,7 +49,7 @@ const [{ data: cliente }, { data: ventas }, { data: premios }, { data: referidos
     .eq('cliente_id', id!)
     .order('fecha', { ascending: false }),
   supabase.from('premios').select('hito, fecha_entrega, codigo_chip, referencia, detalle').eq('cliente_id', id!).order('hito'),
-  supabase.from('clientes_circulo').select('id, nombre, apellido, propias').eq('referido_por', id!),
+  supabase.from('clientes_circulo').select('id, nombre, apellido, gramos_propios').eq('referido_por', id!),
 ]);
 
 if (!cliente) return new Response('Cliente no encontrado', { status: 404 });
@@ -78,8 +78,8 @@ const c = cliente as ClienteCirculo;
     </p>
     <p>
       <strong>Círculo SS:</strong>
-      {c.interacciones} interacciones ({c.propias} propias, {c.por_referidos} por referidos).
-      {c.proximo_hito ? ` Próximo hito: ${c.proximo_hito}.` : ' Completó todos los niveles.'}
+      {gramos(c.gramos)} de 15 g ({gramos(c.gramos_propios)} de sus compras, {gramos(c.gramos_referidos)} por referidos).
+      {c.proximo_hito ? ` Próximo premio a los ${c.proximo_hito} g (le faltan ${gramos(c.proximo_hito - Number(c.gramos))}).` : ' Completó todos los niveles.'}
     </p>
     <div class="acciones">
       <a class="boton" href={enlaceAviso(c)} target="_blank" rel="noopener">Avisar por WhatsApp</a>
@@ -93,13 +93,13 @@ const c = cliente as ClienteCirculo;
       <thead><tr><th>Nivel</th><th>Premio</th><th>Estado</th></tr></thead>
       <tbody>
         {
-          [3, 5, 10].map((hito) => {
+          HITOS.map((hito) => {
             const premio = premios?.find((p) => p.hito === hito);
             const entregado = premio?.fecha_entrega ? premio : undefined;
             const pendiente = !!premio && !entregado;
             return (
               <tr>
-                <td>{hito}</td>
+                <td>{numeroNivel(hito)} · {hito} g</td>
                 <td>{premioTitulo(hito)}</td>
                 <td>
                   {entregado && `Entregado el ${fecha(entregado.fecha_entrega)}`}
@@ -129,7 +129,7 @@ const c = cliente as ClienteCirculo;
           return (
             <div class="tarjeta">
               <h3 style="margin-top: 0">
-                Caja del premio del nivel {p.hito} · <code>{p.referencia}</code>{' '}
+                Caja del premio del nivel {numeroNivel(p.hito)} ({p.hito} g) · <code>{p.referencia}</code>{' '}
                 {p.fecha_entrega ? (
                   <span class="etiqueta">Entregado el {fecha(p.fecha_entrega)}</span>
                 ) : (
@@ -151,7 +151,7 @@ const c = cliente as ClienteCirculo;
                 <input type="hidden" name="accion" value="detalle" />
                 <input type="hidden" name="hito" value={p.hito} />
                 <label for={`nota-premio-${p.hito}`}>Nota que sale en la página (opcional)</label>
-                <input id={`nota-premio-${p.hito}`} name="detalle" maxlength="120" value={p.detalle ?? ''} placeholder="Tejido cartier, 2,1 g" autocomplete="off" />
+                <input id={`nota-premio-${p.hito}`} name="detalle" maxlength="120" value={p.detalle ?? ''} placeholder="Manilla con 10 balines" autocomplete="off" />
                 <button type="submit" class="secundario" style="margin-top: 0.5rem">Guardar nota</button>
               </form>
             </div>
@@ -197,7 +197,7 @@ const c = cliente as ClienteCirculo;
           {referidos.map((r) => (
             <li>
               <a href={`/admin/clientes/${r.id}`}>{nombreCompleto(r)}</a>
-              {r.propias === 0 && ' (aún sin compra que califique)'}
+              {Number(r.gramos_propios) === 0 && ' (aún sin compras)'}
             </li>
           ))}
         </ul>

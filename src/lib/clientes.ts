@@ -14,9 +14,10 @@ export interface ClienteCirculo {
   autorizo_datos: boolean;
   autorizo_datos_fecha: string | null;
   created_at: string;
-  propias: number;
-  por_referidos: number;
-  interacciones: number;
+  /** Gramos de sus compras, lo que suman sus referidos y el total del Círculo (hasta 15). Pueden llegar como texto. */
+  gramos_propios: number;
+  gramos_referidos: number;
+  gramos: number;
   proximo_hito: number | null;
   premios_pendientes: number[];
 }
@@ -30,7 +31,7 @@ export function enlaceAviso(c: ClienteCirculo): string {
     c.whatsapp,
     MENSAJES.avisoComprador({
       nombre: capitalizar(c.nombre.split(' ')[0]),
-      interacciones: c.interacciones,
+      gramos: Number(c.gramos),
       proximoHito: c.proximo_hito,
       codigoReferido: c.codigo_referido,
     }),

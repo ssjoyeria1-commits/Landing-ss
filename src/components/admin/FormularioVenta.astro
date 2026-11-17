@@ -801,7 +801,7 @@ const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoIn
       estado.textContent = 'Número no válido para el país elegido.';
     } else if (datos.cliente) {
       const c = datos.cliente;
-      estado.textContent = `Cliente existente: ${c.nombre} ${c.apellido ?? ''} · ${c.codigo_referido} · ${c.interacciones} interacciones.`;
+      estado.textContent = `Cliente existente: ${c.nombre} ${c.apellido ?? ''} · ${c.codigo_referido} · ${Number(c.gramos).toLocaleString('es-CO', { maximumFractionDigits: 2 })} g en el Círculo.`;
       nuevo.disabled = true;
     } else {
       estado.textContent = `Cliente nuevo (${datos.whatsapp}). Completa sus datos.`;

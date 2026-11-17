@@ -1,6 +1,6 @@
 // Plantillas de los mensajes prellenados de WhatsApp. Editar aquí el texto.
 
-import { PREMIOS, TOPE } from './circulo';
+import { gramos, numeroNivel, PREMIOS, TOPE } from './circulo';
 
 export const MENSAJES = {
   /** Cliente que comparte su código con un amigo. */
@@ -28,12 +28,12 @@ export const MENSAJES = {
     `Hola, quiero reclamar la garantía de mi pieza. Referencia de la caja: ${referenciaCaja}`,
 
   /** Aviso al comprador desde el panel, con el estado de su contador. */
-  avisoComprador: (c: { nombre: string; interacciones: number; proximoHito: number | null; codigoReferido: string }) => {
-    const estado = `Tu Círculo SS va en ${c.interacciones} de ${TOPE} interacciones.`;
+  avisoComprador: (c: { nombre: string; gramos: number; proximoHito: number | null; codigoReferido: string }) => {
+    const estado = `Tu Círculo SS va en ${gramos(c.gramos)} de ${TOPE} g.`;
     const siguiente =
       c.proximoHito === null
         ? 'Ya completaste todos los niveles. ¡Gracias por ser parte del Círculo!'
-        : `Te ${c.proximoHito - c.interacciones === 1 ? 'falta 1' : `faltan ${c.proximoHito - c.interacciones}`} para el nivel ${c.proximoHito}: ${PREMIOS[c.proximoHito] ?? ''}.`;
+        : `Te faltan ${gramos(c.proximoHito - c.gramos)} para el nivel ${numeroNivel(c.proximoHito)}: ${PREMIOS[c.proximoHito] ?? ''}.`;
     return `Hola ${c.nombre}, te escribimos de SS Joyería. ${estado} ${siguiente} Recuerda que tu código de referido es ${c.codigoReferido}.`;
   },
 };

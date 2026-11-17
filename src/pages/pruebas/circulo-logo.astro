@@ -3,16 +3,16 @@
 // Muestra la tarjeta del Círculo con varios avances y una leyenda de los niveles. En producción 404.
 import Publica from '../../layouts/Publica.astro';
 import LogoCirculo from '../../components/caja/LogoCirculo.astro';
-import { animo, PREMIOS, premioTitulo, TOPE } from '../../config/circulo';
+import { animo, gramos, PREMIOS, premioTitulo, TOPE } from '../../config/circulo';
 
 if (import.meta.env.PROD) return new Response(null, { status: 404 });
 
 const NIVELES = [
-  { nivel: 1, hito: 3, texto: 'El rombo de abajo' },
-  { nivel: 2, hito: 5, texto: 'Los de abajo y el del centro' },
-  { nivel: 3, hito: 10, texto: 'El símbolo completo en oro' },
+  { nivel: 1, hito: 5, texto: 'El rombo de abajo' },
+  { nivel: 2, hito: 10, texto: 'Los de abajo y el del centro' },
+  { nivel: 3, hito: 15, texto: 'El símbolo completo en oro' },
 ];
-const casos = [0, 2, 3, 4, 5, 8, 9, 10];
+const casos = [0, 2.4, 5, 7.35, 10, 12.8, 14.95, 15];
 const siguiente = (n: number) => NIVELES.find((x) => x.hito > n);
 ---
 
@@ -24,9 +24,9 @@ const siguiente = (n: number) => NIVELES.find((x) => x.hito > n);
       {
         NIVELES.map((x) => (
           <li>
-            <LogoCirculo interacciones={x.hito} alto="5.5rem" quieto />
+            <LogoCirculo gramos={x.hito} alto="5.5rem" quieto />
             <span class="n">Nivel {x.nivel}</span>
-            <span class="cuantas">{x.hito} interacciones</span>
+            <span class="cuantas">{x.hito} gramos</span>
             <span class="que">{x.texto}</span>
             <span class="premio">{premioTitulo(x.hito)}</span>
           </li>
@@ -41,17 +41,17 @@ const siguiente = (n: number) => NIVELES.find((x) => x.hito > n);
       const faltan = prox ? prox.hito - n : 0;
       return (
         <section class="bloque">
-          <h2 class="titulo-fuera">Con {n} {n === 1 ? 'interacción' : 'interacciones'}</h2>
+          <h2 class="titulo-fuera">Con {gramos(n)}</h2>
           <div class="seccion tarjeta-circulo">
             <p class="conteo">
-              <strong>{n}</strong>
-              <span>de {TOPE} interacciones</span>
+              <strong>{n.toLocaleString('es-CO')}</strong>
+              <span>de {TOPE} gramos</span>
             </p>
-            <LogoCirculo interacciones={n} />
+            <LogoCirculo gramos={n} />
             <p class="estado">
               {prox ? (
                 <>
-                  {faltan === 1 ? 'Te falta 1 interacción' : `Te faltan ${faltan} interacciones`} para el nivel {prox.nivel}:{' '}
+                  Te faltan {gramos(faltan)} para el nivel {prox.nivel}:{' '}
                   <strong>{PREMIOS[prox.hito]}</strong>.
                 </>
               ) : (

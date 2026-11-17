@@ -43,8 +43,12 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 ## Estructura
 
 - `supabase/migrations/` — esquema, RLS y funciones. Las **reglas del Círculo** viven en
-  `privado.circulo_reglas()` (monto mínimo 600.000, solo cuenta la primera compra que califique del
-  referido, tope 10). Cambiarlas = nueva migración.
+  `privado.circulo_reglas()` y `privado.circulo_hitos()`. Desde el 17 nov 2026 (migración
+  `20261117120000_circulo_gramos.sql`) se mide en **gramos**: cada compra suma todos sus gramos (sin monto mínimo;
+  anuladas y ventas a aliados no), quien refirió suma el 10% de los gramos de la **primera** compra del referido
+  (redondeado a centésimas), premios a los 5, 10 y 15 g y tope 15. Vista `clientes_circulo` con `gramos_propios`,
+  `gramos_referidos`, `gramos`; `pagina_caja` devuelve `circulo.gramos`. Los premios se sincronizan también al
+  cambiar las piezas (trigger `piezas_premios`). Cambiar reglas = nueva migración.
 - `tests/db.test.mjs` — pruebas de reglas y permisos sobre PGlite con un entorno que imita a Supabase.
   Agregar una prueba por cada regla o permiso nuevo.
 - `src/config/` — textos editables: `sitio.ts` (WhatsApp, redes, URL de chips), `circulo.ts` (premios),
@@ -68,8 +72,8 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   anota. `premios.codigo_chip`, `referencia`, nota pública `detalle`; `pagina_caja` devuelve `tipo: premio` (bienvenida,
   "Tu premio" con certificado 18K y el Círculo). URL, QR y nota de cada caja en la ficha del cliente.
   Pruebas: `/pruebas/casos?datos=premio|premio-elite`.
-- `src/components/caja/LogoCirculo.astro` — avance del Círculo con el símbolo (11 nov 2026): nivel 1 (3) el rombo de
-  abajo, nivel 2 (5) los de abajo y el del centro, nivel 3 (10) todo en oro; los ganados parpadean en dorado
+- `src/components/caja/LogoCirculo.astro` — avance del Círculo con el símbolo (11 nov 2026): nivel 1 (5 g) el rombo de
+  abajo, nivel 2 (10 g) los de abajo y el del centro, nivel 3 (15 g) todo en oro; los ganados parpadean en dorado
   (interior y contorno) fila por fila hacia arriba. Lo usan la página del chip (`Circulo.astro`, con la frase
   de `animo()` de `src/config/circulo.ts`) y el inicio. Prueba: `/pruebas/circulo-logo`.
 - `src/components/Logo.astro` — símbolo de los 7 rombos redibujado en SVG (medidas del logo original).

@@ -11,7 +11,7 @@ const demo: CajaPropia = {
     { descripcion: 'Cadena tejido lazo, 50 cm', peso_gramos: 3.5, ley: '18k' },
     { descripcion: 'Dije rombo con circón', peso_gramos: 1.2, ley: '18k' },
   ],
-  circulo: { interacciones: 4, hitos: [3, 5, 10], proximo_hito: 5, codigo_referido: 'VALENTINA-8310' },
+  circulo: { gramos: 3.65, hitos: [5, 10, 15], proximo_hito: 5, codigo_referido: 'VALENTINA-8310' },
 };
 
 // Peor caso realista: primer nombre largo con guion (límite 60), descripciones cerca del límite de 120,
@@ -29,7 +29,7 @@ const peor: CajaPropia = {
     { descripcion: 'Cadena gargantilla 45 cm', peso_gramos: 2.33, ley: '14k' },
     { descripcion: 'Dije medalla Virgen del Carmen', peso_gramos: 1.5, ley: '18k' },
   ],
-  circulo: { interacciones: 9, hitos: [3, 5, 10], proximo_hito: 10, codigo_referido: 'MAXIMILIANOA-4821' },
+  circulo: { gramos: 14.92, hitos: [5, 10, 15], proximo_hito: 15, codigo_referido: 'MAXIMILIANOA-4821' },
 };
 
 // Regalo: el destinatario se guarda con nombre completo; la página muestra solo el primero.
@@ -51,20 +51,20 @@ const premio: CajaPremio = {
   fecha: '2026-11-11',
   nombre: 'valentina',
   hito: 5,
-  detalle: 'Tejido cartier con dije de rombo, 2,1 g',
-  circulo: { interacciones: 6, hitos: [3, 5, 10], proximo_hito: 10, codigo_referido: 'VALENTINA-8310' },
+  detalle: 'Tejido rolo con balines de 3 mm',
+  circulo: { gramos: 6.4, hitos: [5, 10, 15], proximo_hito: 10, codigo_referido: 'VALENTINA-8310' },
 };
 
 export const casos: Record<string, CajaPublica | 'neutra' | 'temporal'> = {
   demo,
   peor,
-  cero: { ...demo, nombre: 'jo', piezas: [demo.piezas[0]], circulo: { interacciones: 0, hitos: [3, 5, 10], proximo_hito: 3, codigo_referido: 'JO-0042' } },
+  cero: { ...demo, nombre: 'jo', piezas: [demo.piezas[0]], circulo: { gramos: 0, hitos: [5, 10, 15], proximo_hito: 5, codigo_referido: 'JO-0042' } },
   // Venta por cantidad: 25 balines iguales salen en una sola fila.
   balines: {
     ...demo,
     piezas: [demo.piezas[0], ...Array.from({ length: 25 }, () => ({ descripcion: 'Balin #3', peso_gramos: 0.03, ley: '18k' }))],
   },
-  diez: { ...demo, circulo: { interacciones: 10, hitos: [3, 5, 10], proximo_hito: null, codigo_referido: 'VALENTINA-8310' } },
+  diez: { ...demo, circulo: { gramos: 15, hitos: [5, 10, 15], proximo_hito: null, codigo_referido: 'VALENTINA-8310' } },
   regalo,
   // Peor caso del mensaje: casi 300 caracteres y un salto de párrafo.
   'regalo-sin-nombre': {
@@ -76,7 +76,7 @@ export const casos: Record<string, CajaPublica | 'neutra' | 'temporal'> = {
     piezas: peor.piezas,
   },
   premio,
-  'premio-elite': { ...premio, hito: 10, detalle: null, circulo: { interacciones: 10, hitos: [3, 5, 10], proximo_hito: null, codigo_referido: 'VALENTINA-8310' } },
+  'premio-elite': { ...premio, hito: 15, detalle: null, circulo: { gramos: 15, hitos: [5, 10, 15], proximo_hito: null, codigo_referido: 'VALENTINA-8310' } },
   neutra: 'neutra',
   temporal: 'temporal',
 };

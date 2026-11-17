@@ -12,10 +12,11 @@ Complementa `Especificación landing NFC – SS Joyería.md`. Acordadas el 25 de
 
 ## Reglas del Círculo SS
 
-- Una compra cuenta como interacción solo si es de 600.000 COP o más, incluida la primera. Si la primera compra es menor, la interacción 1 es la primera compra que llegue al mínimo.
+- **Desde el 17 nov 2026 el Círculo se mide en gramos** (antes: interacciones de compras desde 600.000 COP, premios a las 3, 5 y 10, tope 10).
+- Cada compra de un cliente suma todos los gramos de sus piezas, sin monto mínimo. Las ventas anuladas y las ventas a aliados no suman.
 - Referido = cliente nuevo: `referido_por` solo se puede asignar cuando el cliente se crea en esa misma venta.
-- Del referido solo cuenta para quien lo refirió su primera compra que califique (de 600.000 o más); las anteriores menores no suman y las posteriores tampoco. Queda como configuración.
-- El contador se detiene en 10.
+- Del referido, quien lo refirió suma el 10% de los gramos de su **primera** compra (la más antigua no anulada), redondeado a centésimas; las siguientes no suman. Queda como configuración.
+- Premios: 5 g, una manilla con 10 balines; 10 g, 10 balines más; 15 g, 10 balines más. El contador se detiene en 15 g.
 - `referido_por` se guarda también en `clientes` y no se puede cambiar después.
 
 ## Datos

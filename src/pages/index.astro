@@ -10,9 +10,9 @@ export const prerender = true;
 
 // Cada nivel enciende en dorado una parte del símbolo de SS (ver LogoCirculo.astro).
 const NIVELES = [
-  { nivel: 1, hito: 3 },
-  { nivel: 2, hito: 5 },
-  { nivel: 3, hito: 10 },
+  { nivel: 1, hito: 5 },
+  { nivel: 2, hito: 10 },
+  { nivel: 3, hito: 15 },
 ];
 ---
 
@@ -57,13 +57,13 @@ const NIVELES = [
       <ol class="formas">
         <li>
           <span class="n">1</span>
-          <p><strong>Con tus compras.</strong> Cada compra tuya desde $600.000 suma una interacción.</p>
+          <p><strong>Con tus compras.</strong> Cada gramo de oro que compras suma a tu contador.</p>
         </li>
         <li>
           <span class="n">2</span>
           <p>
             <strong>Recomendándonos.</strong> Comparte tu nombre o tu código de referido: cuando alguien hace su primera
-            compra desde $600.000 y te menciona, te suma una interacción.
+            compra y te menciona, sumas el 10% de los gramos que compró.
           </p>
         </li>
       </ol>
@@ -74,9 +74,9 @@ const NIVELES = [
         {
           NIVELES.map((x) => (
             <li>
-              <LogoCirculo interacciones={x.hito} alto="5.5rem" />
+              <LogoCirculo gramos={x.hito} alto="5.5rem" />
               <span class="titulo-nivel">Nivel {x.nivel}</span>
-              <span class="cuantas">{x.hito} interacciones</span>
+              <span class="cuantas">{x.hito} gramos</span>
               <span class="premio">{premioTitulo(x.hito)}</span>
             </li>
           ))
@@ -90,8 +90,8 @@ const NIVELES = [
       </p>
 
       <p class="sutil letra-menuda">
-        De cada persona que recomiendes cuenta solo su primera compra desde $600.000.
-        El Círculo llega hasta {TOPE} interacciones.
+        De cada persona que recomiendes cuenta solo su primera compra.
+        El Círculo llega hasta {TOPE} gramos.
       </p>
 
       <a class="boton rojo" href="/catalogo">Elige tu primera pieza</a>
@@ -267,7 +267,7 @@ const NIVELES = [
     text-align: center;
   }
 
-  /* Los tres niveles lado a lado: el símbolo en su estado, el nivel, cuántas interacciones y el premio. */
+  /* Los tres niveles lado a lado: el símbolo en su estado, el nivel, cuántos gramos y el premio. */
   .niveles {
     list-style: none;
     margin: 1.5rem 0 0;

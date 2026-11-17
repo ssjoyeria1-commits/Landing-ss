@@ -308,8 +308,8 @@ export const EXPORTACIONES: Record<string, Exportacion> = {
 
       return {
         encabezados: [
-          'Cliente', 'WhatsApp', 'Código de referido', 'Referido por', 'Compras que cuentan',
-          'Por referidos', 'Interacciones', 'Próximo nivel', 'Premios entregados', 'Premios pendientes',
+          'Cliente', 'WhatsApp', 'Código de referido', 'Referido por', 'Gramos de sus compras',
+          'Gramos por referidos', 'Gramos del Círculo', 'Próximo premio (g)', 'Premios entregados', 'Premios pendientes',
           'Autorizó datos', 'Fecha de autorización', 'Cliente desde',
         ],
         filas: clientes.map((c) => [
@@ -317,9 +317,9 @@ export const EXPORTACIONES: Record<string, Exportacion> = {
           formatoWhatsapp(c.whatsapp),
           c.codigo_referido,
           c.referido_por_codigo ?? '',
-          c.propias,
-          c.por_referidos,
-          c.interacciones,
+          Number(c.gramos_propios),
+          Number(c.gramos_referidos),
+          Number(c.gramos),
           c.proximo_hito ?? 'Completo',
           entregados.get(c.id) ?? [],
           c.premios_pendientes,

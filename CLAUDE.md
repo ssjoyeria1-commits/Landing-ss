@@ -130,8 +130,8 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 
 ## Datos de prueba en producción
 
-- Venta de prueba de un socio con la caja `pc2pv27v4i` (referencia `SS-4GKKS`), compra propia de
-  1.250.000. Cada visita a `/c/pc2pv27v4i` suma un escaneo. Anular o borrar antes del lanzamiento.
+- Venta de prueba de un socio con la caja `pc2pv27v4i` (referencia `SS-4GKKS`): ya está anulada (17 nov 2026),
+  así que su chip da 404. Para revisar el sitio publicado sin sumar escaneos: `select pagina_caja(codigo, false)`.
 - Admins: los dos socios (tabla `admins` de Supabase). No iniciar sesión con sus contraseñas;
   las pruebas con sesión las hacen ellos.
 

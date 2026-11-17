@@ -1,0 +1,457 @@
+---
+// Carrito del catálogo: una burbuja fija abajo a la derecha (aparece cuando hay algo) que abre "Tu
+// pedido" desde abajo: cada pieza con su peso y precio, cantidad, quitar, total y "Enviar pedido por
+// WhatsApp" con todo escrito. Vive en el navegador del visitante (src/lib/carrito.ts); al abrir el
+// catálogo se quita lo que ya no está y se actualizan los precios. Lo usan Catalogo.astro y Ficha.astro.
+import { whatsappPendiente } from '../../lib/whatsapp';
+import { SITIO } from '../../config/sitio';
+import type { Disponible } from '../../lib/carrito';
+
+interface Props {
+  /** Línea de WhatsApp (las pruebas pasan una de ejemplo). Sin número real no se muestra el carrito. */
+  numero?: string;
+  /** Lo que hay hoy, para poner el carrito al día. */
+  disponibles?: Disponible[];
+  /** Códigos que `disponibles` cubre (la ficha solo conoce su producto). Sin él, todo el catálogo. */
+  alcance?: string[];
+}
+
+const { numero = SITIO.whatsappNegocio, disponibles, alcance } = Astro.props;
+const activo = !whatsappPendiente(numero);
+const base = `https://wa.me/${numero.replace(/\D/g, '')}`;
+---
+
+{
+  activo && (
+    <div
+      class="carrito"
+      data-whatsapp={base}
+      data-disponibles={disponibles ? JSON.stringify(disponibles) : undefined}
+      data-alcance={alcance ? JSON.stringify(alcance) : undefined}
+    >
+      <button type="button" class="burbuja" hidden aria-haspopup="dialog">
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
+          <path d="M5 8h14l-1.2 12H6.2L5 8Z" />
+          <path d="M9 8V6.5a3 3 0 0 1 6 0V8" stroke-linecap="round" />
+        </svg>
+        <span>Tu pedido</span>
+        <span class="cuenta" aria-label="piezas">0</span>
+      </button>
+
+      <dialog class="hoja" aria-labelledby="carrito-titulo">
+        <div class="cabeza">
+          <h2 id="carrito-titulo">Tu pedido</h2>
+          <button type="button" class="cerrar" aria-label="Cerrar">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <p class="quitadas" hidden />
+        <ul class="lineas" />
+        <p class="vacio" hidden>
+          Todavía no has agregado piezas. Elige una en el catálogo y toca "Agregar al pedido".
+        </p>
+        <div class="pie">
+          <p class="total">
+            <span>Total</span>
+            <strong />
+          </p>
+          <p class="nota">Te confirmamos la disponibilidad y el precio final por WhatsApp.</p>
+          <a class="boton whatsapp rojo enviar" target="_blank" rel="noopener noreferrer" href={base}>
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+              <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.2-.2-.5-.3Z" />
+            </svg>
+            Enviar pedido por WhatsApp
+          </a>
+        </div>
+        <button type="button" class="boton seguir">Seguir viendo</button>
+      </dialog>
+    </div>
+  )
+}
+
+<style>
+  /* Burbuja fija abajo a la derecha, sobre la barra de abajo del iPhone. */
+  .burbuja {
+    position: fixed;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+    z-index: 20;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 3.25rem;
+    padding: 0 1.1rem 0 0.95rem;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--rojo);
+    box-shadow: 0 0.6rem 1.6rem -0.4rem rgb(0 0 0 / 0.85);
+    cursor: pointer;
+    transition: transform 160ms var(--ease-out);
+  }
+
+  .burbuja[hidden] {
+    display: none;
+  }
+
+  /* Con "Tu pedido" abierto, la burbuja no se asoma detrás. */
+  .carrito:has(.hoja[open]) .burbuja {
+    visibility: hidden;
+  }
+
+  .burbuja:active {
+    transform: scale(0.96);
+  }
+
+  .cuenta {
+    display: grid;
+    place-items: center;
+    min-width: 1.6rem;
+    height: 1.6rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-variant-numeric: lining-nums tabular-nums;
+    color: var(--rojo);
+    background: #fff;
+  }
+
+  /* Al agregar algo, la burbuja da un pequeño salto. */
+  .burbuja.salta {
+    animation: carrito-salta 420ms var(--ease-out);
+  }
+
+  @keyframes carrito-salta {
+    40% {
+      transform: scale(1.12);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .burbuja.salta {
+      animation: none;
+    }
+  }
+
+  /* Que la burbuja no tape el final de la página. */
+  :global(body:has(.burbuja:not([hidden]))) {
+    padding-bottom: 5rem;
+  }
+
+  /* "Tu pedido": hoja que sube desde abajo en el celular; ventana centrada en computador. */
+  .hoja {
+    width: 100%;
+    max-width: 34rem;
+    max-height: 88dvh;
+    margin: auto auto 0;
+    padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+    border: 0;
+    border-radius: 16px 16px 0 0;
+    color: var(--tinta);
+    background: #160306;
+    box-shadow: inset 0 1px 0 rgb(242 236 228 / 0.15);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .hoja[open] {
+    animation: carrito-sube 280ms var(--ease-out);
+  }
+
+  .hoja::backdrop {
+    background: rgb(0 0 0 / 0.65);
+  }
+
+  @keyframes carrito-sube {
+    from {
+      transform: translateY(2rem);
+      opacity: 0;
+    }
+  }
+
+  @media (min-width: 40rem) {
+    .hoja {
+      margin: auto;
+      border-radius: 16px;
+      padding-bottom: 1.25rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hoja[open] {
+      animation: none;
+    }
+  }
+
+  .cabeza {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .cabeza h2 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: 1.9rem;
+    font-weight: 600;
+  }
+
+  .cerrar {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-right: -0.6rem;
+    padding: 0;
+    border: 0;
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--gris);
+    background: none;
+    cursor: pointer;
+  }
+
+  .quitadas {
+    margin: 0.75rem 0 0;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+    color: var(--tinta);
+    background: rgb(208 4 26 / 0.18);
+    box-shadow: inset 0 0 0 1px rgb(208 4 26 / 0.5);
+  }
+
+  .lineas {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+  }
+
+  .lineas :global(li) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.35rem 0.75rem;
+    padding: 0.9rem 0;
+    border-top: 1px solid rgb(242 236 228 / 0.12);
+  }
+
+  .lineas :global(.nombre) {
+    font-family: var(--display);
+    font-size: 1.3rem;
+    font-weight: 600;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  .lineas :global(.detalle) {
+    grid-column: 1;
+    font-size: 0.88rem;
+    color: var(--gris);
+  }
+
+  .lineas :global(.precio) {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    font-family: var(--display);
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-variant-numeric: lining-nums tabular-nums;
+    white-space: nowrap;
+  }
+
+  .lineas :global(.controles) {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.35rem;
+  }
+
+  .lineas :global(.paso) {
+    display: inline-flex;
+    align-items: center;
+    box-shadow: var(--filete);
+  }
+
+  .lineas :global(.paso button) {
+    width: 2.75rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 0;
+    font: inherit;
+    font-size: 1.25rem;
+    color: var(--tinta);
+    background: none;
+    cursor: pointer;
+  }
+
+  .lineas :global(.paso button:disabled) {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .lineas :global(.paso output) {
+    min-width: 2rem;
+    text-align: center;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .lineas :global(.quitar) {
+    min-height: 2.75rem;
+    padding: 0 0.25rem;
+    border: 0;
+    font: inherit;
+    font-size: 0.9rem;
+    color: var(--gris);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    background: none;
+    cursor: pointer;
+  }
+
+  .vacio {
+    margin: 1.5rem 0 0.5rem;
+    color: var(--gris);
+  }
+
+  .pie {
+    border-top: 1px solid rgb(242 236 228 / 0.12);
+  }
+
+  .total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 1rem 0 0;
+    font-size: 1.05rem;
+  }
+
+  .total strong {
+    font-family: var(--display);
+    font-size: 1.6rem;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .nota {
+    margin: 0.35rem 0 0;
+    font-size: 0.88rem;
+    color: var(--gris);
+  }
+
+  .pie .enviar {
+    margin-top: 1.1rem;
+  }
+
+  .hoja .seguir {
+    margin-top: 0.6rem;
+  }
+</style>
+
+<script>
+  import { actual, cambiarCantidad, conciliar, EVENTO, mensajePedido, MAXIMO_POR_LINEA, peso, pesos, total, unidades } from '../../lib/carrito';
+
+  for (const raiz of document.querySelectorAll<HTMLElement>('.carrito')) {
+    // El contenedor de la página (.con-monograma) recorta con clip-path, y eso también corta lo fijo:
+    // la burbuja va directo en <body> (dentro de .publica para heredar sus estilos de botón).
+    (document.querySelector('.publica') ?? document.body).append(raiz);
+    const burbuja = raiz.querySelector<HTMLButtonElement>('.burbuja')!;
+    const cuenta = raiz.querySelector<HTMLElement>('.cuenta')!;
+    const hoja = raiz.querySelector<HTMLDialogElement>('.hoja')!;
+    const lista = raiz.querySelector<HTMLUListElement>('.lineas')!;
+    const vacio = raiz.querySelector<HTMLElement>('.vacio')!;
+    const pie = raiz.querySelector<HTMLElement>('.pie')!;
+    const suma = raiz.querySelector<HTMLElement>('.total strong')!;
+    const enviar = raiz.querySelector<HTMLAnchorElement>('.enviar')!;
+    const quitadas = raiz.querySelector<HTMLElement>('.quitadas')!;
+    const base = raiz.dataset.whatsapp ?? '';
+
+    const crear = <K extends keyof HTMLElementTagNameMap>(etiqueta: K, clase: string, texto = '') =>
+      Object.assign(document.createElement(etiqueta), { className: clase, textContent: texto });
+
+    function pintar(saltar = false) {
+      const lineas = actual();
+      const n = unidades(lineas);
+      burbuja.hidden = n === 0;
+      cuenta.textContent = String(n);
+      cuenta.setAttribute('aria-label', n === 1 ? '1 pieza' : `${n} piezas`);
+      if (saltar && n > 0) {
+        burbuja.classList.remove('salta');
+        void burbuja.offsetWidth;
+        burbuja.classList.add('salta');
+      }
+
+      lista.replaceChildren(
+        ...lineas.map((l, i) => {
+          const li = document.createElement('li');
+          const menos = crear('button', '', '−');
+          menos.type = 'button';
+          menos.setAttribute('aria-label', `Una menos de ${l.nombre}`);
+          menos.disabled = l.cantidad <= 1;
+          menos.addEventListener('click', () => cambiarCantidad(i, l.cantidad - 1));
+          const mas = crear('button', '', '+');
+          mas.type = 'button';
+          mas.setAttribute('aria-label', `Una más de ${l.nombre}`);
+          mas.disabled = l.cantidad >= MAXIMO_POR_LINEA;
+          mas.addEventListener('click', () => cambiarCantidad(i, l.cantidad + 1));
+          const paso = crear('span', 'paso');
+          paso.append(menos, crear('output', '', String(l.cantidad)), mas);
+          const quitar = crear('button', 'quitar', 'Quitar');
+          quitar.type = 'button';
+          quitar.addEventListener('click', () => cambiarCantidad(i, 0));
+          const controles = crear('div', 'controles');
+          controles.append(paso, quitar);
+          li.append(
+            crear('span', 'nombre', l.nombre),
+            crear('span', 'precio', pesos(l.cantidad * l.precio_cop)),
+            crear('span', 'detalle', `${l.codigo} · ${peso(l.peso_gramos)}${l.cantidad > 1 ? ` · ${pesos(l.precio_cop)} c/u` : ''}`),
+            controles,
+          );
+          return li;
+        }),
+      );
+      vacio.hidden = lineas.length > 0;
+      pie.hidden = lineas.length === 0;
+      suma.textContent = pesos(total(lineas));
+      enviar.href = `${base}?text=${encodeURIComponent(mensajePedido(lineas))}`;
+    }
+
+    // Al abrir la página: quitar lo vendido u oculto y poner los precios de hoy.
+    if (raiz.dataset.disponibles) {
+      try {
+        const n = conciliar(JSON.parse(raiz.dataset.disponibles), raiz.dataset.alcance ? JSON.parse(raiz.dataset.alcance) : undefined);
+        if (n > 0) {
+          quitadas.textContent =
+            n === 1 ? 'Quitamos de tu pedido una pieza que ya no está disponible.' : `Quitamos de tu pedido ${n} piezas que ya no están disponibles.`;
+          quitadas.hidden = false;
+        }
+      } catch {
+        // Datos dañados: el carrito sigue como estaba.
+      }
+    }
+
+    pintar();
+    window.addEventListener(EVENTO, () => pintar(true));
+    // Otra pestaña cambió el carrito.
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'ss-carrito' || e.key === null) pintar();
+    });
+
+    burbuja.addEventListener('click', () => {
+      pintar();
+      hoja.showModal();
+    });
+    raiz.querySelector('.cerrar')!.addEventListener('click', () => hoja.close());
+    raiz.querySelector('.seguir')!.addEventListener('click', () => hoja.close());
+    // Tocar fuera de la hoja la cierra.
+    hoja.addEventListener('click', (e) => {
+      if (e.target === hoja) {
+        const r = hoja.getBoundingClientRect();
+        const { clientX: x, clientY: y } = e;
+        if (x < r.left || x > r.right || y < r.top || y > r.bottom) hoja.close();
+      }
+    });
+  }
+</script>

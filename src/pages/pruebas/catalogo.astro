@@ -65,7 +65,7 @@ const producto = ficha ? (productos.find((p) => p.codigo === ficha) ?? null) : n
     ficha ? (
       <Ficha producto={producto} temporal={datos === 'temporal'} volver={volver} numero={Astro.url.searchParams.has('whatsapp') ? '+573001234567' : undefined} />
     ) : (
-      <Catalogo productos={productos} temporal={datos === 'temporal'} enlace={enlace} />
+      <Catalogo productos={productos} temporal={datos === 'temporal'} enlace={enlace} numero={Astro.url.searchParams.has('whatsapp') ? '+573001234567' : undefined} />
     )
   }
 </Publica>

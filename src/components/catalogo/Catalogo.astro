@@ -5,6 +5,8 @@
 import { peso } from '../../lib/caja';
 import { ANCHO, anclaCategoria, type ProductoPublico } from '../../lib/catalogo';
 import { pesos } from '../../lib/formato';
+import Carrito from './Carrito.astro';
+import { SITIO } from '../../config/sitio';
 
 interface Props {
   productos: ProductoPublico[];
@@ -12,9 +14,13 @@ interface Props {
   temporal?: boolean;
   /** Base del enlace de cada ficha (las pruebas usan otra). */
   enlace?: (codigo: string) => string;
+  /** Línea de WhatsApp del carrito (las pruebas pasan una de ejemplo). */
+  numero?: string;
 }
 
-const { productos, temporal = false, enlace = (c: string) => `/catalogo/${encodeURIComponent(c)}` } = Astro.props;
+const { productos, temporal = false, enlace = (c: string) => `/catalogo/${encodeURIComponent(c)}`, numero = SITIO.whatsappNegocio } = Astro.props;
+// Para poner el carrito al día (si el catálogo no cargó, no se toca).
+const disponibles = productos.flatMap((p) => p.opciones.map((o) => ({ codigo: p.codigo, peso_gramos: o.peso_gramos, precio_cop: o.precio_cop })));
 const VISIBLES = 3;
 
 const categorias = [...new Set(productos.map((p) => p.categoria))];
@@ -91,6 +97,8 @@ const porCategoria = categorias.map((nombre) => ({
     </section>
   ))
 }
+
+<Carrito numero={numero} disponibles={temporal ? undefined : disponibles} />
 
 <style>
   .encabezado {

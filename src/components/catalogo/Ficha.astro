@@ -3,6 +3,7 @@
 // precio y el botón de WhatsApp con la pieza y el peso elegido (agotada: sin pesos, con un aviso). Sin el producto (vendido, oculto o
 // inexistente) muestra que ya no está disponible. Lo usan /catalogo/[codigo] y /pruebas/catalogo.
 import BotonWhatsApp from '../caja/BotonWhatsApp.astro';
+import Carrito from './Carrito.astro';
 import { peso } from '../../lib/caja';
 import { ANCHO, anclaCategoria, type ProductoPublico } from '../../lib/catalogo';
 import { pesos } from '../../lib/formato';
@@ -111,6 +112,8 @@ const agotado = p?.opciones.length === 0;
                 value={peso(o.peso_gramos)}
                 checked={i === 0}
                 hidden={una}
+                data-gramos={o.peso_gramos}
+                data-precio={o.precio_cop}
                 data-whatsapp={!conWhatsapp ? undefined : enlaceWhatsApp(numero, MENSAJES.interesCatalogo(p.nombre, p.codigo, peso(o.peso_gramos)))}
               />
               <span class="peso">{peso(o.peso_gramos)}</span>
@@ -122,10 +125,16 @@ const agotado = p?.opciones.length === 0;
 
         {conWhatsapp && (
           <div class="interes">
+            <button type="button" class="boton rojo agregar" data-codigo={p.codigo} data-nombre={p.nombre}>
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
+                <path d="M5 8h14l-1.2 12H6.2L5 8Z" />
+                <path d="M9 8V6.5a3 3 0 0 1 6 0V8" stroke-linecap="round" />
+              </svg>
+              <span>Agregar al pedido</span>
+            </button>
             <BotonWhatsApp
               href={enlaceWhatsApp(numero, MENSAJES.interesCatalogo(p.nombre, p.codigo, peso(p.opciones[0].peso_gramos)))}
-              texto="Me interesa"
-              color="rojo"
+              texto="Preguntar por WhatsApp"
             />
           </div>
         )}
@@ -136,6 +145,9 @@ const agotado = p?.opciones.length === 0;
     </article>
   )
 }
+
+{p && !temporal && <Carrito numero={numero} disponibles={p.opciones.map((o) => ({ codigo: p.codigo, peso_gramos: o.peso_gramos, precio_cop: o.precio_cop }))} alcance={[p.codigo]} />}
+{!p && <Carrito numero={numero} />}
 
 <style>
   .volver {
@@ -371,6 +383,8 @@ const agotado = p?.opciones.length === 0;
 </style>
 
 <script>
+  import { agregar } from '../../lib/carrito';
+
   // Galería: los rombos siguen a la foto que se ve; los rombos y las flechas llevan a otra foto.
   for (const galeria of document.querySelectorAll<HTMLElement>('.galeria')) {
     const lista = galeria.querySelector<HTMLElement>('.fotos')!;
@@ -399,6 +413,26 @@ const agotado = p?.opciones.length === 0;
     puntos.forEach((p, i) => p.addEventListener('click', () => ir(i)));
     antes.addEventListener('click', () => ir(actual() - 1));
     despues.addEventListener('click', () => ir(actual() + 1));
+  }
+
+  // "Agregar al pedido": el peso elegido va al carrito (src/lib/carrito.ts); el botón confirma un momento.
+  const agregarBoton = document.querySelector<HTMLButtonElement>('.interes .agregar');
+  if (agregarBoton) {
+    const texto = agregarBoton.querySelector('span')!;
+    let espera: number | undefined;
+    agregarBoton.addEventListener('click', () => {
+      const elegido = document.querySelector<HTMLInputElement>('.pesos input:checked');
+      if (!elegido) return;
+      agregar({
+        codigo: agregarBoton.dataset.codigo!,
+        nombre: agregarBoton.dataset.nombre!,
+        peso_gramos: Number(elegido.dataset.gramos),
+        precio_cop: Number(elegido.dataset.precio),
+      });
+      texto.textContent = 'Agregado a tu pedido';
+      clearTimeout(espera);
+      espera = window.setTimeout(() => (texto.textContent = 'Agregar al pedido'), 1800);
+    });
   }
 
   // El mensaje de WhatsApp lleva el peso elegido (cada opción trae su enlace armado en el servidor).

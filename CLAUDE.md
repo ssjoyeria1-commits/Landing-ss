@@ -195,6 +195,11 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   - [x] **Agotados** (13 nov 2026, migración `20261113130000_catalogo_agotados.sql`): un producto publicado y con foto
         pero sin piezas disponibles sale en `catalogo_publico()` con `opciones` vacío, al final de su categoría: foto
         apagada con sello "Agotado" y, en la ficha, "Avísame cuando vuelva" por WhatsApp. Prueba: `/pruebas/catalogo?ficha=AN-040`.
+  - [x] **Carrito** (16 nov 2026): en la ficha, "Agregar al pedido" (el peso elegido) y "Preguntar por WhatsApp"; burbuja
+        "Tu pedido" abajo a la derecha que abre la lista (cantidad, quitar, total) y "Enviar pedido por WhatsApp" con todo
+        escrito. Solo en el navegador del visitante (`localStorage`, `src/lib/carrito.ts`; nada llega a la base); al abrir el
+        catálogo quita lo vendido u oculto y pone los precios de hoy. `src/components/catalogo/Carrito.astro` se mueve a
+        `.publica` al cargar porque `.con-monograma` recorta con clip-path lo fijo.
 - [ ] **Fase 5 (seguridad, respaldos, rendimiento).** Decisiones (5 nov 2026): repositorio a privado
       (pendiente: la cuenta de GitHub tiene un problema de verificación), reglas fuertes de contraseña
       en lugar de la protección contra contraseñas filtradas (esa es solo del plan Pro), respaldo

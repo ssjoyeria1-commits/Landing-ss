@@ -29,7 +29,8 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
 <section class="bloque">
   <h2 class="titulo-fuera">Tu Círculo SS</h2>
   <div class:list={['seccion circulo', { completo }]}>
-    {/* Avance de nivel a nivel: tres tramos (0–5, 5–10 y 10–15 g) que se llenan en dorado al abrir la página. */}
+    {/* Avance de nivel a nivel: tres tramos (0–5, 5–10 y 10–15 g) que se llenan en dorado, uno tras otro, cuando
+        la barra entra en pantalla (y la cifra sube a la par). */}
     {!completo && (
       <div
         class="avance"
@@ -40,7 +41,7 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
         aria-valuetext={`${verGramos(gramos)} de ${TOPE} g`}
       >
         <p class="cifra">
-          <strong>{gramos.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</strong>
+          <strong data-gramos={gramos}>{gramos.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</strong>
           <span>gramos</span>
         </p>
         <ol class="tramos" aria-hidden="true">
@@ -98,6 +99,48 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
 </section>
 
 <script>
+  // Llenado de la barra del Círculo: arranca la primera vez que la barra se ve (el Círculo suele estar más abajo
+  // de las piezas). Cada tramo completo tarda TRAMO ms y el en curso, su parte; la cifra sube de 0 al total a la
+  // par. Sin IntersectionObserver o con "reducir movimiento", la barra ya se ve llena (no se toca nada).
+  const TRAMO = 800;
+  const formato = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 });
+  if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    for (const avance of document.querySelectorAll<HTMLElement>('.circulo .avance')) {
+      const cifra = avance.querySelector<HTMLElement>('[data-gramos]')!;
+      const total = Number(cifra.dataset.gramos);
+      const tramos = [...avance.querySelectorAll<HTMLElement>('.tramos li')];
+      // Cuánto se llena cada tramo (0 a 1) y cuándo empieza: el siguiente arranca cuando termina el anterior.
+      let inicio = 0;
+      for (const li of tramos) {
+        const lleno = Number(getComputedStyle(li).getPropertyValue('--lleno')) || 0;
+        const dura = Math.max(lleno * TRAMO, lleno > 0 ? 350 : 0);
+        li.style.setProperty('--dura', `${dura}ms`);
+        li.style.setProperty('--empieza', `${inicio}ms`);
+        inicio += dura;
+      }
+      const duracion = inicio;
+      avance.classList.add('listo');
+      cifra.textContent = '0';
+
+      const observador = new IntersectionObserver(
+        (entradas) => {
+          if (!entradas.some((e) => e.isIntersecting)) return;
+          observador.disconnect();
+          avance.classList.add('en-vista');
+          const t0 = performance.now();
+          const subir = (ahora: number) => {
+            const p = Math.min(1, (ahora - t0) / (duracion || 1));
+            cifra.textContent = formato.format(total * p);
+            if (p < 1) requestAnimationFrame(subir);
+          };
+          requestAnimationFrame(subir);
+        },
+        { threshold: 0.6 },
+      );
+      observador.observe(avance);
+    }
+  }
+
   for (const boton of document.querySelectorAll<HTMLButtonElement>('.circulo .codigo')) {
     const aviso = boton.querySelector('.aviso')!;
     let espera: ReturnType<typeof setTimeout>;
@@ -156,7 +199,8 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     box-shadow: inset 0 0 0 1px rgb(242 236 228 / 0.14);
   }
 
-  /* El relleno dorado crece de izquierda a derecha; los tramos se llenan uno tras otro. */
+  /* El relleno dorado crece de izquierda a derecha. Con JavaScript (.listo) empieza vacío y, al verse la barra
+     (.en-vista), los tramos se llenan uno tras otro (--empieza y --dura los pone el script). */
   .relleno {
     position: absolute;
     inset: 0;
@@ -164,13 +208,43 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     background: linear-gradient(90deg, #b8892f, #f3dc9a 55%, #d9b45a);
     transform: scaleX(var(--lleno));
     transform-origin: left;
-    animation: tramo-llenar 900ms var(--ease-out) both;
-    animation-delay: calc(300ms + var(--i) * 650ms);
   }
 
-  @keyframes tramo-llenar {
-    from {
-      transform: scaleX(0);
+  .listo .relleno {
+    transform: scaleX(0);
+  }
+
+  .listo.en-vista .relleno {
+    transform: scaleX(var(--lleno));
+    transition: transform var(--dura) linear var(--empieza);
+  }
+
+  /* El nivel se marca en dorado justo cuando su tramo termina de llenarse. */
+  .listo .ganado .marca {
+    color: var(--gris);
+  }
+
+  .listo .ganado .rombo {
+    background: transparent;
+  }
+
+  .listo.en-vista .ganado .marca {
+    color: #e8c46f;
+    transition: color 300ms ease calc(var(--empieza) + var(--dura));
+  }
+
+  .listo.en-vista .ganado .rombo {
+    background: currentColor;
+    animation: rombo-ganado 500ms var(--ease-out) calc(var(--empieza) + var(--dura)) backwards;
+  }
+
+  @keyframes rombo-ganado {
+    0% {
+      background: transparent;
+      transform: rotate(45deg) scale(1);
+    }
+    50% {
+      transform: rotate(45deg) scale(1.8);
     }
   }
 
@@ -184,6 +258,15 @@ const compartir = `https://wa.me/?text=${encodeURIComponent(MENSAJES.compartir(c
     background: linear-gradient(100deg, transparent 30%, rgb(255 240 200 / 0.7) 50%, transparent 70%);
     transform: translateX(-100%);
     animation: tramo-brillo 2.6s ease-in-out 2.4s infinite;
+  }
+
+  /* Con el llenado animado, la luz espera a que el tramo termine de llenarse. */
+  .listo:not(.en-vista) .actual .barra::after {
+    animation: none;
+  }
+
+  .listo.en-vista .actual .barra::after {
+    animation-delay: calc(var(--empieza) + var(--dura) + 400ms);
   }
 
   @keyframes tramo-brillo {

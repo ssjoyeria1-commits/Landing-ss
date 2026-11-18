@@ -2,6 +2,8 @@
 // Cuerpo de /catalogo: piezas por categoría en una cuadrícula de vitrina. Cada tarjeta lleva la foto
 // principal, el nombre y cada peso disponible con su precio (nunca cuántas piezas hay), o "Agotado"
 // si no le quedan piezas (van al final de su categoría), y abre la ficha de la pieza. Lo usan /catalogo y /pruebas/catalogo.
+// En modo showroom (/showroom, para socios estratégicos que piden piezas para fotografía) no lleva precios, pesos
+// ni carrito: solo la foto, el nombre y la referencia.
 import { peso } from '../../lib/caja';
 import { ANCHO, anclaCategoria, type ProductoPublico } from '../../lib/catalogo';
 import { pesos } from '../../lib/formato';
@@ -16,9 +18,12 @@ interface Props {
   enlace?: (codigo: string) => string;
   /** Línea de WhatsApp del carrito (las pruebas pasan una de ejemplo). */
   numero?: string;
+  /** Sin precios ni carrito (/showroom). */
+  showroom?: boolean;
 }
 
-const { productos, temporal = false, enlace = (c: string) => `/catalogo/${encodeURIComponent(c)}`, numero = SITIO.whatsappNegocio } = Astro.props;
+const { productos, temporal = false, numero = SITIO.whatsappNegocio, showroom = false } = Astro.props;
+const enlace = Astro.props.enlace ?? ((c: string) => `/${showroom ? 'showroom' : 'catalogo'}/${encodeURIComponent(c)}`);
 // Para poner el carrito al día (si el catálogo no cargó, no se toca).
 const disponibles = productos.flatMap((p) => p.opciones.map((o) => ({ codigo: p.codigo, peso_gramos: o.peso_gramos, precio_cop: o.precio_cop })));
 const VISIBLES = 3;
@@ -33,7 +38,11 @@ const porCategoria = categorias.map((nombre) => ({
 
 <!-- El título "Catálogo" está en la portada (Publica con rotulo); al deslizar aparecen el subtítulo y las categorías. -->
 <header class="encabezado">
-  <p class="aparece">Piezas en oro de 18k disponibles hoy. Cada pieza tiene su propio peso, y el precio depende de él.</p>
+  <p class="aparece">
+    {showroom
+      ? 'Nuestra colección en oro de 18k. Elige las piezas que te gustaría tener en tu sesión y cuéntanos su referencia.'
+      : 'Piezas en oro de 18k disponibles hoy. Cada pieza tiene su propio peso, y el precio depende de él.'}
+  </p>
   {
     categorias.length > 1 && (
       <nav class="categorias aparece" aria-label="Categorías">
@@ -80,6 +89,9 @@ const porCategoria = categorias.map((nombre) => ({
                 />
               </span>
               <span class="nombre luz-dorada">{p.nombre}</span>
+              {showroom ? (
+                <span class="referencia">Ref. {p.codigo}</span>
+              ) : (
               <span class="precios">
                 {p.opciones.length === 0 && <span class="sin-piezas">Agotado</span>}
                 {p.opciones.slice(0, VISIBLES).map((o) => (
@@ -90,6 +102,7 @@ const porCategoria = categorias.map((nombre) => ({
                 ))}
                 {p.opciones.length > VISIBLES && <span class="mas">Ver más pesos</span>}
               </span>
+              )}
             </a>
           </li>
         ))}
@@ -98,7 +111,7 @@ const porCategoria = categorias.map((nombre) => ({
   ))
 }
 
-<Carrito numero={numero} disponibles={temporal ? undefined : disponibles} />
+{!showroom && <Carrito numero={numero} disponibles={temporal ? undefined : disponibles} />}
 
 <style>
   .encabezado {
@@ -340,6 +353,13 @@ const porCategoria = categorias.map((nombre) => ({
   /* El precio en negrita, para que resalte junto al peso. */
   .precio {
     font-weight: 700;
+  }
+
+  .referencia {
+    margin-top: 0.35rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    color: var(--gris);
   }
 
   .mas {

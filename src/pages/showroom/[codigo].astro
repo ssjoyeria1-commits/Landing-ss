@@ -1,0 +1,27 @@
+---
+// Ficha del showroom: la pieza sin precios ni botones (ver src/pages/showroom.astro).
+import Publica from '../../layouts/Publica.astro';
+import Ficha from '../../components/catalogo/Ficha.astro';
+import { obtenerCatalogo, origenFotos, type ProductoPublico } from '../../lib/catalogo';
+
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+Astro.response.headers.set('Cache-Control', 'public, max-age=60');
+
+const codigo = (Astro.params.codigo ?? '').toUpperCase();
+let producto: ProductoPublico | null = null;
+let temporal = false;
+try {
+  producto = (await obtenerCatalogo()).find((p) => p.codigo === codigo && p.opciones.length > 0) ?? null;
+} catch (e) {
+  console.error('catalogo_publico', e);
+  temporal = true;
+}
+if (!producto) {
+  Astro.response.status = temporal ? 503 : 404;
+  Astro.response.headers.set('Cache-Control', 'no-store');
+}
+---
+
+<Publica title={producto ? `${producto.nombre} · SS Joyería` : 'Showroom · SS Joyería'} noindex portada={false} amplio preconectar={origenFotos()}>
+  <Ficha producto={producto} temporal={temporal} showroom />
+</Publica>

@@ -2,6 +2,8 @@
 // Ficha de una pieza del catálogo: sus fotos (se deslizan de lado), cada peso disponible con su
 // precio y el botón de WhatsApp con la pieza y el peso elegido (agotada: sin pesos, con un aviso). Sin el producto (vendido, oculto o
 // inexistente) muestra que ya no está disponible. Lo usan /catalogo/[codigo] y /pruebas/catalogo.
+// En modo showroom (/showroom/[codigo]) no lleva precios, botones ni carrito: fotos, nombre, descripción, los pesos
+// en que hay y la referencia (para pedirla en préstamo para fotografía).
 import BotonWhatsApp from '../caja/BotonWhatsApp.astro';
 import Carrito from './Carrito.astro';
 import { peso } from '../../lib/caja';
@@ -19,9 +21,13 @@ interface Props {
   volver?: string;
   /** Línea de WhatsApp (las pruebas pasan una de ejemplo mientras la real está pendiente). */
   numero?: string;
+  /** Sin precios, botones ni carrito (/showroom). */
+  showroom?: boolean;
 }
 
-const { producto, temporal = false, volver = '/catalogo', numero = SITIO.whatsappNegocio } = Astro.props;
+const { producto, temporal = false, numero = SITIO.whatsappNegocio, showroom = false } = Astro.props;
+const volver = Astro.props.volver ?? (showroom ? '/showroom' : '/catalogo');
+const nombreLista = showroom ? 'Showroom' : 'Catálogo';
 const conWhatsapp = !whatsappPendiente(numero);
 const p = producto;
 // Volver lleva directo a la categoría de la pieza: la portada del catálogo queda arriba, sin repetir la entrada.
@@ -31,7 +37,7 @@ const una = p?.opciones.length === 1;
 const agotado = p?.opciones.length === 0;
 ---
 
-<p class="volver"><a href={volverA}>← Catálogo</a></p>
+<p class="volver"><a href={volverA}>← {nombreLista}</a></p>
 
 {
   !p ? (
@@ -40,10 +46,10 @@ const agotado = p?.opciones.length === 0;
       <p>
         {temporal
           ? 'No pudimos cargar la pieza en este momento. Intenta de nuevo en unos minutos.'
-          : 'Puede que se haya vendido. Mira las demás piezas del catálogo.'}
+          : `Puede que ya no esté disponible. Mira las demás piezas del ${nombreLista.toLowerCase()}.`}
       </p>
       <a class="boton" href={volver}>
-        Ver el catálogo
+        Ver el {nombreLista.toLowerCase()}
       </a>
     </section>
   ) : (
@@ -91,7 +97,12 @@ const agotado = p?.opciones.length === 0;
         <h1 class:list={["luz-dorada", { larga: p.nombre.length > 40 }]}>{p.nombre}</h1>
         {p.descripcion && <p class="descripcion">{p.descripcion}</p>}
 
-        {agotado ? (
+        {showroom ? (
+          <p class="disponible">
+            <span class="sutil">{una ? 'Peso' : 'Pesos'}</span>
+            {p.opciones.map((o) => peso(o.peso_gramos)).join(' · ')}
+          </p>
+        ) : agotado ? (
           <>
             <p class="agotado">Agotado</p>
             <p class="sutil">Esta pieza está agotada por ahora. Escríbenos y te avisamos cuando vuelva.</p>
@@ -156,8 +167,8 @@ const agotado = p?.opciones.length === 0;
   )
 }
 
-{p && !temporal && <Carrito numero={numero} disponibles={p.opciones.map((o) => ({ codigo: p.codigo, peso_gramos: o.peso_gramos, precio_cop: o.precio_cop }))} alcance={[p.codigo]} />}
-{!p && <Carrito numero={numero} />}
+{!showroom && p && !temporal && <Carrito numero={numero} disponibles={p.opciones.map((o) => ({ codigo: p.codigo, peso_gramos: o.peso_gramos, precio_cop: o.precio_cop }))} alcance={[p.codigo]} />}
+{!showroom && !p && <Carrito numero={numero} />}
 
 <style>
   .volver {
@@ -377,6 +388,16 @@ const agotado = p?.opciones.length === 0;
 
   .codigo {
     margin-top: 1.25rem;
+  }
+
+  /* Showroom: los pesos en una línea, sin precios. */
+  .disponible {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin: 1.5rem 0 0;
+    font-size: 1.05rem;
+    font-variant-numeric: lining-nums;
   }
 
   /* Cantidad: − [número] + con filete marfil, a la izquierda; el número se puede escribir. */

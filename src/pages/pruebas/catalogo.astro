@@ -53,19 +53,22 @@ const peor: ProductoPublico[] = [
 
 const casos: Record<string, ProductoPublico[]> = { demo, peor, uno: demo.slice(1, 2), vacio: [], temporal: [] };
 const datos = Astro.url.searchParams.get('datos') ?? 'demo';
-const productos = casos[datos] ?? demo;
+// &showroom=1: el showroom (sin precios ni carrito, sin agotadas).
+const showroom = Astro.url.searchParams.has('showroom');
+const productos = (casos[datos] ?? demo).filter((p) => !showroom || p.opciones.length > 0);
 const ficha = Astro.url.searchParams.get('ficha');
-const enlace = (c: string) => `/pruebas/catalogo?datos=${datos}&ficha=${encodeURIComponent(c)}`;
-const volver = `/pruebas/catalogo?datos=${datos}`;
+const extra = showroom ? '&showroom=1' : '';
+const enlace = (c: string) => `/pruebas/catalogo?datos=${datos}${extra}&ficha=${encodeURIComponent(c)}`;
+const volver = `/pruebas/catalogo?datos=${datos}${extra}`;
 const producto = ficha ? (productos.find((p) => p.codigo === ficha) ?? null) : null;
 ---
 
-<Publica title="Catálogo · SS Joyería" noindex amplio portada={!ficha} rotulo={ficha ? undefined : "Catálogo"}>
+<Publica title="Catálogo · SS Joyería" noindex amplio portada={!ficha} rotulo={ficha ? undefined : showroom ? 'Showroom' : 'Catálogo'}>
   {
     ficha ? (
-      <Ficha producto={producto} temporal={datos === 'temporal'} volver={volver} numero={Astro.url.searchParams.has('whatsapp') ? '+573001234567' : undefined} />
+      <Ficha producto={producto} temporal={datos === 'temporal'} volver={volver} showroom={showroom} numero={Astro.url.searchParams.has('whatsapp') ? '+573001234567' : undefined} />
     ) : (
-      <Catalogo productos={productos} temporal={datos === 'temporal'} enlace={enlace} numero={Astro.url.searchParams.has('whatsapp') ? '+573001234567' : undefined} />
+      <Catalogo productos={productos} temporal={datos === 'temporal'} enlace={enlace} showroom={showroom} numero={Astro.url.searchParams.has('whatsapp') ? '+573001234567' : undefined} />
     )
   }
 </Publica>

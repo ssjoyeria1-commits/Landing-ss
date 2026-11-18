@@ -1,0 +1,26 @@
+---
+// Showroom (decisión de los socios, 18 nov 2026): el catálogo sin precios ni carrito, para socios estratégicos que
+// piden piezas prestadas para fotografía. Enlace fijo para compartir, fuera de buscadores. Solo piezas con
+// existencias (las agotadas no se pueden prestar). Los precios se traen con el catálogo pero no salen en la página.
+import Publica from '../layouts/Publica.astro';
+import Catalogo from '../components/catalogo/Catalogo.astro';
+import { obtenerCatalogo, origenFotos, type ProductoPublico } from '../lib/catalogo';
+
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+Astro.response.headers.set('Cache-Control', 'public, max-age=60');
+
+let productos: ProductoPublico[] = [];
+let temporal = false;
+try {
+  productos = (await obtenerCatalogo()).filter((p) => p.opciones.length > 0);
+} catch (e) {
+  console.error('catalogo_publico', e);
+  temporal = true;
+  Astro.response.status = 503;
+  Astro.response.headers.set('Cache-Control', 'no-store');
+}
+---
+
+<Publica title="Showroom · SS Joyería" noindex amplio rotulo="Showroom" preconectar={origenFotos()}>
+  <Catalogo productos={productos} temporal={temporal} showroom />
+</Publica>

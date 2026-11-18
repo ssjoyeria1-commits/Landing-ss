@@ -204,6 +204,10 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
         escrito. Solo en el navegador del visitante (`localStorage`, `src/lib/carrito.ts`; nada llega a la base); al abrir el
         catálogo quita lo vendido u oculto y pone los precios de hoy. `src/components/catalogo/Carrito.astro` se mueve a
         `.publica` al cargar porque `.con-monograma` recorta con clip-path lo fijo.
+  - [x] **Showroom** (18 nov 2026): `/showroom` y `/showroom/[codigo]`, el catálogo sin precios, botones ni carrito para
+        socios estratégicos que piden piezas prestadas para fotografía. Enlace fijo para compartir (`noindex`), solo
+        piezas con existencias; la ficha muestra fotos, descripción, pesos y referencia. Es el modo `showroom` de
+        `Catalogo.astro` y `Ficha.astro`. Prueba: `/pruebas/catalogo?showroom=1`.
 - [ ] **Fase 5 (seguridad, respaldos, rendimiento).** Decisiones (5 nov 2026): repositorio a privado
       (pendiente: la cuenta de GitHub tiene un problema de verificación), reglas fuertes de contraseña
       en lugar de la protección contra contraseñas filtradas (esa es solo del plan Pro), respaldo

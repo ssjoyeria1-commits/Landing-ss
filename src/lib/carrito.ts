@@ -19,7 +19,7 @@ export interface Disponible {
 }
 
 const CLAVE = 'ss-carrito';
-export const MAXIMO_POR_LINEA = 99;
+export const MAXIMO_POR_LINEA = 999;
 /** Aviso a los demás scripts de la página (y a la burbuja) de que el carrito cambió. */
 export const EVENTO = 'ss-carrito';
 

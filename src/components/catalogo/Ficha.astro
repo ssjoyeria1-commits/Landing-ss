@@ -7,6 +7,7 @@ import Carrito from './Carrito.astro';
 import { peso } from '../../lib/caja';
 import { ANCHO, anclaCategoria, type ProductoPublico } from '../../lib/catalogo';
 import { pesos } from '../../lib/formato';
+import { MAXIMO_POR_LINEA } from '../../lib/carrito';
 import { enlaceWhatsApp, whatsappPendiente } from '../../lib/whatsapp';
 import { MENSAJES } from '../../config/mensajes';
 import { SITIO } from '../../config/sitio';
@@ -125,6 +126,15 @@ const agotado = p?.opciones.length === 0;
 
         {conWhatsapp && (
           <div class="interes">
+            {/* Cuántas piezas de ese peso (la balinería se pide por cantidad). Se escribe o se usa − y +. */}
+            <div class="cantidad">
+              <label for="cantidad-pedido">Cantidad</label>
+              <div class="paso">
+                <button type="button" data-paso="-1" aria-label="Una menos">−</button>
+                <input id="cantidad-pedido" type="number" inputmode="numeric" min="1" max={MAXIMO_POR_LINEA} step="1" value="1" />
+                <button type="button" data-paso="1" aria-label="Una más">+</button>
+              </div>
+            </div>
             <button type="button" class="boton rojo agregar" data-codigo={p.codigo} data-nombre={p.nombre}>
               <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
                 <path d="M5 8h14l-1.2 12H6.2L5 8Z" />
@@ -369,6 +379,68 @@ const agotado = p?.opciones.length === 0;
     margin-top: 1.25rem;
   }
 
+  /* Cantidad: − [número] + con filete marfil, a la izquierda; el número se puede escribir. */
+  .cantidad {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .cantidad label {
+    font-family: var(--display);
+    font-size: 1.3rem;
+    font-weight: 600;
+  }
+
+  .cantidad .paso {
+    display: inline-flex;
+    align-items: center;
+    background: var(--superficie);
+    box-shadow: var(--filete);
+  }
+
+  .cantidad button {
+    width: 3rem;
+    height: 3rem;
+    padding: 0;
+    border: 0;
+    font: inherit;
+    font-size: 1.4rem;
+    color: var(--tinta);
+    background: none;
+    cursor: pointer;
+  }
+
+  .cantidad input {
+    width: 4.5rem;
+    height: 3rem;
+    padding: 0;
+    border: 0;
+    border-inline: 1px solid rgb(242 236 228 / 0.2);
+    border-radius: 0;
+    /* 16 px o más: en iPhone un campo más pequeño acerca la página al tocarlo. */
+    font: inherit;
+    font-size: 1.1rem;
+    font-variant-numeric: lining-nums tabular-nums;
+    text-align: center;
+    color: var(--tinta);
+    background: transparent;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .cantidad input::-webkit-inner-spin-button,
+  .cantidad input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .cantidad + .agregar {
+    margin-top: 0.75rem;
+  }
+
   .agotado {
     display: inline-block;
     margin: 1.5rem 0 0.75rem;
@@ -383,7 +455,7 @@ const agotado = p?.opciones.length === 0;
 </style>
 
 <script>
-  import { agregar } from '../../lib/carrito';
+  import { agregar, MAXIMO_POR_LINEA } from '../../lib/carrito';
 
   // Galería: los rombos siguen a la foto que se ve; los rombos y las flechas llevan a otra foto.
   for (const galeria of document.querySelectorAll<HTMLElement>('.galeria')) {
@@ -420,16 +492,31 @@ const agotado = p?.opciones.length === 0;
   if (agregarBoton) {
     const texto = agregarBoton.querySelector('span')!;
     let espera: number | undefined;
+    const campo = document.querySelector<HTMLInputElement>('#cantidad-pedido')!;
+    // La cantidad escrita, entre 1 y el máximo (vacío o algo raro cuenta como 1).
+    const cantidad = () => Math.min(MAXIMO_POR_LINEA, Math.max(1, Math.floor(Number(campo.value)) || 1));
+    for (const b of document.querySelectorAll<HTMLButtonElement>('.cantidad [data-paso]')) {
+      b.addEventListener('click', () => {
+        campo.value = String(Math.min(MAXIMO_POR_LINEA, Math.max(1, cantidad() + Number(b.dataset.paso))));
+      });
+    }
+    campo.addEventListener('change', () => (campo.value = String(cantidad())));
+
     agregarBoton.addEventListener('click', () => {
       const elegido = document.querySelector<HTMLInputElement>('.pesos input:checked');
       if (!elegido) return;
-      agregar({
-        codigo: agregarBoton.dataset.codigo!,
-        nombre: agregarBoton.dataset.nombre!,
-        peso_gramos: Number(elegido.dataset.gramos),
-        precio_cop: Number(elegido.dataset.precio),
-      });
-      texto.textContent = 'Agregado a tu pedido';
+      const n = cantidad();
+      agregar(
+        {
+          codigo: agregarBoton.dataset.codigo!,
+          nombre: agregarBoton.dataset.nombre!,
+          peso_gramos: Number(elegido.dataset.gramos),
+          precio_cop: Number(elegido.dataset.precio),
+        },
+        n,
+      );
+      campo.value = String(n);
+      texto.textContent = n === 1 ? 'Agregado a tu pedido' : `${n} agregadas a tu pedido`;
       clearTimeout(espera);
       espera = window.setTimeout(() => (texto.textContent = 'Agregar al pedido'), 1800);
     });

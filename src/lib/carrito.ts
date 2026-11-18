@@ -123,18 +123,17 @@ export function conciliar(disponibles: Disponible[], alcance?: string[]): number
   return quitadas;
 }
 
-/** Mensaje de WhatsApp con el pedido: cada pieza con su peso, cantidad y precio, y el total. */
+/** Mensaje de WhatsApp con el pedido (solo interés, sin preguntas): cada pieza con su peso, cantidad y precio, y el total. */
 export function mensajePedido(lineas: LineaCarrito[]): string {
   const filas = lineas.map(
     (l) =>
       `• ${l.nombre} (${l.codigo}) · ${peso(l.peso_gramos)}${l.cantidad > 1 ? ` × ${l.cantidad}` : ''} · ${pesos(l.cantidad * l.precio_cop)}`,
   );
   return [
-    'Hola, quiero hacer este pedido del catálogo de SS Joyería:',
+    'Hola, vi el catálogo de SS Joyería y me interesan estas piezas:',
     '',
     ...filas,
     '',
     `Total: ${pesos(total(lineas))}`,
-    '¿Me confirman disponibilidad?',
   ].join('\n');
 }

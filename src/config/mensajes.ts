@@ -11,13 +11,13 @@ export const MENSAJES = {
   destinatarioRegalo: (codigoReferidoComprador: string) =>
     `Hola, me regalaron una pieza de SS Joyería y quiero conocer el Círculo. Código de referido: ${codigoReferidoComprador}`,
 
-  /** Alguien del catálogo web pregunta por una pieza (con el peso que eligió, si eligió uno). */
+  /** Alguien del catálogo web muestra interés en una pieza (con el peso que eligió, si eligió uno). */
   interesCatalogo: (nombre: string, codigo: string, peso?: string) =>
     `Hola, vi en el catálogo de SS Joyería la pieza ${nombre} (${codigo})${peso ? ` de ${peso}` : ''} y me interesa.`,
 
-  /** Alguien pregunta por una pieza agotada del catálogo web. */
+  /** Alguien muestra interés en una pieza agotada del catálogo web (solo interés, sin preguntar). */
   agotadoCatalogo: (nombre: string, codigo: string) =>
-    `Hola, vi en el catálogo de SS Joyería la pieza ${nombre} (${codigo}), que está agotada. ¿Me avisan cuando vuelva?`,
+    `Hola, vi en el catálogo de SS Joyería la pieza ${nombre} (${codigo}) y me encantó. Me interesa para cuando vuelva.`,
 
   /** El socio le manda a un aliado su enlace privado al catálogo con precios de aliado. */
   enlaceAliado: (nombre: string, url: string) =>

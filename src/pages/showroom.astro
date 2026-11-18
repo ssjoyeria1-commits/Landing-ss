@@ -24,22 +24,17 @@ try {
 <Publica title="Showroom · SS Joyería" noindex amplio rotulo="Showroom" preconectar={origenFotos()}>
   {/* Saludo al socio estratégico que recibe el enlace (18 nov 2026). */}
   <Fragment slot="saludo">
-    <p class="bienvenidos">Bienvenidos,</p>
-    <h2 class="socio luz-dorada">Lookingformanagement</h2>
+    <h2 class="saludo-socio">Bienvenidos, <span class="luz-dorada">Looking for management</span></h2>
   </Fragment>
   <Catalogo productos={productos} temporal={temporal} showroom />
 </Publica>
 
 <style>
-  .bienvenidos {
-    margin: 0 0 0.35rem;
-  }
-
-  /* Un nombre largo de una sola palabra: se achica con la pantalla para no salirse. */
-  .socio {
+  /* Todo el saludo en una sola línea: la letra se achica con la pantalla (y no pasa del ancho del saludo). */
+  .saludo-socio {
     margin: 0;
-    font-size: clamp(1.5rem, 8.2vw, 3.25rem);
-    line-height: 1.05;
-    overflow-wrap: anywhere;
+    font-size: min(2rem, 5.5vw);
+    line-height: 1.1;
+    white-space: nowrap;
   }
 </style>

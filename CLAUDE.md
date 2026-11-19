@@ -145,7 +145,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 - [x] Fase 4 — versión de regalo en `/c/[codigo]` (saludo con el primer nombre del destinatario o solo
       "Hola", "Te lo regala {comprador}", piezas, Círculo sin contador con WhatsApp que lleva el código
       del comprador; debajo del nombre, el **mensaje del regalo** que deja el comprador, `cajas.mensaje_regalo`,
-      hasta 300 caracteres, se escribe en Registrar venta o en el detalle de la venta) y páginas `/garantia` y `/datos` (muestran un aviso con WhatsApp hasta que
+      hasta 300 caracteres, se escribe en Registrar venta o en el detalle de la venta; desde el 19 nov, al pasar por el centro de la pantalla el resto de la página se desenfoca, `.enfoque-regalo` en `PaginaCaja.astro`) y páginas `/garantia` y `/datos` (muestran un aviso con WhatsApp hasta que
       `src/config/legal.ts` tenga los textos).
 - [x] **Fases 4A–4E (inventario, antes de la fase 5).** Decisiones de los socios (28 oct 2026):
       inventario por **referencias con cantidad**, pero **cada pieza física tiene su propio peso**

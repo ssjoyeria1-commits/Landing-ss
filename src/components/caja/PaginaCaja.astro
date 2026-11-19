@@ -143,6 +143,42 @@ const nivelPremio = caja?.tipo === 'premio' ? numeroNivel(caja.hito) : 0;
     content: '”';
   }
 
+  /* Enfoque del mensaje (regalo): mientras el mensaje pasa por el centro de la pantalla, el resto de la página
+     se desenfoca y se apaga, y el mensaje se agranda un poco con un brillo dorado. Lo activa el script de abajo
+     poniendo .enfoque-regalo en .publica. */
+  :global(.publica) :global(:is(.cabecera, .con-monograma, .pie, .saludo > :not(.mensaje-regalo))) {
+    transition:
+      filter 700ms ease,
+      opacity 700ms ease;
+  }
+
+  :global(.publica.enfoque-regalo) :global(:is(.cabecera, .con-monograma, .pie, .saludo > :not(.mensaje-regalo))) {
+    filter: blur(5px);
+    opacity: 0.3;
+  }
+
+  :global(.saludo) p.mensaje-regalo {
+    transition:
+      transform 700ms var(--ease-out),
+      text-shadow 700ms ease;
+  }
+
+  :global(.publica.enfoque-regalo .saludo) p.mensaje-regalo {
+    transform: scale(1.04);
+    text-shadow: 0 0 1.2rem rgb(243 220 154 / 0.45);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.publica) :global(:is(.cabecera, .con-monograma, .pie, .saludo > :not(.mensaje-regalo))),
+    :global(.saludo) p.mensaje-regalo {
+      transition: none;
+    }
+
+    :global(.publica.enfoque-regalo .saludo) p.mensaje-regalo {
+      transform: none;
+    }
+  }
+
   /* El certificado es la puerta a algo de valor: filete dorado en vez de marfil. */
   .boton.boton-certificado {
     max-width: 20rem;
@@ -165,3 +201,17 @@ const nivelPremio = caja?.tipo === 'premio' ? numeroNivel(caja.hito) : 0;
     background: transparent;
   }
 </style>
+
+<script>
+  // Regalo: cuando el mensaje del comprador pasa por la franja central de la pantalla, la página se desenfoca
+  // alrededor de él (.enfoque-regalo en .publica; estilos arriba). Al seguir bajando o subir, vuelve a la normalidad.
+  const mensaje = document.querySelector<HTMLElement>('.saludo .mensaje-regalo');
+  const publica = document.querySelector<HTMLElement>('.publica');
+  if (mensaje && publica && 'IntersectionObserver' in window) {
+    new IntersectionObserver(
+      ([e]) => publica.classList.toggle('enfoque-regalo', e.isIntersecting),
+      // Solo cuenta la franja del 35 % al 65 % de la altura de la pantalla.
+      { rootMargin: '-35% 0px -35% 0px' },
+    ).observe(mensaje);
+  }
+</script>

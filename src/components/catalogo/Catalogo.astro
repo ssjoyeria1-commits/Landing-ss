@@ -28,12 +28,15 @@ const enlace = Astro.props.enlace ?? ((c: string) => `/${showroom ? 'showroom' :
 const disponibles = productos.flatMap((p) => p.opciones.map((o) => ({ codigo: p.codigo, peso_gramos: o.peso_gramos, precio_cop: o.precio_cop })));
 const VISIBLES = 3;
 
-const categorias = [...new Set(productos.map((p) => p.categoria))];
-const porCategoria = categorias.map((nombre) => ({
-  nombre,
-  ancla: anclaCategoria(nombre),
-  productos: productos.filter((p) => p.categoria === nombre),
-}));
+// Las categorías con todos sus productos agotados van al final (en el mismo orden entre ellas), también en los botones.
+const porCategoria = [...new Set(productos.map((p) => p.categoria))]
+  .map((nombre) => ({
+    nombre,
+    ancla: anclaCategoria(nombre),
+    productos: productos.filter((p) => p.categoria === nombre),
+  }))
+  .sort((a, b) => Number(a.productos.every((p) => p.opciones.length === 0)) - Number(b.productos.every((p) => p.opciones.length === 0)));
+const categorias = porCategoria.map((c) => c.nombre);
 ---
 
 <!-- El título "Catálogo" está en la portada (Publica con rotulo); al deslizar aparecen el subtítulo y las categorías. -->

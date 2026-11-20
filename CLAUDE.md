@@ -199,6 +199,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   - [x] **Agotados** (13 nov 2026, migración `20261113130000_catalogo_agotados.sql`): un producto publicado y con foto
         pero sin piezas disponibles sale en `catalogo_publico()` con `opciones` vacío, al final de su categoría: foto
         apagada con sello "Agotado" y, en la ficha, "Avísame cuando vuelva" por WhatsApp. Prueba: `/pruebas/catalogo?ficha=AN-040`.
+        Desde el 20 nov, una categoría con todo agotado va al final (también su botón). Prueba: `/pruebas/catalogo?datos=agotados`.
   - [x] **Carrito** (16 nov 2026): en la ficha, "Cantidad" (se escribe o con − y +, hasta 999; 18 nov) y "Agregar al pedido" (el peso elegido) y "Preguntar por WhatsApp"; burbuja
         "Tu pedido" abajo a la derecha que abre la lista (cantidad, quitar, total) y "Enviar pedido por WhatsApp" con todo
         escrito. Solo en el navegador del visitante (`localStorage`, `src/lib/carrito.ts`; nada llega a la base); al abrir el

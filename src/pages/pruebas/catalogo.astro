@@ -51,7 +51,9 @@ const peor: ProductoPublico[] = [
   ...demo,
 ];
 
-const casos: Record<string, ProductoPublico[]> = { demo, peor, uno: demo.slice(1, 2), vacio: [], temporal: [] };
+// Una categoría con todo agotado (Anillos): debe ir al final.
+const agotados = demo.map((p) => (p.categoria === 'Anillos' ? { ...p, opciones: [] } : p));
+const casos: Record<string, ProductoPublico[]> = { demo, peor, uno: demo.slice(1, 2), vacio: [], temporal: [], agotados };
 const datos = Astro.url.searchParams.get('datos') ?? 'demo';
 // &showroom=1: el showroom (sin precios ni carrito, sin agotadas).
 const showroom = Astro.url.searchParams.has('showroom');

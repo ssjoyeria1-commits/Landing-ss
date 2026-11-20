@@ -164,7 +164,7 @@ function agruparIguales<T extends { descripcion: string; peso_gramos: number; pr
               </td>
             </tr>
             <tr>
-              <td>Empaque ({contable.empaques} × {pesos(contable.empaques ? contable.empaque_cop / contable.empaques : 0)})</td>
+              <td>Empaque ({contable.empaques} {contable.empaques === 1 ? 'caja' : 'cajas'} × {pesos(contable.empaques ? contable.empaque_cop / contable.empaques : 0)})</td>
               <td class="num">− {pesos(contable.empaque_cop)}</td>
             </tr>
             {contable.domicilio_pagado_cop > 0 && <tr><td>Mensajero</td><td class="num">− {pesos(contable.domicilio_pagado_cop)}</td></tr>}
@@ -208,7 +208,7 @@ function agruparIguales<T extends { descripcion: string; peso_gramos: number; pr
                 </select>
               </div>
               <div class="campo">
-                <label for="empaques">Empaques</label>
+                <label for="empaques">Cajas (empaques)</label>
                 <input id="empaques" name="empaques" type="number" min="0" max="50" step="1" value={contable.empaques} />
               </div>
             </div>
@@ -237,7 +237,7 @@ function agruparIguales<T extends { descripcion: string; peso_gramos: number; pr
       return (
         <section class="tarjeta">
           <h2 style="margin-top: 0">
-            Caja {i + 1} · <code>{caja.referencia}</code>
+            Chip {i + 1} · <code>{caja.referencia}</code>
             {caja.es_regalo && <span class="etiqueta">Regalo{caja.nombre_destinatario && ` para ${caja.nombre_destinatario}`}</span>}
           </h2>
 

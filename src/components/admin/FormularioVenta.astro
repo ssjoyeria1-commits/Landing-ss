@@ -112,6 +112,11 @@ const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoIn
         <label for="fecha">Fecha</label>
         <input id="fecha" name="fecha" type="date" value={hoy} max={hoy} />
       </div>
+      <div class="campo" id="campo-empaques">
+        <label for="empaques">Cajas (empaques)</label>
+        <input id="empaques" name="empaques" type="number" inputmode="numeric" min="0" max="50" step="1" value="1" />
+        <p class="ayuda">Cajas físicas que lleva la venta, aparte de los chips: 0 si no lleva caja; 1 si un regalo y una pieza propia van juntos. De aquí sale el costo de empaque.</p>
+      </div>
     </div>
     <div class="fila">
       <div class="campo">
@@ -145,14 +150,14 @@ const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoIn
 
 <div id="seccion-cajas" hidden={tipoInicial !== 'cliente'}>
     <div id="cajas"></div>
-    <p><button type="button" class="secundario" id="agregar-caja">+ Agregar otra caja</button></p>
+    <p><button type="button" class="secundario" id="agregar-caja">+ Agregar otro chip</button></p>
   </div>
 
 <section class="tarjeta" aria-live="polite">
     <p style="margin: 0" id="totales">Agrega las piezas para ver el total.</p>
     <p class="ayuda">
       El total de la venta es la suma de los precios de las piezas menos el descuento; el domicilio cobrado se suma a lo que
-      paga el cliente. El empaque (uno por caja), el mensajero y la comisión del medio de pago se restan en la utilidad.
+      paga el cliente. El empaque (según las cajas), el mensajero y la comisión del medio de pago se restan en la utilidad.
     </p>
   </section>
   <script type="application/json" id="inventario" set:html={JSON.stringify(unidades)} />
@@ -198,9 +203,10 @@ const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoIn
 <template id="tpl-caja">
   <section class="tarjeta caja">
     <div class="acciones" style="justify-content: space-between">
-      <h2 style="margin: 0" class="titulo-caja">Caja</h2>
-      <button type="button" class="enlace quitar-caja">Quitar caja</button>
+      <h2 style="margin: 0" class="titulo-caja">Chip</h2>
+      <button type="button" class="enlace quitar-caja">Quitar chip</button>
     </div>
+    <p class="ayuda" style="margin: 0.35rem 0 0">Cada chip es una página (sticker o QR): las piezas propias o las de un regalo.</p>
     <div class="fila" style="margin-top: 0.75rem">
       <div class="campo">
         <label class="check"><input type="checkbox" data-campo="regalo" /> Es un regalo</label>
@@ -366,11 +372,17 @@ const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoIn
   const tplPieza = document.querySelector<HTMLTemplateElement>('#tpl-pieza')!;
   const errorBox = document.querySelector<HTMLElement>('#error')!;
 
+  // Cajas físicas: mientras no las escriban, siguen la cantidad de chips (lo más común: una caja por chip).
+  const campoEmpaques = document.querySelector<HTMLInputElement>('#empaques')!;
+  let empaquesEscritos = false;
+  campoEmpaques.addEventListener('input', () => (empaquesEscritos = true));
+
   // Los nombres de los campos se recalculan tras cada cambio: caja-{i}-..., caja-{i}-pieza-{j}-...
   function renumerar() {
     const cajas = [...contenedor.querySelectorAll<HTMLElement>('.caja')];
+    if (!empaquesEscritos) campoEmpaques.value = String(cajas.length);
     cajas.forEach((caja, i) => {
-      caja.querySelector('.titulo-caja')!.textContent = `Caja ${i + 1}`;
+      caja.querySelector('.titulo-caja')!.textContent = `Chip ${i + 1}`;
       caja.querySelector<HTMLElement>('.quitar-caja')!.hidden = cajas.length === 1;
       caja.querySelector<HTMLInputElement>('[data-campo="regalo"]')!.name = `caja-${i}-regalo`;
       caja.querySelector<HTMLInputElement>('[data-campo="destinatario"]')!.name = `caja-${i}-destinatario`;
@@ -765,6 +777,7 @@ const { error, unidades, aliados, mediosPago, paises, hoy, aliadoInicial, tipoIn
     document.querySelector<HTMLElement>('#seccion-aliado')!.hidden = !aliado;
     document.querySelector<HTMLElement>('#seccion-cliente')!.hidden = aliado;
     document.querySelector<HTMLElement>('#seccion-cajas')!.hidden = aliado;
+    document.querySelector<HTMLElement>('#campo-empaques')!.hidden = aliado;
     document.querySelector<HTMLButtonElement>('#guardar')!.textContent = aliado ? 'Guardar venta al aliado' : 'Guardar venta y generar códigos';
     if (!inicio) errorBox.hidden = true;
     actualizarTotales();

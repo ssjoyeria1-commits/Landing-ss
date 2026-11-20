@@ -2,7 +2,7 @@
 import Admin from '../../../layouts/Admin.astro';
 import FormularioVenta from '../../../components/admin/FormularioVenta.astro';
 import { hoyBogota } from '../../../lib/formato';
-import { leerCobro, leerFormularioVenta, leerVentaAliado } from '../../../lib/venta';
+import { leerCobro, leerEmpaques, leerFormularioVenta, leerVentaAliado } from '../../../lib/venta';
 import { listaPaises, partesWhatsapp } from '../../../lib/whatsapp';
 import { mensajeError, type UnidadDetalle } from '../../../lib/inventario';
 
@@ -15,11 +15,15 @@ if (Astro.request.method === 'POST') {
   const esAliado = form.get('tipo') === 'aliado';
   const leido = esAliado ? leerVentaAliado(form) : leerFormularioVenta(form);
   const cobro = leerCobro(form);
+  // Cajas físicas (solo ventas a clientes): aparte de los chips; sin el campo queda una por chip.
+  const empaques = esAliado ? { empaques: null } : leerEmpaques(form);
 
   if ('error' in leido) {
     error = leido.error;
   } else if ('error' in cobro) {
     error = cobro.error;
+  } else if ('error' in empaques) {
+    error = empaques.error;
   } else {
     const { data, error: fallo } = esAliado
       ? await Astro.locals.supabase.rpc('registrar_venta_aliado', { p: leido.payload })
@@ -29,7 +33,8 @@ if (Astro.request.method === 'POST') {
     } else {
       // Medio de pago y domicilio (la base calcula la comisión). Si fallara, la venta ya quedó
       // guardada y estos datos se corrigen en su detalle.
-      const { error: falloCobro } = await Astro.locals.supabase.from('ventas').update(cobro.cobro).eq('id', data.venta_id);
+      const cambios = empaques.empaques === null ? cobro.cobro : { ...cobro.cobro, empaques: empaques.empaques };
+      const { error: falloCobro } = await Astro.locals.supabase.from('ventas').update(cambios).eq('id', data.venta_id);
       const destino = `/admin/ventas/${data.venta_id}?${esAliado ? 'aliado' : 'nueva'}=1${falloCobro ? '&cobro=error' : ''}`;
       if (quiereJson) return Response.json({ ok: true, destino });
       return Astro.redirect(destino);

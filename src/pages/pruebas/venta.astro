@@ -6,7 +6,7 @@
 import Admin from '../../layouts/Admin.astro';
 import FormularioVenta from '../../components/admin/FormularioVenta.astro';
 import { hoyBogota } from '../../lib/formato';
-import { leerCobro, leerFormularioVenta, leerVentaAliado } from '../../lib/venta';
+import { leerCobro, leerEmpaques, leerFormularioVenta, leerVentaAliado } from '../../lib/venta';
 import { listaPaises, partesWhatsapp } from '../../lib/whatsapp';
 
 if (import.meta.env.PROD) return new Response(null, { status: 404 });
@@ -15,7 +15,8 @@ if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const leido = form.get('tipo') === 'aliado' ? leerVentaAliado(form) : leerFormularioVenta(form);
   const cobro = leerCobro(form);
-  const error = 'error' in leido ? leido.error : 'error' in cobro ? cobro.error : `Prueba (no se guardó): ${JSON.stringify({ ...leido.payload, cobro: cobro.cobro })}`;
+  const empaques = leerEmpaques(form);
+  const error = 'error' in leido ? leido.error : 'error' in cobro ? cobro.error : 'error' in empaques ? empaques.error : `Prueba (no se guardó): ${JSON.stringify({ ...leido.payload, cobro: cobro.cobro, empaques: empaques.empaques })}`;
   return Response.json({ ok: false, error }, { status: 422 });
 }
 

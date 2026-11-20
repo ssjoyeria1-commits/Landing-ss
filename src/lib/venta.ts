@@ -204,6 +204,15 @@ export interface CobroVenta {
   domicilio_pagado_cop: number;
 }
 
+/** Cajas físicas (empaques) de la venta: entero de 0 a 50, aparte de los chips. Vacío = null (no se toca). */
+export function leerEmpaques(form: FormData): { empaques: number | null } | { error: string } {
+  const t = texto(form, 'empaques');
+  if (!t) return { empaques: null };
+  const n = Number(t);
+  if (!Number.isInteger(n) || n < 0 || n > 50) return { error: 'Las cajas (empaques) deben ser un número entero entre 0 y 50.' };
+  return { empaques: n };
+}
+
 export function leerCobro(form: FormData): { cobro: CobroVenta } | { error: string } {
   const valor = (campo: string) => {
     const t = texto(form, campo);

@@ -262,7 +262,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
       **Empaques** (decisión del 9 nov; migración `20261109120000_empaque_gasto_y_costo.sql`): la compra se
       registra en Gastos, en la categoría con `es_empaque`, con fecha y `gastos.cantidad`. De ahí sale el costo
       por caja: `ventas_contables` toma la compra más reciente con fecha ≤ la venta (total ÷ cantidad) y lo
-      multiplica por `ventas.empaques` (uno por caja, corregible en el detalle). El informe **no** suma esa
+      multiplica por `ventas.empaques` (desde el 19 nov se escribe en Registrar venta como "Cajas (empaques)", aparte de los chips: 0 si no lleva caja, 1 si un regalo y una pieza propia van juntos; sigue a la cantidad de chips mientras no la cambien; corregible en el detalle). En el formulario y el detalle, cada grupo de piezas se llama "Chip" (una página). El informe **no** suma esa
       compra como gasto (la muestra como aviso). La compra de oro **no** es gasto (costo de cada pieza vendida).
 - [ ] Fase 6 — [x] dominio `ssjoyeria.com` conectado (10 nov 2026); [ ] prueba con sticker real sobre la caja real; [ ] lanzamiento.
       Con el dominio: guardar `/catalogo` en la caché de Cloudflare (Cache API, que no funciona en

@@ -210,7 +210,9 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
         piezas con existencias; la ficha muestra fotos, descripción, pesos y referencia. Es el modo `showroom` de
         `Catalogo.astro` y `Ficha.astro`. Prueba: `/pruebas/catalogo?showroom=1`.
   - [ ] **Simulador de manillas** (prototipo, 23 nov 2026): `/manilla` (enlace oculto, `noindex`, sin enlaces desde el
-        sitio) y `/pruebas/manilla`; `src/components/catalogo/SimuladorManilla.astro`. Hilo, talla, patrón o balín por balín,
+        sitio) y `/pruebas/manilla`; `src/components/catalogo/SimuladorManilla.astro`. Hilo, talla, patrón (con largo de la
+        serie; el resto es macramé de nudo plano hasta el cierre corredizo) o balín por balín; vista 3D con Three.js
+        (`src/lib/manilla3d.ts`, oro con reflejos de estudio generado, se gira con el dedo; sin WebGL queda el dibujo plano),
         dibujo a escala, peso, total y mensaje de WhatsApp. **Datos de ejemplo**: faltan diámetros, precios e hilos reales
         de los socios, conectarlo al carrito y a las existencias.
 - [ ] **Fase 5 (seguridad, respaldos, rendimiento).** Decisiones (5 nov 2026): repositorio a privado

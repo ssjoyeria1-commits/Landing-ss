@@ -29,6 +29,13 @@ const patrones = [
   { id: 'p34', nombre: 'Alternado 3 · 4', secuencia: ['b3', 'b4'] },
   { id: 'p334', nombre: '3 · 3 · 5', secuencia: ['b3', 'b3', 'b5'] },
 ];
+// Largo de la serie de balines (mm); el resto de la vuelta es tejido macramé. 0 = toda la vuelta.
+const series = [
+  { mm: 30, nombre: 'Corta · 3 cm' },
+  { mm: 60, nombre: 'Media · 6 cm' },
+  { mm: 90, nombre: 'Larga · 9 cm' },
+  { mm: 0, nombre: 'Toda la vuelta' },
+];
 const datos = { balines, hilos, tallas, patrones };
 ---
 
@@ -38,6 +45,9 @@ const datos = { balines, hilos, tallas, patrones };
     <p class="sutil">Elige el hilo, tu talla y los balines. Así se vería tu manilla en oro de 18k.</p>
 
     <div class="vista">
+      {/* Vista 3D (se gira con el dedo); si el navegador no puede, queda el dibujo plano de abajo. */}
+      <canvas id="manilla-3d" hidden aria-label="Manilla en 3D: arrastra para girarla"></canvas>
+      <p class="ayuda-3d" hidden>Arrastra para girarla · pellizca para acercar</p>
       <svg id="manilla" viewBox="0 0 320 320" role="img" aria-label="Vista de la manilla">
         <defs>
           <radialGradient id="oro" cx="35%" cy="30%" r="75%">
@@ -87,13 +97,25 @@ const datos = { balines, hilos, tallas, patrones };
           <label class="chip"><input type="radio" name="modo" value="libre" /> Balín por balín</label>
         </div>
 
-        <div id="panel-patron" class="chips">
-          {patrones.map((p, i) => (
-            <label class="chip">
-              <input type="radio" name="patron" value={p.id} checked={i === 2} />
-              {p.nombre}
-            </label>
-          ))}
+        <div id="panel-patron">
+          <div class="chips">
+            {patrones.map((p, i) => (
+              <label class="chip">
+                <input type="radio" name="patron" value={p.id} checked={i === 2} />
+                {p.nombre}
+              </label>
+            ))}
+          </div>
+          {/* Lo que no lleva balines es tejido macramé (nudo plano) hasta el cierre. */}
+          <p class="sutil subtitulo">Largo de la serie de balines</p>
+          <div class="chips">
+            {series.map((x) => (
+              <label class="chip">
+                <input type="radio" name="serie" value={x.mm} checked={x.mm === 60} />
+                {x.nombre}
+              </label>
+            ))}
+          </div>
         </div>
 
         <div id="panel-libre" hidden>
@@ -139,6 +161,27 @@ const datos = { balines, hilos, tallas, patrones };
   .vista {
     margin: 1.25rem auto 0.5rem;
     max-width: 20rem;
+  }
+
+  #manilla-3d {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    touch-action: none;
+    cursor: grab;
+    /* Un halo cálido detrás, como la luz de una vitrina. */
+    background: radial-gradient(circle at 50% 55%, rgb(243 220 154 / 0.12), transparent 62%);
+  }
+
+  #manilla-3d[hidden],
+  .ayuda-3d[hidden] {
+    display: none;
+  }
+
+  .ayuda-3d {
+    margin: 0.25rem 0 0;
+    font-size: 0.8rem;
+    color: var(--gris);
   }
 
   #manilla {
@@ -202,6 +245,10 @@ const datos = { balines, hilos, tallas, patrones };
 
   .modos {
     margin-bottom: 0.75rem;
+  }
+
+  .subtitulo {
+    margin: 0.9rem 0 0.5rem;
   }
 
   #panel-patron[hidden] {
@@ -363,7 +410,7 @@ const datos = { balines, hilos, tallas, patrones };
   const NS = 'http://www.w3.org/2000/svg';
   const CENTRO = 160;
   const RADIO = 118; // radio del hilo en el dibujo
-  const NUDO_MM = 8; // tramo libre del hilo para el nudo
+  const NUDO_MM = 10; // cierre corredizo (sin balines); el mismo de src/lib/manilla3d.ts
   const HOLGURA_MM = 10; // la manilla queda un poco más grande que la muñeca
 
   const pesos = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -399,7 +446,8 @@ const datos = { balines, hilos, tallas, patrones };
     const { util } = medidas();
     if (elegido('modo') === 'patron') {
       const patron = datos.patrones.find((p) => p.id === elegido('patron'))!;
-      return llenar(patron.secuencia, util);
+      const serie = Number(elegido('serie'));
+      return llenar(patron.secuencia, serie > 0 ? Math.min(serie, util) : util);
     }
     // En modo libre se recorta si al cambiar de talla ya no caben.
     while (libre.length && ocupado(libre) > util) libre.pop();
@@ -498,9 +546,20 @@ const datos = { balines, hilos, tallas, patrones };
     }
   }
 
+  // Vista 3D: se carga aparte (la librería pesa) y, si está, reemplaza al dibujo plano.
+  let vista3d: { dibujar: (d: { balines: number[]; hilo: string; largo: number }, desde?: number) => void } | null = null;
+
   function actualizar(animarTodo = false) {
     const fila = cuentasActuales();
     dibujar(fila, animarTodo ? 0 : dibujadas);
+    vista3d?.dibujar(
+      {
+        balines: fila.map((id) => porId.get(id)!.diametro),
+        hilo: datos.hilos.find((h) => h.id === elegido('hilo'))!.color,
+        largo: medidas().largo,
+      },
+      animarTodo ? 0 : dibujadas,
+    );
     resumir(fila);
     dibujadas = fila.length;
   }
@@ -534,4 +593,15 @@ const datos = { balines, hilos, tallas, patrones };
   });
 
   actualizar(true);
+
+  import('../../lib/manilla3d').then(({ crearVista3D, hayWebGL }) => {
+    if (!hayWebGL()) return;
+    const lienzo = document.querySelector<HTMLCanvasElement>('#manilla-3d')!;
+    lienzo.hidden = false;
+    document.querySelector<HTMLElement>('.ayuda-3d')!.hidden = false;
+    document.querySelector<SVGElement>('#manilla')!.style.display = 'none';
+    vista3d = crearVista3D(lienzo);
+    dibujadas = 0;
+    actualizar(true);
+  });
 </script>

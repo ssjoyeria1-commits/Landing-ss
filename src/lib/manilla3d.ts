@@ -38,6 +38,12 @@ export function crearVista3D(lienzo: HTMLCanvasElement) {
   luz.position.set(30, 60, 40);
   escena.add(luz);
   escena.add(new THREE.HemisphereLight(0xfff1dd, 0x2a0508, 0.6));
+  // Luces pequeñas y fuertes, como las de una vitrina: hacen chispear las facetas al girar.
+  for (const [x, y, z, i] of [[-40, 50, 60, 220], [45, 30, 50, 160], [0, 70, -40, 120]]) {
+    const p = new THREE.PointLight(0xfff6e6, i, 0, 1.2);
+    p.position.set(x, y, z);
+    escena.add(p);
+  }
 
   const camara = new THREE.PerspectiveCamera(34, 1, 1, 1000);
   camara.position.set(0, 46, 96);
@@ -52,13 +58,16 @@ export function crearVista3D(lienzo: HTMLCanvasElement) {
   controles.target.set(0, 0, 0);
 
   // Oro de 18k: metal con poca rugosidad (el brillo sale del entorno).
-  const oro = new THREE.MeshStandardMaterial({ color: 0xf2c56b, metalness: 1, roughness: 0.18 });
+  // Oro de 18k diamantado: el balín tiene cortes planos (facetas) que devuelven la luz en destellos. Cada faceta es
+  // plana y apunta un poco distinto (como el corte a máquina), así cada una refleja otra parte del estudio; casi sin
+  // rugosidad para que brille como espejo.
+  const oro = new THREE.MeshStandardMaterial({ color: 0xf2c56b, metalness: 1, roughness: 0.05, envMapIntensity: 1.3 });
   const hiloMat = new THREE.MeshStandardMaterial({ color: 0x1b1716, roughness: 0.62, metalness: 0 });
   // Textura de fibra para el hilo: rayas finas generadas en un canvas, como relieve.
   hiloMat.bumpMap = texturaFibra();
   hiloMat.bumpScale = 0.6;
 
-  const esfera = new THREE.SphereGeometry(1, 40, 28);
+  const esfera = balinDiamantado();
   const barra = new THREE.CapsuleGeometry(0.98, ANCHO_TEJIDO - 1.96, 6, 14);
   const lazo = new THREE.TorusGeometry(0.8, 0.45, 10, 20, Math.PI * 1.2);
 
@@ -201,6 +210,30 @@ export function crearVista3D(lienzo: HTMLCanvasElement) {
   });
 
   return { dibujar };
+}
+
+/** Esfera de facetas planas con una leve inclinación distinta en cada una (el diamantado). */
+function balinDiamantado() {
+  const g = new THREE.SphereGeometry(1, 18, 12).toNonIndexed();
+  const pos = g.getAttribute('position');
+  const normales = new Float32Array(pos.count * 3);
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
+  // Semilla fija: siempre el mismo corte.
+  let semilla = 7;
+  const azar = () => ((semilla = (semilla * 16807) % 2147483647) / 2147483647) * 2 - 1;
+  let jitter = new THREE.Vector3();
+  for (let t = 0; t < pos.count / 3; t++) {
+    a.fromBufferAttribute(pos, t * 3);
+    b.fromBufferAttribute(pos, t * 3 + 1);
+    c.fromBufferAttribute(pos, t * 3 + 2);
+    n.crossVectors(b.clone().sub(a), c.clone().sub(a)).normalize();
+    // Los dos triángulos de cada cara comparten la inclinación: la faceta se ve como un solo corte.
+    if (t % 2 === 0) jitter = new THREE.Vector3(azar(), azar(), azar()).multiplyScalar(0.18);
+    n.add(jitter).normalize();
+    for (let k = 0; k < 3; k++) normales.set([n.x, n.y, n.z], (t * 3 + k) * 3);
+  }
+  g.setAttribute('normal', new THREE.BufferAttribute(normales, 3));
+  return g;
 }
 
 /** Rayas finas en diagonal, como las fibras torcidas de un hilo, para usar como relieve. */

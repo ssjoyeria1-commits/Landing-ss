@@ -212,7 +212,8 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   - [ ] **Simulador de manillas** (prototipo, 23 nov 2026): `/manilla` (enlace oculto, `noindex`, sin enlaces desde el
         sitio) y `/pruebas/manilla`; `src/components/catalogo/SimuladorManilla.astro`. Hilo, talla, patrón (con largo de la
         serie; el resto es macramé de nudo plano hasta el cierre corredizo) o balín por balín; vista 3D con Three.js
-        (`src/lib/manilla3d.ts`, oro con reflejos de estudio generado, se gira con el dedo; sin WebGL queda el dibujo plano),
+        (`src/lib/manilla3d.ts`, balines diamantados, luz de estudio real `public/3d/estudio.hdr` —"Studio Small 09" de Poly Haven,
+        CC0, 1,6 MB, se carga después—, sombra suave y desenfoque de cámara; se gira con el dedo; sin WebGL queda el dibujo plano),
         dibujo a escala, peso, total y mensaje de WhatsApp. **Datos de ejemplo**: faltan diámetros, precios e hilos reales
         de los socios, conectarlo al carrito y a las existencias.
 - [ ] **Fase 5 (seguridad, respaldos, rendimiento).** Decisiones (5 nov 2026): repositorio a privado

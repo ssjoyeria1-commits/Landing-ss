@@ -5,6 +5,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 export interface Diseno {
   /** Diámetros (mm) de los balines, en orden. */
@@ -20,23 +25,47 @@ export const CIERRE_MM = 10;
 
 const PASO_NUDO = 1.9; // largo de cada nudo plano (mm)
 const ANCHO_TEJIDO = 3.4; // ancho del tejido (mm)
+const ROTACION_ESTUDIO = 1.2; // radianes
 
 export function crearVista3D(lienzo: HTMLCanvasElement) {
   const renderer = new THREE.WebGLRenderer({ canvas: lienzo, antialias: true, alpha: true });
+  renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.2;
-  renderer.setClearColor(0x000000, 0);
+  // Sombras suaves: la manilla se apoya en una superficie invisible y deja su sombra (así no parece flotar).
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const escena = new THREE.Scene();
-  // Reflejos de un estudio fotográfico (generado, sin descargar imágenes): el oro brilla como en una foto de producto.
+  // Reflejos: primero un estudio generado (inmediato) y, cuando llega, la luz 360° de un estudio fotográfico real
+  // (public/3d/estudio.hdr: "Studio Small 09" de Poly Haven, licencia CC0). Con ella el oro se ve como en una foto.
   const pmrem = new THREE.PMREMGenerator(renderer);
   escena.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  new HDRLoader().load('/3d/estudio.hdr', (hdr) => {
+    escena.environment = pmrem.fromEquirectangular(hdr).texture;
+    // Girado para que las ventanas de luz del estudio se reflejen de frente en los balines.
+    escena.environmentRotation.y = ROTACION_ESTUDIO;
+    escena.environmentIntensity = 1.5;
+    hdr.dispose();
+  });
 
   const luz = new THREE.DirectionalLight(0xfff4e0, 1.4);
-  luz.position.set(30, 60, 40);
+  luz.position.set(15, 90, 25);
+  luz.castShadow = true;
+  luz.shadow.mapSize.set(1024, 1024);
+  Object.assign(luz.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 10, far: 200 });
+  luz.shadow.radius = 6;
+  luz.shadow.bias = -0.0004;
   escena.add(luz);
+
+  // Superficie que solo muestra la sombra (el fondo de la página se sigue viendo).
+  const piso = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), new THREE.ShadowMaterial({ opacity: 0.45 }));
+  piso.rotation.x = -Math.PI / 2;
+  piso.position.y = -2.7;
+  piso.receiveShadow = true;
+  escena.add(piso);
   escena.add(new THREE.HemisphereLight(0xfff1dd, 0x2a0508, 0.6));
   // Luces pequeñas y fuertes, como las de una vitrina: hacen chispear las facetas al girar.
   for (const [x, y, z, i] of [[-40, 50, 60, 220], [45, 30, 50, 160], [0, 70, -40, 120]]) {
@@ -57,7 +86,6 @@ export function crearVista3D(lienzo: HTMLCanvasElement) {
   controles.autoRotateSpeed = 1.6;
   controles.target.set(0, 0, 0);
 
-  // Oro de 18k: metal con poca rugosidad (el brillo sale del entorno).
   // Oro de 18k diamantado: el balín tiene cortes planos (facetas) que devuelven la luz en destellos. Cada faceta es
   // plana y apunta un poco distinto (como el corte a máquina), así cada una refleja otra parte del estudio; casi sin
   // rugosidad para que brille como espejo.
@@ -168,14 +196,28 @@ export function crearVista3D(lienzo: HTMLCanvasElement) {
       manilla.add(punta);
     }
 
+    manilla.traverse((o) => (o.castShadow = true));
     escena.add(manilla);
   }
+
+  // Desenfoque como el de una cámara de fotos: nítido donde está el centro de la manilla, suave lo más lejano.
+  const compositor = new EffectComposer(renderer);
+  compositor.addPass(new RenderPass(escena, camara));
+  const desenfoque = new BokehPass(escena, camara, { focus: 100, aperture: 0.0016, maxblur: 0.006 });
+  // El desenfoque de Three.js deja el fondo opaco; sin esa línea promedia también la transparencia y se sigue
+  // viendo la página detrás.
+  desenfoque.materialBokeh.fragmentShader = desenfoque.materialBokeh.fragmentShader.replace('gl_FragColor.a = 1.0;', '');
+  desenfoque.materialBokeh.needsUpdate = true;
+  compositor.addPass(desenfoque);
+  compositor.addPass(new OutputPass());
 
   // Tamaño del lienzo según su caja en la página.
   const ajustar = () => {
     const { width, height } = lienzo.getBoundingClientRect();
     if (!width || !height) return;
     renderer.setSize(width, height, false);
+    compositor.setPixelRatio(renderer.getPixelRatio());
+    compositor.setSize(width, height);
     camara.aspect = width / height;
     camara.updateProjectionMatrix();
   };
@@ -196,7 +238,9 @@ export function crearVista3D(lienzo: HTMLCanvasElement) {
       n.malla.scale.setScalar(Math.max(0.001, n.malla.userData.escala * e));
     }
     controles.update();
-    renderer.render(escena, camara);
+    // Enfoca siempre el frente de la manilla (los balines), aunque la acerquen o alejen.
+    (desenfoque.uniforms as Record<string, { value: number }>).focus.value = camara.position.distanceTo(controles.target) - 20;
+    compositor.render();
   });
 
   // El usuario toma el control: deja de girar sola un rato.

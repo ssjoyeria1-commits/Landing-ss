@@ -23,8 +23,10 @@ export interface Diseno {
 /** Largo del cierre corredizo (mm): no lleva balines. */
 export const CIERRE_MM = 10;
 
-const PASO_NUDO = 1.9; // largo de cada nudo plano (mm)
-const ANCHO_TEJIDO = 3.4; // ancho del tejido (mm)
+// Medidas tomadas de las fotos de las manillas de SS (23 nov 2026): tira plana y apretada de hilo delgado.
+const PASO_NUDO = 1.2; // largo de cada nudo plano (mm)
+const ANCHO_TEJIDO = 4; // ancho de la tira (mm)
+const HILO_MM = 0.8; // grosor del hilo
 const ROTACION_ESTUDIO = 1.2; // radianes
 
 export function crearVista3D(lienzo: HTMLCanvasElement) {
@@ -86,18 +88,25 @@ export function crearVista3D(lienzo: HTMLCanvasElement) {
   controles.autoRotateSpeed = 1.6;
   controles.target.set(0, 0, 0);
 
-  // Oro de 18k diamantado: el balín tiene cortes planos (facetas) que devuelven la luz en destellos. Cada faceta es
-  // plana y apunta un poco distinto (como el corte a máquina), así cada una refleja otra parte del estudio; casi sin
-  // rugosidad para que brille como espejo.
-  const oro = new THREE.MeshStandardMaterial({ color: 0xf2c56b, metalness: 1, roughness: 0.05, envMapIntensity: 1.3 });
+  // Oro de 18k diamantado como el de las fotos: la superficie lleva líneas finas cruzadas (el corte a máquina), que
+  // se hacen con un relieve generado; brillo de metal con un poco de rugosidad para que destelle sin ser espejo.
+  const oro = new THREE.MeshStandardMaterial({
+    color: 0xe9b54f,
+    metalness: 1,
+    roughness: 0.11,
+    envMapIntensity: 1.4,
+    bumpMap: texturaDiamantado(),
+    bumpScale: 1.6,
+  });
+  // El balincito de las puntas es liso.
+  const oroLiso = new THREE.MeshStandardMaterial({ color: 0xf0c869, metalness: 1, roughness: 0.12, envMapIntensity: 1.35 });
   const hiloMat = new THREE.MeshStandardMaterial({ color: 0x1b1716, roughness: 0.62, metalness: 0 });
   // Textura de fibra para el hilo: rayas finas generadas en un canvas, como relieve.
   hiloMat.bumpMap = texturaFibra();
   hiloMat.bumpScale = 0.6;
 
-  const esfera = balinDiamantado();
-  const barra = new THREE.CapsuleGeometry(0.98, ANCHO_TEJIDO - 1.96, 6, 14);
-  const lazo = new THREE.TorusGeometry(0.8, 0.45, 10, 20, Math.PI * 1.2);
+  const esfera = new THREE.SphereGeometry(1, 48, 32);
+  const bulto = new THREE.SphereGeometry(1, 12, 8);
 
   let manilla = new THREE.Group();
   escena.add(manilla);
@@ -119,7 +128,7 @@ export function crearVista3D(lienzo: HTMLCanvasElement) {
   function dibujar(d: Diseno, animarDesde = Infinity) {
     escena.remove(manilla);
     manilla.traverse((o) => {
-      if (o instanceof THREE.Mesh && o.geometry !== esfera && o.geometry !== barra && o.geometry !== lazo) o.geometry.dispose();
+      if (o instanceof THREE.Mesh && o.geometry !== esfera && o.geometry !== bulto) o.geometry.dispose();
     });
     manilla = new THREE.Group();
     nuevas = [];
@@ -132,15 +141,17 @@ export function crearVista3D(lienzo: HTMLCanvasElement) {
     // Alma del hilo por toda la vuelta (se ve entre balines).
     const circulo = new THREE.EllipseCurve(0, 0, R, R, 0, Math.PI * 2, false, 0);
     const puntos = circulo.getPoints(160).map((p) => new THREE.Vector3(p.x, 0, p.y));
-    const alma = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(puntos, true), 200, 0.42, 10, true), hiloMat);
+    const alma = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(puntos, true), 200, HILO_MM / 2, 10, true), hiloMat);
     manilla.add(alma);
 
     // Balines centrados al frente.
     let s = -ocupado / 2;
     d.balines.forEach((diametro, i) => {
-      const { punto } = enCirculo(R, anguloDe(s + diametro / 2));
+      const { punto, tangente } = enCirculo(R, anguloDe(s + diametro / 2));
       const b = new THREE.Mesh(esfera, oro);
       b.position.copy(punto);
+      // Los polos del balín (donde se juntan las líneas) miran hacia el hilo: al frente se ven las líneas cruzadas.
+      b.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangente);
       b.scale.setScalar((diametro / 2) * 0.98);
       b.userData.escala = (diametro / 2) * 0.98;
       manilla.add(b);
@@ -151,49 +162,67 @@ export function crearVista3D(lienzo: HTMLCanvasElement) {
       s += diametro;
     });
 
-    // Tejido macramé de nudo plano a los dos lados, desde la serie de balines hasta el cierre (atrás).
-    const inicio = ocupado / 2 + 0.6;
-    const fin = d.largo / 2 - CIERRE_MM / 2;
+    // Tejido macramé de nudo plano a los dos lados, desde la serie de balines hasta el cierre (atrás). Como en las
+    // fotos: una tira plana y apretada; cada nudo son dos bultos de hilo lado a lado (un poco torcidos, alternando) y
+    // un lazo en uno de los bordes, alternando el lado. Todos los nudos van en dos mallas (InstancedMesh) para que el
+    // celular los dibuje de una vez.
+    const nudos: { punto: THREE.Vector3; tangente: THREE.Vector3; afuera: THREE.Vector3; k: number; grueso: number }[] = [];
     const tejer = (desde: number, hasta: number, signo: 1 | -1, grueso = 1) => {
       let k = 0;
       for (let t = desde + PASO_NUDO / 2; t <= hasta - PASO_NUDO / 2 + 0.01; t += PASO_NUDO, k++) {
-        const { punto, tangente, afuera } = enCirculo(R, anguloDe(signo * t));
-        // La barra que cruza el tejido de lado a lado.
-        const b = new THREE.Mesh(barra, hiloMat);
-        b.position.copy(punto).addScaledVector(afuera, 0.35 * grueso);
-        orientar(b, tangente, afuera);
-        b.scale.set(grueso, grueso, grueso);
-        manilla.add(b);
-        // El lazo del nudo, a un lado y al otro alternando (el dibujo típico del nudo plano).
-        const l = new THREE.Mesh(lazo, hiloMat);
-        const lado = k % 2 === 0 ? 1 : -1;
-        l.position.copy(punto).add(new THREE.Vector3(0, lado * (ANCHO_TEJIDO / 2 + 0.15) * grueso, 0));
-        orientar(l, tangente, afuera);
-        l.rotateX(lado > 0 ? 0 : Math.PI);
-        l.rotateZ(-Math.PI * 0.1);
-        l.scale.setScalar(grueso);
-        manilla.add(l);
+        nudos.push({ ...enCirculo(R, anguloDe(signo * t)), k, grueso });
       }
     };
+    const inicio = ocupado / 2 + 0.3;
+    const fin = d.largo / 2 - CIERRE_MM / 2;
     tejer(inicio, fin, 1);
     tejer(inicio, fin, -1);
+    // Cierre corredizo (abajo de la muñeca): un tramo de nudos más grueso.
+    tejer(d.largo / 2 - CIERRE_MM / 2, d.largo / 2 + CIERRE_MM / 2, 1, 1.3);
 
-    // Cierre corredizo: un tramo de nudos más grueso atrás.
-    tejer(d.largo / 2 - CIERRE_MM / 2, d.largo / 2 + CIERRE_MM / 2, 1, 1.35);
+    const bultos = new THREE.InstancedMesh(bulto, hiloMat, nudos.length * 2);
+    const lazos = new THREE.InstancedMesh(bulto, hiloMat, nudos.length);
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const giro = new THREE.Quaternion();
+    const esc = new THREE.Vector3();
+    const pos = new THREE.Vector3();
+    nudos.forEach((n, i) => {
+      q.setFromRotationMatrix(new THREE.Matrix4().makeBasis(n.tangente, new THREE.Vector3(0, 1, 0), n.afuera));
+      for (const lado of [-1, 1]) {
+        // Cada bulto: largo a lo ancho de la tira, torcido un poco (al revés en cada nudo) como el hilo anudado.
+        giro.setFromAxisAngle(n.afuera, (n.k % 2 ? 1 : -1) * lado * 0.35);
+        pos.copy(n.punto).addScaledVector(n.afuera, 0.55 * n.grueso).add(new THREE.Vector3(0, lado * 0.95 * n.grueso, 0));
+        esc.set(0.72, 1.15, 0.75).multiplyScalar(n.grueso);
+        m.compose(pos, giro.clone().multiply(q), esc);
+        bultos.setMatrixAt(i * 2 + (lado > 0 ? 1 : 0), m);
+      }
+      const lado = n.k % 2 ? 1 : -1;
+      pos.copy(n.punto).addScaledVector(n.afuera, 0.35 * n.grueso).add(new THREE.Vector3(0, lado * (ANCHO_TEJIDO / 2) * n.grueso, 0));
+      esc.set(0.55, 0.5, 0.55).multiplyScalar(n.grueso);
+      m.compose(pos, q, esc);
+      lazos.setMatrixAt(i, m);
+    });
+    manilla.add(bultos, lazos);
 
-    // Las dos puntas del hilo salen del cierre hacia afuera y caen un poco, con un balín en cada una.
+    // Las dos puntas del hilo cuelgan del cierre, largas y delgadas, cada una con un balincito de oro y el nudo final.
     const atras = enCirculo(R, anguloDe(d.largo / 2));
     for (const lado of [-1, 1]) {
       const salida = enCirculo(R, anguloDe(d.largo / 2 + lado * (CIERRE_MM / 2)));
       const p0 = salida.punto.clone();
-      const p1 = p0.clone().addScaledVector(atras.afuera, 5).addScaledVector(salida.tangente, lado * 3).add(new THREE.Vector3(0, -3, 0));
-      const p2 = p0.clone().addScaledVector(atras.afuera, 10).addScaledVector(salida.tangente, lado * 4).add(new THREE.Vector3(0, -10, 0));
-      const curva = new THREE.CatmullRomCurve3([p0, p1, p2]);
-      manilla.add(new THREE.Mesh(new THREE.TubeGeometry(curva, 30, 0.45, 8, false), hiloMat));
-      const punta = new THREE.Mesh(esfera, oro);
-      punta.position.copy(p2);
-      punta.scale.setScalar(1.5);
+      const p1 = p0.clone().addScaledVector(atras.afuera, 4).addScaledVector(salida.tangente, lado * 2).add(new THREE.Vector3(0, -6, 0));
+      const p2 = p0.clone().addScaledVector(atras.afuera, 7).addScaledVector(salida.tangente, lado * 3.5).add(new THREE.Vector3(0, -18, 0));
+      const p3 = p0.clone().addScaledVector(atras.afuera, 8).addScaledVector(salida.tangente, lado * 4).add(new THREE.Vector3(0, -30 - lado * 3, 0));
+      const curva = new THREE.CatmullRomCurve3([p0, p1, p2, p3]);
+      manilla.add(new THREE.Mesh(new THREE.TubeGeometry(curva, 48, HILO_MM / 2, 8, false), hiloMat));
+      const punta = new THREE.Mesh(esfera, oroLiso);
+      punta.position.copy(curva.getPoint(0.9));
+      punta.scale.setScalar(1.1);
       manilla.add(punta);
+      const nudoFinal = new THREE.Mesh(bulto, hiloMat);
+      nudoFinal.position.copy(p3);
+      nudoFinal.scale.set(0.8, 1.1, 0.8);
+      manilla.add(nudoFinal);
     }
 
     manilla.traverse((o) => (o.castShadow = true));
@@ -256,28 +285,28 @@ export function crearVista3D(lienzo: HTMLCanvasElement) {
   return { dibujar };
 }
 
-/** Esfera de facetas planas con una leve inclinación distinta en cada una (el diamantado). */
-function balinDiamantado() {
-  const g = new THREE.SphereGeometry(1, 18, 12).toNonIndexed();
-  const pos = g.getAttribute('position');
-  const normales = new Float32Array(pos.count * 3);
-  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
-  // Semilla fija: siempre el mismo corte.
-  let semilla = 7;
-  const azar = () => ((semilla = (semilla * 16807) % 2147483647) / 2147483647) * 2 - 1;
-  let jitter = new THREE.Vector3();
-  for (let t = 0; t < pos.count / 3; t++) {
-    a.fromBufferAttribute(pos, t * 3);
-    b.fromBufferAttribute(pos, t * 3 + 1);
-    c.fromBufferAttribute(pos, t * 3 + 2);
-    n.crossVectors(b.clone().sub(a), c.clone().sub(a)).normalize();
-    // Los dos triángulos de cada cara comparten la inclinación: la faceta se ve como un solo corte.
-    if (t % 2 === 0) jitter = new THREE.Vector3(azar(), azar(), azar()).multiplyScalar(0.18);
-    n.add(jitter).normalize();
-    for (let k = 0; k < 3; k++) normales.set([n.x, n.y, n.z], (t * 3 + k) * 3);
+/** Líneas finas cruzadas como el diamantado a máquina (relieve sobre la esfera). */
+function texturaDiamantado() {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 256;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#808080';
+  g.fillRect(0, 0, c.width, c.height);
+  g.lineWidth = 1.4;
+  for (const [inclinacion, tono] of [[0.55, '#d8d8d8'], [-0.55, '#3a3a3a']] as const) {
+    g.strokeStyle = tono;
+    for (let x = -c.width; x < c.width * 2; x += 7) {
+      g.beginPath();
+      g.moveTo(x, 0);
+      g.lineTo(x + c.height * inclinacion * 2, c.height);
+      g.stroke();
+    }
   }
-  g.setAttribute('normal', new THREE.BufferAttribute(normales, 3));
-  return g;
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
 }
 
 /** Rayas finas en diagonal, como las fibras torcidas de un hilo, para usar como relieve. */

@@ -1,0 +1,537 @@
+---
+// Prototipo (23 nov 2026): simulador de manillas de balinería. El cliente elige hilo, talla y balines (con un patrón
+// o uno por uno) y ve la manilla dibujada a escala, con cuántos balines lleva, el peso y el precio. Datos inventados:
+// los diámetros, precios y hilos reales los definen los socios. Lo usan /manilla (enlace oculto para que los socios
+// lo prueben en el celular) y /pruebas/manilla.
+import Publica from '../../layouts/Publica.astro';
+
+// Balines de ejemplo: diámetro (mm), peso (g) y precio por unidad (COP).
+const balines = [
+  { id: 'b3', nombre: '3 mm', diametro: 3, peso: 0.03, precio: 15000 },
+  { id: 'b4', nombre: '4 mm', diametro: 4, peso: 0.06, precio: 20000 },
+  { id: 'b5', nombre: '5 mm', diametro: 5, peso: 0.11, precio: 28000 },
+];
+const hilos = [
+  { id: 'negro', nombre: 'Negro', color: '#1b1716', precio: 5000 },
+  { id: 'rojo', nombre: 'Rojo', color: '#b3121f', precio: 5000 },
+  { id: 'cafe', nombre: 'Café', color: '#6b4428', precio: 5000 },
+  { id: 'marfil', nombre: 'Marfil', color: '#e9dfcf', precio: 5000 },
+];
+const tallas = [
+  { id: 's', nombre: 'S', cm: 15 },
+  { id: 'm', nombre: 'M', cm: 16.5 },
+  { id: 'l', nombre: 'L', cm: 18 },
+];
+// Patrones: la secuencia se repite hasta llenar la manilla.
+const patrones = [
+  { id: 'p3', nombre: 'Solo 3 mm', secuencia: ['b3'] },
+  { id: 'p4', nombre: 'Solo 4 mm', secuencia: ['b4'] },
+  { id: 'p34', nombre: 'Alternado 3 · 4', secuencia: ['b3', 'b4'] },
+  { id: 'p334', nombre: '3 · 3 · 5', secuencia: ['b3', 'b3', 'b5'] },
+];
+const datos = { balines, hilos, tallas, patrones };
+---
+
+<Publica title="Arma tu manilla · SS Joyería" noindex portada={false}>
+  <section class="seccion simulador">
+    <h1>Arma tu manilla</h1>
+    <p class="sutil">Elige el hilo, tu talla y los balines. Así se vería tu manilla en oro de 18k.</p>
+
+    <div class="vista">
+      <svg id="manilla" viewBox="0 0 320 320" role="img" aria-label="Vista de la manilla">
+        <defs>
+          <radialGradient id="oro" cx="35%" cy="30%" r="75%">
+            <stop offset="0%" stop-color="#fff7dc" />
+            <stop offset="35%" stop-color="#f0d48a" />
+            <stop offset="75%" stop-color="#c79a3e" />
+            <stop offset="100%" stop-color="#8a6420" />
+          </radialGradient>
+        </defs>
+        <circle id="hilo" cx="160" cy="160" r="120" fill="none" stroke-width="2" />
+        <g id="nudo"></g>
+        <g id="cuentas"></g>
+      </svg>
+      <p class="aviso-vista">Imagen de referencia: el color del hilo y el brillo pueden variar.</p>
+    </div>
+
+    <div class="opciones">
+      <fieldset>
+        <legend>Hilo</legend>
+        <div class="chips" id="hilos">
+          {hilos.map((h, i) => (
+            <label class="chip">
+              <input type="radio" name="hilo" value={h.id} checked={i === 0} />
+              <span class="muestra" style={`--c: ${h.color}`} />
+              {h.nombre}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Talla de muñeca</legend>
+        <div class="chips" id="tallas">
+          {tallas.map((t) => (
+            <label class="chip">
+              <input type="radio" name="talla" value={t.id} checked={t.id === 'm'} />
+              {t.nombre} · {String(t.cm).replace('.', ',')} cm
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Diseño</legend>
+        <div class="modos">
+          <label class="chip"><input type="radio" name="modo" value="patron" checked /> Con un patrón</label>
+          <label class="chip"><input type="radio" name="modo" value="libre" /> Balín por balín</label>
+        </div>
+
+        <div id="panel-patron" class="chips">
+          {patrones.map((p, i) => (
+            <label class="chip">
+              <input type="radio" name="patron" value={p.id} checked={i === 2} />
+              {p.nombre}
+            </label>
+          ))}
+        </div>
+
+        <div id="panel-libre" hidden>
+          <p class="sutil">Toca un tamaño para agregarlo en orden.</p>
+          <div class="agregar">
+            {balines.map((b) => (
+              <button type="button" class="balin" data-balin={b.id} style={`--d: ${b.diametro}`}>
+                <span class="bola" />
+                {b.nombre}
+              </button>
+            ))}
+          </div>
+          <div class="acciones-libre">
+            <button type="button" id="deshacer">Quitar el último</button>
+            <button type="button" id="vaciar">Empezar de nuevo</button>
+          </div>
+          <p class="sutil" id="cupo"></p>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="resumen" aria-live="polite">
+      <ul id="lista"></ul>
+      <p class="fila-total"><span>Peso en oro</span><strong id="peso"></strong></p>
+      <p class="fila-total total"><span>Total</span><strong id="total"></strong></p>
+      <p class="sutil">Incluye el hilo. Prototipo con precios de ejemplo.</p>
+    </div>
+
+    <details class="mensaje">
+      <summary>Mensaje que llegaría por WhatsApp</summary>
+      <pre id="mensaje"></pre>
+    </details>
+  </section>
+
+  <script type="application/json" id="datos-manilla" set:html={JSON.stringify(datos)} />
+</Publica>
+
+<style>
+  .simulador h1 {
+    margin-bottom: 0.4rem;
+  }
+
+  .vista {
+    margin: 1.25rem auto 0.5rem;
+    max-width: 20rem;
+  }
+
+  #manilla {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  #manilla :global(.cuenta) {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  #manilla :global(.cuenta.nueva) {
+    animation: cuenta-entra 320ms var(--ease-out);
+  }
+
+  @keyframes cuenta-entra {
+    from {
+      transform: scale(0.2);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #manilla :global(.cuenta.nueva) {
+      animation: none;
+    }
+  }
+
+  .aviso-vista {
+    margin: 0.4rem 0 0;
+    font-size: 0.78rem;
+    color: var(--gris);
+  }
+
+  .opciones {
+    text-align: left;
+    margin-top: 1.25rem;
+  }
+
+  fieldset {
+    margin: 0 0 1.25rem;
+    padding: 0;
+    border: 0;
+  }
+
+  legend {
+    margin-bottom: 0.55rem;
+    font-family: var(--display);
+    font-size: 1.35rem;
+    font-weight: 600;
+  }
+
+  .chips,
+  .modos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .modos {
+    margin-bottom: 0.75rem;
+  }
+
+  #panel-patron[hidden] {
+    display: none;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2.75rem;
+    padding: 0 0.9rem;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    background: var(--superficie);
+    box-shadow: var(--filete);
+  }
+
+  .chip input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .chip:has(:checked) {
+    box-shadow: inset 0 0 0 2px #e3c27a;
+    color: #f3dc9a;
+  }
+
+  .chip:has(:focus-visible) {
+    outline: 2px solid var(--tinta);
+    outline-offset: 2px;
+  }
+
+  .muestra {
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 50%;
+    background: var(--c);
+    box-shadow: inset 0 0 0 1px rgb(242 236 228 / 0.4);
+  }
+
+  .agregar {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .balin {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 4.5rem;
+    border: 0;
+    border-radius: 12px;
+    font: inherit;
+    color: var(--tinta);
+    background: var(--superficie);
+    box-shadow: var(--filete);
+    cursor: pointer;
+    transition: transform 140ms var(--ease-out);
+  }
+
+  .balin:active {
+    transform: scale(0.95);
+  }
+
+  .bola {
+    width: calc(var(--d) * 0.42rem);
+    height: calc(var(--d) * 0.42rem);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff7dc, #f0d48a 35%, #c79a3e 75%, #8a6420);
+  }
+
+  .acciones-libre {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+  }
+
+  .acciones-libre button {
+    flex: 1;
+    min-height: 2.75rem;
+    border: 0;
+    font: inherit;
+    font-size: 0.9rem;
+    color: var(--gris);
+    background: none;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    cursor: pointer;
+  }
+
+  .resumen {
+    text-align: left;
+    padding-top: 1rem;
+    border-top: 1px solid rgb(242 236 228 / 0.15);
+  }
+
+  #lista {
+    list-style: none;
+    margin: 0 0 0.75rem;
+    padding: 0;
+  }
+
+  #lista :global(li) {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.3rem 0;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .fila-total {
+    display: flex;
+    justify-content: space-between;
+    margin: 0.25rem 0;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .fila-total.total strong {
+    font-family: var(--display);
+    font-size: 1.6rem;
+  }
+
+  .mensaje {
+    margin-top: 1rem;
+    text-align: left;
+  }
+
+  .mensaje summary {
+    cursor: pointer;
+    color: var(--gris);
+  }
+
+  .mensaje pre {
+    white-space: pre-wrap;
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.75rem;
+    background: var(--superficie);
+  }
+</style>
+
+<script>
+  type Balin = { id: string; nombre: string; diametro: number; peso: number; precio: number };
+  type Datos = {
+    balines: Balin[];
+    hilos: { id: string; nombre: string; color: string; precio: number }[];
+    tallas: { id: string; nombre: string; cm: number }[];
+    patrones: { id: string; nombre: string; secuencia: string[] }[];
+  };
+
+  const datos: Datos = JSON.parse(document.querySelector('#datos-manilla')!.textContent!);
+  const porId = new Map(datos.balines.map((b) => [b.id, b]));
+  const NS = 'http://www.w3.org/2000/svg';
+  const CENTRO = 160;
+  const RADIO = 118; // radio del hilo en el dibujo
+  const NUDO_MM = 8; // tramo libre del hilo para el nudo
+  const HOLGURA_MM = 10; // la manilla queda un poco más grande que la muñeca
+
+  const pesos = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+  const gramos = (g: number) => `${g.toLocaleString('es-CO', { maximumFractionDigits: 2 })} g`;
+  const elegido = (nombre: string) => document.querySelector<HTMLInputElement>(`input[name="${nombre}"]:checked`)!.value;
+
+  let libre: string[] = [];
+  let dibujadas = 0;
+
+  /** Largo de la manilla (mm) y el espacio que queda para balines. */
+  function medidas() {
+    const talla = datos.tallas.find((t) => t.id === elegido('talla'))!;
+    const largo = talla.cm * 10 + HOLGURA_MM;
+    return { largo, util: largo - NUDO_MM };
+  }
+
+  /** Balines que caben siguiendo una secuencia que se repite. */
+  function llenar(secuencia: string[], util: number) {
+    const fila: string[] = [];
+    let usado = 0;
+    for (let i = 0; ; i++) {
+      const b = porId.get(secuencia[i % secuencia.length])!;
+      if (usado + b.diametro > util) break;
+      fila.push(b.id);
+      usado += b.diametro;
+    }
+    return fila;
+  }
+
+  const ocupado = (fila: string[]) => fila.reduce((s, id) => s + porId.get(id)!.diametro, 0);
+
+  function cuentasActuales() {
+    const { util } = medidas();
+    if (elegido('modo') === 'patron') {
+      const patron = datos.patrones.find((p) => p.id === elegido('patron'))!;
+      return llenar(patron.secuencia, util);
+    }
+    // En modo libre se recorta si al cambiar de talla ya no caben.
+    while (libre.length && ocupado(libre) > util) libre.pop();
+    return libre;
+  }
+
+  function dibujar(fila: string[], animarDesde: number) {
+    const { largo } = medidas();
+    const escala = (2 * Math.PI * RADIO) / largo; // px por mm
+    const hilo = datos.hilos.find((h) => h.id === elegido('hilo'))!;
+    document.querySelector('#hilo')!.setAttribute('stroke', hilo.color);
+
+    // El nudo arriba (ángulo -90°); los balines empiezan después del tramo libre y siguen en sentido horario.
+    const nudo = document.querySelector('#nudo')!;
+    nudo.replaceChildren();
+    const k = document.createElementNS(NS, 'circle');
+    k.setAttribute('cx', String(CENTRO));
+    k.setAttribute('cy', String(CENTRO - RADIO));
+    k.setAttribute('r', '3.2');
+    k.setAttribute('fill', hilo.color);
+    k.setAttribute('stroke', 'rgb(242 236 228 / 0.35)');
+    nudo.append(k);
+
+    const grupo = document.querySelector('#cuentas')!;
+    grupo.replaceChildren();
+    let recorrido = NUDO_MM / 2;
+    fila.forEach((id, i) => {
+      const b = porId.get(id)!;
+      const centroMm = recorrido + b.diametro / 2;
+      recorrido += b.diametro;
+      const ang = -Math.PI / 2 + (centroMm / largo) * 2 * Math.PI;
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', (CENTRO + RADIO * Math.cos(ang)).toFixed(2));
+      c.setAttribute('cy', (CENTRO + RADIO * Math.sin(ang)).toFixed(2));
+      c.setAttribute('r', ((b.diametro / 2) * escala * 0.97).toFixed(2));
+      c.setAttribute('fill', 'url(#oro)');
+      c.setAttribute('class', i >= animarDesde ? 'cuenta nueva' : 'cuenta');
+      if (i >= animarDesde) c.style.animationDelay = `${Math.min(i - animarDesde, 30) * 18}ms`;
+      grupo.append(c);
+    });
+  }
+
+  function resumir(fila: string[]) {
+    const hilo = datos.hilos.find((h) => h.id === elegido('hilo'))!;
+    const talla = datos.tallas.find((t) => t.id === elegido('talla'))!;
+    const conteo = new Map<string, number>();
+    for (const id of fila) conteo.set(id, (conteo.get(id) ?? 0) + 1);
+    const lineas = datos.balines.filter((b) => conteo.has(b.id)).map((b) => ({ b, n: conteo.get(b.id)! }));
+
+    const lista = document.querySelector('#lista')!;
+    lista.replaceChildren(
+      ...lineas.map(({ b, n }) => {
+        const li = document.createElement('li');
+        li.append(Object.assign(document.createElement('span'), { textContent: `${n} × balín ${b.nombre}` }));
+        li.append(Object.assign(document.createElement('span'), { textContent: pesos.format(n * b.precio) }));
+        return li;
+      }),
+      document.createElement('li'),
+    );
+    const liHilo = lista.lastElementChild as HTMLLIElement;
+    liHilo.append(Object.assign(document.createElement('span'), { textContent: `Hilo ${hilo.nombre.toLowerCase()}` }));
+    liHilo.append(Object.assign(document.createElement('span'), { textContent: pesos.format(hilo.precio) }));
+
+    const peso = lineas.reduce((s, { b, n }) => s + b.peso * n, 0);
+    const total = lineas.reduce((s, { b, n }) => s + b.precio * n, 0) + hilo.precio;
+    document.querySelector('#peso')!.textContent = gramos(peso);
+    document.querySelector('#total')!.textContent = pesos.format(total);
+
+    const modo = elegido('modo');
+    const diseño =
+      modo === 'patron' ? `Patrón: ${datos.patrones.find((p) => p.id === elegido('patron'))!.nombre}` : 'Diseño balín por balín';
+    document.querySelector('#mensaje')!.textContent = [
+      'Hola, armé esta manilla en el simulador de SS Joyería y me interesa:',
+      '',
+      `• Hilo ${hilo.nombre.toLowerCase()}, talla ${talla.nombre} (${String(talla.cm).replace('.', ',')} cm)`,
+      `• ${diseño}`,
+      ...lineas.map(({ b, n }) => `• ${n} × balín ${b.nombre}`),
+      ...(modo === 'libre' ? ['', `Orden: ${fila.map((id) => porId.get(id)!.diametro).join(' · ')}`] : []),
+      '',
+      `Peso en oro: ${gramos(peso)}`,
+      `Total: ${pesos.format(total)}`,
+    ].join('\n');
+
+    // Cupo en modo libre.
+    const { util } = medidas();
+    const falta = util - ocupado(fila);
+    const menor = Math.min(...datos.balines.map((b) => b.diametro));
+    document.querySelector('#cupo')!.textContent =
+      fila.length === 0
+        ? 'Tu manilla está vacía.'
+        : falta >= menor
+          ? `Llevas ${fila.length} balines. Queda espacio para unos ${(falta / menor).toFixed(0)} de ${menor} mm.`
+          : `¡Lista! Ya no caben más balines en tu talla.`;
+    for (const boton of document.querySelectorAll<HTMLButtonElement>('.balin')) {
+      boton.disabled = porId.get(boton.dataset.balin!)!.diametro > falta;
+    }
+  }
+
+  function actualizar(animarTodo = false) {
+    const fila = cuentasActuales();
+    dibujar(fila, animarTodo ? 0 : dibujadas);
+    resumir(fila);
+    dibujadas = fila.length;
+  }
+
+  // Cambios de hilo, talla, patrón o modo: se redibuja (con entrada de las cuentas si cambia el diseño).
+  document.querySelector('.opciones')!.addEventListener('change', (e) => {
+    const nombre = (e.target as HTMLInputElement).name;
+    if (nombre === 'modo') {
+      const libreActivo = elegido('modo') === 'libre';
+      document.querySelector<HTMLElement>('#panel-libre')!.hidden = !libreActivo;
+      document.querySelector<HTMLElement>('#panel-patron')!.hidden = libreActivo;
+    }
+    actualizar(nombre !== 'hilo');
+  });
+
+  for (const boton of document.querySelectorAll<HTMLButtonElement>('.balin')) {
+    boton.addEventListener('click', () => {
+      libre.push(boton.dataset.balin!);
+      actualizar();
+    });
+  }
+  document.querySelector('#deshacer')!.addEventListener('click', () => {
+    libre.pop();
+    dibujadas = Math.min(dibujadas, libre.length);
+    actualizar();
+  });
+  document.querySelector('#vaciar')!.addEventListener('click', () => {
+    libre = [];
+    dibujadas = 0;
+    actualizar();
+  });
+
+  actualizar(true);
+</script>

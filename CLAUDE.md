@@ -209,6 +209,10 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
         socios estratégicos que piden piezas prestadas para fotografía. Enlace fijo para compartir (`noindex`), solo
         piezas con existencias; la ficha muestra fotos, descripción, pesos y referencia. Es el modo `showroom` de
         `Catalogo.astro` y `Ficha.astro`. Prueba: `/pruebas/catalogo?showroom=1`.
+  - [ ] **Simulador de manillas** (prototipo, 23 nov 2026): `/manilla` (enlace oculto, `noindex`, sin enlaces desde el
+        sitio) y `/pruebas/manilla`; `src/components/catalogo/SimuladorManilla.astro`. Hilo, talla, patrón o balín por balín,
+        dibujo a escala, peso, total y mensaje de WhatsApp. **Datos de ejemplo**: faltan diámetros, precios e hilos reales
+        de los socios, conectarlo al carrito y a las existencias.
 - [ ] **Fase 5 (seguridad, respaldos, rendimiento).** Decisiones (5 nov 2026): repositorio a privado
       (pendiente: la cuenta de GitHub tiene un problema de verificación), reglas fuertes de contraseña
       en lugar de la protección contra contraseñas filtradas (esa es solo del plan Pro), respaldo

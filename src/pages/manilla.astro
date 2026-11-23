@@ -1,0 +1,9 @@
+---
+// Simulador de manillas (prototipo con datos de ejemplo), en un enlace oculto: sin enlaces desde el sitio y fuera de
+// buscadores, para que los socios lo prueben en el celular antes de decidir la versión real.
+import SimuladorManilla from '../components/catalogo/SimuladorManilla.astro';
+
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+---
+
+<SimuladorManilla />

@@ -83,7 +83,9 @@ const caraFuente = `@font-face{font-family:'Cormorant Garamond';src:url('${fuent
             observador.unobserve(e.target);
           }
         },
-        { threshold: 0.12 },
+        // Por el borde y no por un % de la tarjeta: una muy larga (la política de datos) nunca alcanzaba ese %
+        // visible en el celular y se quedaba invisible.
+        { threshold: 0, rootMargin: '0px 0px -12% 0px' },
       );
       for (const el of document.querySelectorAll('.publica main :is(.seccion, .titulo-fuera, .aparece)')) observador.observe(el);
     }

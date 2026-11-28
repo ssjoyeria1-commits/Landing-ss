@@ -4,12 +4,16 @@ export const TEXTOS = {
   circuloIntro:
     'Cada gramo que compras suma a tu contador, y por cada persona que nos recomiendes sumas el 10% de los gramos de su primera compra. Al llegar a 5, 10 y 15 gramos recibes un premio.',
 
-  /** Cuidados básicos del oro. Revisar con los socios. */
+  /**
+   * Cuidados del oro (28 nov 2026, socios): sin hacer ver frágiles las joyas (el oro de 18k resiste cremas,
+   * perfume y agua); el foco es el mal uso, los jalones y los enganches.
+   */
   cuidado: [
-    'Quítatela para nadar, hacer ejercicio o limpiar con químicos.',
-    'Aplica perfume, cremas y laca antes de ponértela.',
-    'Guárdala sola, en su caja o en una bolsa suave, para que no se raye.',
-    'Límpiala con agua tibia, jabón suave y un paño que no suelte pelusa.',
+    'Tu oro de 18k está hecho para llevarlo todos los días: el agua, las cremas y el perfume no le hacen daño.',
+    'Evita los jalones: para quitártela, ábrela siempre por el broche, nunca la tires.',
+    'Si se engancha en la ropa, el cabello o una toalla, suéltala con calma en lugar de halarla.',
+    'Quítatela para dormir, hacer deporte de contacto o cargar peso, donde puede recibir tirones o golpes.',
+    'Guárdala en su caja, sin enredarla con otras piezas. Para devolverle el brillo, agua tibia, jabón suave y un paño.',
   ],
 
   /** Círculo en la versión de regalo: quien recibe no ve el contador del comprador. */

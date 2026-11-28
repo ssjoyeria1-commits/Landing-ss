@@ -28,7 +28,7 @@ export const TERMINOS_GARANTIA: SeccionLegal[] = [
       'La garantía no cubre los daños causados por el uso o el mal manejo de las piezas, por ejemplo:',
       '– Golpes, caídas, tirones, enganches, aplastamientos o piezas dobladas.',
       '– Rayones y el desgaste natural del uso diario.',
-      '– Daños por contacto con químicos, como cloro, perfumes, cremas o productos de limpieza.',
+      '– Daños por químicos fuertes, como cloro o productos de limpieza.',
       '– Piezas reparadas, ajustadas o modificadas por otra persona o taller.',
       '– Pérdida o robo.',
     ],

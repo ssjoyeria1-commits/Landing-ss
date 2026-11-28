@@ -349,6 +349,35 @@ test('página de compra propia: solo datos públicos, mismo contador en todas la
   assert.equal((await uno(db, 'select count(*)::int as n from public.escaneos')).n, 2, 'el certificado no suma escaneo');
 });
 
+test('mi_circulo: con WhatsApp y código muestra el avance; con datos errados, nada, y bloquea tras 5 intentos', async () => {
+  const db = await nuevaBase();
+  const whatsapp = nuevoWhatsapp();
+  const r = await venta(db, { whatsapp, nombre: 'Ana Lucía', cajas: deGramos(6.5) });
+  const codigo = r.cliente.codigo_referido;
+  const consultar = (w, c) =>
+    como(db, 'anon', null, async () => (await uno(db, 'select public.mi_circulo($1, $2) as m', [w, c])).m);
+
+  // El código se acepta en minúscula y con espacios.
+  const m = await consultar(whatsapp, ` ${codigo.toLowerCase()} `);
+  assert.equal(m.nombre, 'Ana');
+  assert.deepEqual(m.circulo, { gramos: 6.5, hitos: [5, 10, 15], proximo_hito: 10, codigo_referido: codigo });
+  const texto = JSON.stringify(m);
+  assert.ok(!texto.includes(whatsapp.slice(3)) && !texto.includes(r.cliente.id), 'no expone WhatsApp ni ids');
+
+  // Otro cliente con su propio código no ve el de Ana; número o código errado → null (sin decir cuál falló).
+  const otra = await venta(db, { nombre: 'Rosa', cajas: deGramos(1) });
+  assert.equal(await consultar(whatsapp, otra.cliente.codigo_referido), null);
+  assert.equal(await consultar(nuevoWhatsapp(), codigo), null);
+  assert.equal(await consultar('3001234567', codigo), null, 'sin formato internacional no consulta');
+
+  // Ya va 1 fallo con el número de Ana; 4 más y queda bloqueado aunque el código sea el correcto.
+  for (let i = 0; i < 4; i++) assert.equal(await consultar(whatsapp, 'X-0000'), null);
+  assert.deepEqual(await consultar(whatsapp, codigo), { bloqueado: true });
+
+  // anon no puede leer los intentos.
+  await assert.rejects(como(db, 'anon', null, () => db.query('select * from privado.intentos_circulo')));
+});
+
 test('página de regalo: nombres y código del comprador, sin contador', async () => {
   const db = await nuevaBase();
   const r = await venta(db, {

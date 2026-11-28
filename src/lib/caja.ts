@@ -67,6 +67,25 @@ export async function obtenerCaja(codigo: string, contar = true): Promise<CajaPu
   return data as CajaPublica | null;
 }
 
+/** Avance del Círculo que ve el cliente en /micirculo (ver public.mi_circulo). */
+export interface MiCirculo {
+  nombre: string;
+  circulo: CajaPropia['circulo'];
+}
+
+/**
+ * Busca el Círculo por WhatsApp (+57…) y código del Círculo. null si no coinciden; `bloqueado` si ese número
+ * ya tuvo 5 intentos fallidos en la última hora.
+ */
+export async function consultarCirculo(whatsapp: string, codigo: string): Promise<MiCirculo | { bloqueado: true } | null> {
+  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await supabase.rpc('mi_circulo', { p_whatsapp: whatsapp, p_codigo: codigo });
+  if (error) throw new Error(error.message);
+  return data as MiCirculo | { bloqueado: true } | null;
+}
+
 /** Pieza con cuántas iguales hay (misma descripción, peso y ley), p. ej. 50 balines en una caja. */
 export interface PiezaAgrupada extends PiezaPublica {
   cantidad: number;

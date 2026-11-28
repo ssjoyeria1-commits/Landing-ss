@@ -100,7 +100,8 @@ const POLITICA: SeccionLegal[] = [
       '– Para enviarte tu pedido: la dirección de entrega, la ciudad y el nombre y el teléfono de quien recibe. Te los pedimos por WhatsApp solo cuando hay un despacho; no los guardamos en nuestro sistema.',
       '– De las cajas de regalo: el primer nombre de quien recibe el regalo y el mensaje que escribe quien lo regala. Ese mensaje lo escribe el comprador; te pedimos no incluir en él datos de otras personas.',
       '– De la página de tu caja: cada vez que alguien la abre guardamos la fecha y la hora, sin datos de tu celular ni de tu ubicación.',
-      '– Por seguridad, la dirección IP de quien visita la página de una caja o el panel se usa durante un minuto para limitar intentos repetidos y se borra sola. No la asociamos a ninguna persona.',
+      '– Por seguridad, la dirección IP de quien visita la página de una caja, consulta su Círculo o entra al panel se usa durante un minuto para limitar intentos repetidos y se borra sola. No la asociamos a ninguna persona.',
+      '– De la consulta del Círculo: si alguien escribe un número con un código que no corresponde, guardamos ese número y la hora durante un día, solo para bloquear intentos repetidos.',
       '– De nuestros aliados (personas que venden nuestras piezas): nombre, WhatsApp, las ventas, los pagos y la fecha del último ingreso a su catálogo.',
       '– Del catálogo: el pedido que armas en el catálogo queda solo en tu navegador; a nosotros solo nos llega lo que tú nos envías por WhatsApp. No usamos cookies de publicidad ni de analítica.',
     ],
@@ -124,6 +125,7 @@ const POLITICA: SeccionLegal[] = [
     parrafos: [
       'La página que se abre con el chip de tu caja muestra solo tu primer nombre, tus piezas, su certificado y tu avance en el Círculo SS. Nunca muestra tu número de WhatsApp, tu apellido ni los datos de las personas que recomendaste.',
       'En una caja de regalo se ven el primer nombre de quien recibe, el de quien regala y el mensaje del regalo.',
+      'También puedes ver tu avance en ssjoyeria.com/micirculo con tu número de WhatsApp y tu código del Círculo. Muestra solo tu primer nombre y tu Círculo, y pide los dos datos para que nadie más lo vea solo con tu número; tras 5 intentos fallidos en una hora, la consulta de ese número se bloquea por una hora.',
       'Cualquier persona que acerque su celular al chip o tenga el enlace puede ver esa página. Si pierdes la caja o crees que alguien más tiene el enlace, escríbenos y cambiamos el código del chip.',
     ],
   },

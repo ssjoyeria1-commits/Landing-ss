@@ -1,0 +1,47 @@
+---
+// /micirculo: el cliente consulta su avance del Círculo con su WhatsApp y su código del Círculo (sin el chip a la
+// mano). Formulario por POST; la respuesta es privada y sin caché. Ver public.mi_circulo y MiCirculo.astro.
+import MiCirculo, { type EstadoMiCirculo } from '../components/caja/MiCirculo.astro';
+import { consultarCirculo, type MiCirculo as Resultado } from '../lib/caja';
+import { dentroDelLimite } from '../lib/limite';
+import { normalizarWhatsapp } from '../lib/whatsapp';
+
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+
+let estado: EstadoMiCirculo = 'formulario';
+let resultado: Resultado | null = null;
+let valores = { pais: 'CO', numero: '', codigo: '' };
+
+if (Astro.request.method === 'POST') {
+  const datos = await Astro.request.formData().catch(() => new FormData());
+  const texto = (k: string) => String(datos.get(k) ?? '').trim().slice(0, 40);
+  valores = { pais: texto('pais') || 'CO', numero: texto('numero'), codigo: texto('codigo').toUpperCase() };
+
+  const whatsapp = normalizarWhatsapp(valores.numero, valores.pais);
+  if (!(await dentroDelLimite('circulo', Astro.request))) {
+    estado = 'limitado';
+    Astro.response.status = 429;
+    Astro.response.headers.set('Retry-After', '60');
+  } else if (!whatsapp) {
+    estado = 'numero-invalido';
+  } else if (!/^[A-Z]{1,12}-[0-9]{4}$/.test(valores.codigo)) {
+    estado = 'no-encontrado';
+  } else {
+    try {
+      const r = await consultarCirculo(whatsapp, valores.codigo);
+      if (r && 'bloqueado' in r) estado = 'bloqueado';
+      else if (r) {
+        estado = 'encontrado';
+        resultado = r;
+      } else estado = 'no-encontrado';
+    } catch (e) {
+      console.error('mi_circulo', e);
+      estado = 'error';
+    }
+  }
+}
+---
+
+<MiCirculo {estado} {resultado} {valores} />

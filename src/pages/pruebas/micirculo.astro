@@ -1,0 +1,56 @@
+---
+// SOLO DESARROLLO: /micirculo con datos de prueba, sin consultar la base (?estado=formulario|encontrado|completo|
+// no-encontrado|numero-invalido|bloqueado|limitado|error). En producción responde 404.
+import MiCirculo, { type EstadoMiCirculo } from '../../components/caja/MiCirculo.astro';
+
+if (import.meta.env.PROD) return new Response(null, { status: 404 });
+
+const ESTADOS = ['formulario', 'encontrado', 'completo', 'no-encontrado', 'numero-invalido', 'bloqueado', 'limitado', 'error'];
+const clave = Astro.url.searchParams.get('estado') ?? 'formulario';
+const completo = clave === 'completo';
+const estado = (completo ? 'encontrado' : ESTADOS.includes(clave) ? clave : 'formulario') as EstadoMiCirculo;
+const resultado = {
+  nombre: 'María',
+  circulo: {
+    gramos: completo ? 15 : 7.35,
+    hitos: [5, 10, 15],
+    proximo_hito: completo ? null : 10,
+    codigo_referido: 'MARIA-4821',
+  },
+};
+const valores = estado === 'formulario' ? undefined : { pais: 'CO', numero: '300 123 4567', codigo: 'MARIA-0000' };
+---
+
+<MiCirculo {estado} {resultado} {valores} />
+<nav class="datos-prueba" aria-label="Datos de prueba">
+  {ESTADOS.map((k) => <a href={`?estado=${k}`} aria-current={k === clave ? 'page' : undefined}>{k}</a>)}
+</nav>
+
+<style>
+  .datos-prueba {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: max-content;
+    max-width: calc(100vw - 16px);
+    gap: 2px;
+    padding: 4px;
+    font: 12px system-ui;
+    background: #fff;
+  }
+
+  .datos-prueba a {
+    padding: 2px 6px;
+    color: #000;
+  }
+
+  .datos-prueba a[aria-current] {
+    background: #000;
+    color: #fff;
+  }
+</style>

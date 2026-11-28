@@ -1,0 +1,172 @@
+---
+// Cuerpo de /micirculo: el cliente escribe su WhatsApp y su código del Círculo y ve su avance (el mismo bloque
+// de la página del chip). Se envía por POST para que el número no quede en la URL ni en el historial.
+import Publica from '../../layouts/Publica.astro';
+import Circulo from './Circulo.astro';
+import { capitalizar } from '../../lib/formato';
+import { listaPaises } from '../../lib/whatsapp';
+import type { MiCirculo } from '../../lib/caja';
+
+export type EstadoMiCirculo = 'formulario' | 'encontrado' | 'no-encontrado' | 'numero-invalido' | 'bloqueado' | 'limitado' | 'error';
+
+interface Props {
+  estado: EstadoMiCirculo;
+  resultado?: MiCirculo | null;
+  /** Lo que escribió, para no tener que volver a escribirlo si algo falló. */
+  valores?: { pais: string; numero: string; codigo: string };
+}
+
+const { estado, resultado, valores = { pais: 'CO', numero: '', codigo: '' } } = Astro.props;
+const paises = listaPaises();
+
+const AVISOS: Partial<Record<EstadoMiCirculo, string>> = {
+  'no-encontrado': 'No encontramos un Círculo con ese número y ese código. Revisa los dos e inténtalo de nuevo.',
+  'numero-invalido': 'Ese número no parece válido. Revisa el país y el número.',
+  bloqueado: 'Hubo varios intentos con este número. Por seguridad, espera una hora o escríbenos por WhatsApp.',
+  limitado: 'Hubo muchas consultas seguidas. Espera un minuto e inténtalo de nuevo.',
+  error: 'No pudimos consultar en este momento. Inténtalo de nuevo en unos minutos.',
+};
+const aviso = AVISOS[estado];
+---
+
+<Publica title="Mi Círculo · SS Joyería" noindex portada={false}>
+  {
+    estado === 'encontrado' && resultado ? (
+      <Fragment slot="saludo">
+        <h1>Hola, {capitalizar(resultado.nombre)}</h1>
+        <p>Este es tu avance en el Círculo SS.</p>
+      </Fragment>
+    ) : (
+      <Fragment slot="saludo">
+        <h1>Mi Círculo</h1>
+        <p>Consulta cuántos gramos llevas y qué te falta para tu próximo premio.</p>
+      </Fragment>
+    )
+  }
+
+  {
+    estado === 'encontrado' && resultado ? (
+      <>
+        <Circulo circulo={resultado.circulo} />
+        <a class="boton otra" href="/micirculo">Consultar otro número</a>
+      </>
+    ) : (
+      <section class="seccion consulta">
+        <form method="post" action="/micirculo" novalidate>
+          <label for="pais">País</label>
+          <select id="pais" name="pais" autocomplete="tel-country-code">
+            {paises.map((p) => <option value={p.codigo} selected={p.codigo === valores.pais}>{p.nombre}</option>)}
+          </select>
+
+          <label for="numero">Tu número de WhatsApp</label>
+          <input
+            id="numero"
+            name="numero"
+            type="tel"
+            inputmode="tel"
+            autocomplete="tel-national"
+            placeholder="300 123 4567"
+            value={valores.numero}
+            required
+          />
+
+          <label for="codigo">Tu código del Círculo</label>
+          <input
+            id="codigo"
+            name="codigo"
+            type="text"
+            autocapitalize="characters"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="MARIA-1234"
+            value={valores.codigo}
+            required
+          />
+          <p class="ayuda">Está en la página de tu caja (acerca el celular al chip), debajo de tu avance.</p>
+
+          {aviso && <p class="aviso" role="alert">{aviso}</p>}
+
+          <button class="boton rojo" type="submit">Ver mi Círculo</button>
+        </form>
+      </section>
+    )
+  }
+</Publica>
+
+<style>
+  form {
+    text-align: left;
+  }
+
+  label {
+    display: block;
+    margin: 1.25rem 0 0.4rem;
+    font-weight: 600;
+  }
+
+  label:first-child {
+    margin-top: 0;
+  }
+
+  /* 16 px o más: en iPhone un campo más pequeño acerca la página al tocarlo. */
+  input,
+  select {
+    display: block;
+    width: 100%;
+    min-height: 3.25rem;
+    padding: 0 0.9rem;
+    border: 0;
+    border-radius: 0;
+    font: inherit;
+    font-size: 1.05rem;
+    font-variant-numeric: lining-nums;
+    color: var(--tinta);
+    background: var(--superficie);
+    box-shadow: var(--filete);
+  }
+
+  select {
+    appearance: none;
+    /* Flecha marfil a la derecha. */
+    background-image: linear-gradient(45deg, transparent 50%, var(--tinta) 50%),
+      linear-gradient(135deg, var(--tinta) 50%, transparent 50%);
+    background-position: calc(100% - 1.3rem) 50%, calc(100% - 0.95rem) 50%;
+    background-size: 0.35rem 0.35rem;
+    background-repeat: no-repeat;
+    padding-right: 2.5rem;
+  }
+
+  input::placeholder {
+    color: var(--gris);
+    opacity: 0.7;
+  }
+
+  #codigo {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  input:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--tinta);
+    outline-offset: 2px;
+  }
+
+  .ayuda {
+    margin: 0.5rem 0 0;
+    font-size: 0.9rem;
+    color: var(--gris);
+  }
+
+  .aviso {
+    margin: 1.25rem 0 0;
+    padding: 0.75rem 0.9rem;
+    border-left: 2px solid var(--rojo);
+    background: rgb(208 4 26 / 0.12);
+  }
+
+  .boton.otra {
+    max-width: 20rem;
+    margin-inline: auto;
+  }
+</style>

@@ -33,7 +33,7 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 |---|---|
 | Servidor local | `npm run dev` (o `preview_start` con `astro-dev` de `.claude/launch.json`) → http://127.0.0.1:4321 |
 | Revisar tipos | `npx astro check` (debe dar 0 errores) |
-| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 56 pruebas) |
+| Pruebas de la base de datos | `npm run test:db` (PGlite, sin servidor; 57 pruebas) |
 | Publicar | `npm run build` y luego `npx wrangler deploy` |
 | Tipos de las variables | `npm run types` (usa `--include-runtime=false`; ver abajo) |
 | Aplicar migraciones | `npx supabase db push --linked --dry-run`, luego sin `--dry-run` y con `--yes` |
@@ -64,6 +64,10 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
   WhatsApp; lee `pagina_caja(codigo, false)`, que **no** suma escaneo). La garantía ya no va en la página
   del chip: debajo del Círculo, "Ver términos de garantía" lleva a `/garantia`. `/garantia` y `/datos` leen `src/config/legal.ts`.
   `src/pages/admin/` — panel.
+- `src/pages/micirculo.astro` — /micirculo (28 nov 2026): el cliente ve su Círculo con su WhatsApp y su código del Círculo
+  (formulario POST, sin caché, `noindex`; cuerpo en `MiCirculo.astro`). Función `mi_circulo(whatsapp, codigo)` para anon
+  (migración `20261128120000_mi_circulo.sql`): 5 intentos fallidos por número en una hora lo bloquean (`privado.intentos_circulo`,
+  porque la API se puede llamar sin pasar por el Worker); el Worker limita 10 por minuto por IP. Prueba: `/pruebas/micirculo?estado=…`.
 - `src/pages/index.astro` — inicio (fija): portada, franja destacada al catálogo, tarjetas a `/garantia` y `/datos`
   y la sección que explica el Círculo SS (premios de `src/config/circulo.ts`).
 - **Cajas de premio** (11 nov 2026, migración `20261111130000_caja_premio.sql`): el premio y su chip se crean solos
@@ -82,7 +86,8 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 
 ## Seguridad y privacidad (no romper)
 
-- El visitante anónimo solo puede llamar a `public.pagina_caja(codigo)`; no lee ninguna tabla.
+- El visitante anónimo solo puede llamar a `public.pagina_caja(codigo)`, `catalogo_publico()`, `catalogo_aliado(token)` y
+  `mi_circulo(whatsapp, codigo)`; no lee ninguna tabla.
   Las funciones internas van en el esquema `privado` (no expuesto por la API).
 - La página pública muestra solo el primer nombre; nunca WhatsApp ni ids internos.
 - `/c/*` lleva `noindex`, `Cache-Control: private, no-store` y `Referrer-Policy: no-referrer`.

@@ -7,6 +7,8 @@ const LIMITES = {
   chip: { limite: 30, ventanaMs: 60_000 },
   login: { limite: 5, ventanaMs: 60_000 },
   aliado: { limite: 30, ventanaMs: 60_000 },
+  // Consulta de /micirculo; la base además bloquea un número tras 5 intentos fallidos en una hora.
+  circulo: { limite: 10, ventanaMs: 60_000 },
 } as const;
 
 /** true si la IP aún puede seguir. Sin contador (servidor local) o si el contador falla, deja pasar. */

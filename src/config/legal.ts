@@ -50,8 +50,9 @@ const POLITICA: SeccionLegal[] = [
   {
     titulo: '2. Qué datos recogemos',
     parrafos: [
-      'Solo pedimos lo necesario para atenderte. No pedimos tu número de documento, tu dirección ni datos sensibles (salud, origen, creencias, datos biométricos u otros).',
+      'Solo pedimos lo necesario para atenderte. No pedimos tu número de documento ni datos sensibles (salud, origen, creencias, datos biométricos u otros).',
       '– De nuestros clientes: nombre y apellido, número de WhatsApp con su país, el código del Círculo SS, quién te recomendó (si alguien lo hizo), tus compras (fecha, piezas, peso, valor, medio de pago y costo del domicilio), los premios del Círculo y la fecha en que nos diste tu autorización.',
+      '– Para enviarte tu pedido: la dirección de entrega, la ciudad y el nombre y el teléfono de quien recibe. Te los pedimos por WhatsApp solo cuando hay un despacho; no los guardamos en nuestro sistema.',
       '– De las cajas de regalo: el primer nombre de quien recibe el regalo y el mensaje que escribe quien lo regala. Ese mensaje lo escribe el comprador; te pedimos no incluir en él datos de otras personas.',
       '– De la página de tu caja: cada vez que alguien la abre guardamos la fecha y la hora, sin datos de tu celular ni de tu ubicación.',
       '– Por seguridad, la dirección IP de quien visita la página de una caja o el panel se usa durante un minuto para limitar intentos repetidos y se borra sola. No la asociamos a ninguna persona.',
@@ -63,6 +64,7 @@ const POLITICA: SeccionLegal[] = [
     titulo: '3. Para qué usamos tus datos',
     parrafos: [
       '– Registrar tu compra y crear la página de tu caja, con tus piezas, su certificado de oro 18k y la garantía.',
+      '– Enviarte tus piezas a la dirección que nos indiques.',
       '– Atender garantías, cambios y preguntas sobre tus piezas.',
       '– Llevar tu avance en el Círculo SS: sumar los gramos de tus compras y de la primera compra de las personas que recomiendes, y entregarte los premios.',
       '– Escribirte por WhatsApp sobre tu compra, tu garantía, tus premios y el Círculo SS.',
@@ -96,6 +98,7 @@ const POLITICA: SeccionLegal[] = [
       '– Cloudflare, que publica el sitio y lo protege; tiene servidores en varios países.',
       '– WhatsApp (de Meta), por donde hablamos contigo. Lo que escribas allí también se rige por la política de WhatsApp.',
       'Como algunos de estos servidores están fuera de Colombia, al darnos tu autorización también nos autorizas a enviar tus datos a esos proveedores fuera del país, solo para las finalidades de esta política.',
+      'Para los despachos, le damos al mensajero o a la empresa de envíos solo los datos de la entrega (dirección, ciudad, nombre y teléfono de quien recibe), para que lleve tu pedido.',
       'Fuera de estos casos, solo entregamos tus datos a una autoridad que los pida por ley.',
     ],
   },
@@ -132,6 +135,7 @@ const POLITICA: SeccionLegal[] = [
     parrafos: [
       'Guardamos tus datos mientras seas cliente o aliado y mientras dure la garantía de tus piezas. Los registros de las ventas los conservamos el tiempo que exige la ley contable y comercial (hasta 10 años).',
       'Si pides que borremos tus datos, los borramos de todo lo que no tengamos que conservar por ley. Lo que debamos conservar queda solo para cumplir esa obligación.',
+      'Los datos de la entrega solo quedan en la conversación de WhatsApp y en la guía del envío, mientras hagan falta para la entrega o para un reclamo sobre ella.',
       'Las fechas en que se abre cada caja se borran junto con la caja.',
     ],
   },

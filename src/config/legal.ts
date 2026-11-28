@@ -1,5 +1,5 @@
-// Textos de /garantia y /datos. PENDIENTE: los términos de la garantía los entregan los socios.
-// Mientras una lista esté vacía, la página muestra un aviso y el botón de WhatsApp en lugar del texto.
+// Textos de /garantia y /datos. Mientras una lista esté vacía, la página muestra un aviso y el botón de
+// WhatsApp en lugar del texto.
 
 import { SITIO } from './sitio';
 
@@ -8,8 +8,53 @@ export interface SeccionLegal {
   parrafos: string[];
 }
 
-/** Términos completos de la garantía. PENDIENTE. */
-export const TERMINOS_GARANTIA: SeccionLegal[] = [];
+/**
+ * Términos de la garantía (decisión de los socios, 28 nov 2026): de por vida contra defectos de fábrica; no cubre
+ * daños por uso o mal manejo; los tejidos advertidos como de suma fragilidad no tienen garantía. El reclamo se hace
+ * por WhatsApp con la referencia de la caja (botón "Reclamar garantía" del certificado).
+ */
+export const TERMINOS_GARANTIA: SeccionLegal[] = [
+  {
+    titulo: '1. Garantía de por vida',
+    parrafos: [
+      'Todas nuestras piezas en oro de 18k tienen garantía de por vida contra defectos de fábrica.',
+      'Un defecto de fábrica es una falla que viene de la elaboración de la pieza y no de su uso. Por ejemplo, una soldadura o un cierre que se abre sin haber recibido golpes, tirones ni presión.',
+      'La garantía va con la pieza: si te la regalaron, también puedes reclamarla.',
+    ],
+  },
+  {
+    titulo: '2. Qué no cubre',
+    parrafos: [
+      'La garantía no cubre los daños causados por el uso o el mal manejo de las piezas, por ejemplo:',
+      '– Golpes, caídas, tirones, enganches, aplastamientos o piezas dobladas.',
+      '– Rayones y el desgaste natural del uso diario.',
+      '– Daños por contacto con químicos, como cloro, perfumes, cremas o productos de limpieza.',
+      '– Piezas reparadas, ajustadas o modificadas por otra persona o taller.',
+      '– Pérdida o robo.',
+    ],
+  },
+  {
+    titulo: '3. Tejidos de suma fragilidad',
+    parrafos: [
+      'Algunos tejidos son de suma fragilidad. Te lo advertimos antes de la compra, y esos tejidos no tienen garantía: por su delicadeza, cualquier rotura o daño se considera producto del uso.',
+    ],
+  },
+  {
+    titulo: '4. Cómo reclamarla',
+    parrafos: [
+      'Acerca tu celular a la caja, entra a "Ver tu certificado" y toca "Reclamar garantía". También puedes escribirnos por WhatsApp con la referencia de la caja (empieza por SS-).',
+      'Cuéntanos qué pasó y envíanos fotos de la pieza. Te diremos cómo hacernos llegar la pieza para revisarla.',
+      'Si es un defecto de fábrica, la reparamos sin costo. Si no se puede reparar o la falla se repite, te la cambiamos por una igual o de igual valor o te devolvemos el dinero.',
+      'Si el daño no lo cubre la garantía, te podemos ofrecer la reparación con costo, con su precio antes de hacerla.',
+    ],
+  },
+  {
+    titulo: '5. Tus derechos',
+    parrafos: [
+      'Estos términos no limitan los derechos que te da el Estatuto del Consumidor (Ley 1480 de 2011).',
+    ],
+  },
+];
 
 /**
  * Responsable del tratamiento: la ley exige que la política diga quién es, su identificación, domicilio y
@@ -28,7 +73,7 @@ export const RESPONSABLE = {
 };
 
 /** Fecha de la última actualización de cada texto (AAAA-MM-DD). La de datos se pone al publicarla. */
-export const ACTUALIZADO = { garantia: '', datos: '2026-11-28' };
+export const ACTUALIZADO = { garantia: '2026-11-28', datos: '2026-11-28' };
 
 /** "+573135218785" → "+57 313 521 8785". */
 const telefono = (t: string) => t.replace(/^\+57(\d{3})(\d{3})(\d{4})$/, '+57 $1 $2 $3');

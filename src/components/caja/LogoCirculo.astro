@@ -4,6 +4,7 @@
 // Nivel 2 (10 g): los cuatro de abajo (el de abajo, los dos de encima y el del centro), de abajo hacia arriba.
 // Nivel 3 (15 g): el símbolo completo en dorado, contornos e interiores.
 // El símbolo va en rojo; en los rombos ganados parpadean en dorado el interior y también el contorno.
+// Sin nivel (menos de 5 g): los siete parpadean juntos en rojo.
 // Medidas del logo original (las mismas de src/components/Logo.astro).
 
 interface Props {
@@ -111,6 +112,28 @@ const encendidos = nivel === 3 ? [6, 4, 5, 3, 1, 2, 0] : nivel === 2 ? [6, 4, 5,
     }
   }
 
+  /* Sin nivel todavía: los siete rombos parpadean juntos en rojo (sin dorado, que es de los ganados), con un
+     brillo rojo suave en el punto más alto. */
+  .nivel-0 svg {
+    animation: parpadeo-todos 2.4s ease-in-out infinite;
+  }
+
+  @keyframes parpadeo-todos {
+    0%,
+    100% {
+      opacity: 0.35;
+      filter: none;
+    }
+    50% {
+      opacity: 1;
+      filter: drop-shadow(0 0 0.5rem rgb(208 4 26 / 0.55));
+    }
+  }
+
+  .quieto.nivel-0 svg {
+    animation: none;
+  }
+
   /* Nivel 3: todo el símbolo en oro, contornos incluidos, con un halo dorado suave. */
   .nivel-3 .anillo,
   .nivel-3 .encendido .anillo {
@@ -137,6 +160,10 @@ const encendidos = nivel === 3 ? [6, 4, 5, 3, 1, 2, 0] : nivel === 2 ? [6, 4, 5,
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .nivel-0 svg {
+      animation: none;
+    }
+
     .encendido .interior {
       animation: none;
       opacity: 0.9;

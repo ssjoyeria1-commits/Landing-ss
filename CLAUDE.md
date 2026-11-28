@@ -280,6 +280,6 @@ En cada comando de PowerShell, recargar el PATH primero (Node y Git se instalaro
 ## Pendiente de los socios
 
 - ~~Número de WhatsApp de atención~~: entregado el 14 nov 2026 (`src/config/sitio.ts`); ya sale "Me interesa" en el catálogo.
-- Términos de la garantía y texto de la política de datos (habeas data), en `src/config/legal.ts`.
+- Términos de la garantía, en `src/config/legal.ts` (la política de datos quedó lista el 28 nov 2026, responsable Sebastian Gonzalez; conviene que la revise un abogado).
 - Revisar los consejos de cuidado (`src/config/textos.ts`).
 - Fuente tipográfica original del logo, si quieren usarla en lugar de la serif del sistema.

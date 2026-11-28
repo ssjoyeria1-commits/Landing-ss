@@ -18,17 +18,17 @@ export const TERMINOS_GARANTIA: SeccionLegal[] = [];
  */
 export const RESPONSABLE = {
   /** Nombre de la persona natural o razón social de la empresa dueña de SS Joyería. */
-  nombre: '',
+  nombre: 'Sebastian Gonzalez',
   /** "NIT 900.000.000-0" o "C.C. 1.000.000.000". */
-  identificacion: '',
+  identificacion: 'C.C. 1.077.430.442',
   /** Ciudad y dirección de notificación. */
-  domicilio: '',
+  domicilio: 'Carrera 50A # 24-51, Itagüí (Antioquia)',
   /** Correo para consultas y reclamos de datos personales. */
-  correo: '',
+  correo: 'ssjoyeria001@gmail.com',
 };
 
 /** Fecha de la última actualización de cada texto (AAAA-MM-DD). La de datos se pone al publicarla. */
-export const ACTUALIZADO = { garantia: '', datos: '' };
+export const ACTUALIZADO = { garantia: '', datos: '2026-11-28' };
 
 /** "+573135218785" → "+57 313 521 8785". */
 const telefono = (t: string) => t.replace(/^\+57(\d{3})(\d{3})(\d{4})$/, '+57 $1 $2 $3');
